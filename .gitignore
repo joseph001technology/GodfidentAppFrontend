@@ -1,0 +1,103 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+.mypy_cache/
+
+# IntelliJ / Android Studio
+*.iml
+.idea/
+.gradle/
+local.properties
+
+# VS Code
+.vscode/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+.pub-cache/
+build/
+
+# Flutter generated
+.flutter-versions
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Dart
+doc/api/
+.dartdoc/
+
+# Coverage
+coverage/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Firebase
+google-services.json
+GoogleService-Info.plist
+
+# Android
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# iOS
+ios/Flutter/.last_build_id
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Pods/
+ios/.symlinks/
+ios/Runner.xcworkspace/
+
+# macOS
+macos/Pods/
+macos/Flutter/ephemeral/
+
+# Linux
+linux/flutter/ephemeral/
+
+# Windows
+windows/flutter/ephemeral/
+
+# Web
+web/.dart_tool/
+
+# Generated plugin registrants
+**/GeneratedPluginRegistrant.*
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Obfuscation and symbols
+app.*.symbols
+*.symbols
+
+# Keystore files (IMPORTANT)
+*.jks
+*.keystore
+key.properties
+
+# Private credentials
+service-account.json
+credentials.json
+secrets.json
+
+# Temporary files
+tmp/
+temp/
