@@ -39,6 +39,13 @@ final devotionalCategoriesProvider = FutureProvider<List<DevotionalCategory>>((r
   return ref.read(devotionalRepositoryProvider).getCategories();
 });
 
+final selectedDevotionalCategoryProvider = StateProvider<int?>((ref) => null);
+
+final filteredDevotionalListProvider = FutureProvider<List<Devotional>>((ref) {
+  final category = ref.watch(selectedDevotionalCategoryProvider);
+  return ref.read(devotionalRepositoryProvider).getList(category: category);
+});
+
 final devotionalDetailProvider =
     FutureProvider.family<Devotional, int>((ref, id) {
   return ref.read(devotionalRepositoryProvider).getDetail(id);
@@ -79,6 +86,14 @@ class PrayerListNotifier extends StateNotifier<AsyncValue<List<Prayer>>> {
 
 final prayerStatsProvider = FutureProvider<PrayerStats>((ref) {
   return ref.read(prayerRepositoryProvider).getStats();
+});
+
+final prayerCategoriesProvider = FutureProvider<List<PrayerCategory>>((ref) {
+  return ref.read(prayerRepositoryProvider).getCategories();
+});
+
+final prayerDetailProvider = FutureProvider.family<Prayer, int>((ref, id) {
+  return ref.read(prayerRepositoryProvider).getDetail(id);
 });
 
 // ── Reading Plans ─────────────────────────────────────────────────────────────
@@ -184,6 +199,10 @@ final aiStudyHistoryProvider = FutureProvider<List<StudySession>>((ref) {
   return ref.read(aiRepositoryProvider).getStudyHistory();
 });
 
+final chatSessionsProvider = FutureProvider<List<ChatSession>>((ref) {
+  return ref.read(aiRepositoryProvider).getSessions();
+});
+
 final dailyEncouragementProvider = FutureProvider<String>((ref) {
   return ref.read(aiRepositoryProvider).dailyEncouragement();
 });
@@ -195,16 +214,18 @@ final notificationsProvider =
   return NotificationsNotifier(ref.read(notificationRepositoryProvider));
 });
 
+final unreadOnlyProvider = StateProvider<bool>((ref) => false);
+
 class NotificationsNotifier extends StateNotifier<AsyncValue<List<AppNotification>>> {
   final NotificationRepository _repo;
   NotificationsNotifier(this._repo) : super(const AsyncValue.loading()) {
     load();
   }
 
-  Future<void> load() async {
+  Future<void> load({bool unreadOnly = false}) async {
     state = const AsyncValue.loading();
     try {
-      final list = await _repo.getList();
+      final list = await _repo.getList(unreadOnly: unreadOnly);
       state = AsyncValue.data(list);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -240,4 +261,16 @@ final heatmapProvider = FutureProvider<Map<String, int>>((ref) {
 
 final weeklyReportProvider = FutureProvider<WeeklyReport>((ref) {
   return ref.read(analyticsRepositoryProvider).getWeeklyReport();
+});
+
+final selectedAnalyticsMonthProvider = StateProvider<DateTime>((ref) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month);
+});
+
+final monthlyReportProvider = FutureProvider<MonthlyReport>((ref) {
+  final selected = ref.watch(selectedAnalyticsMonthProvider);
+  return ref
+      .read(analyticsRepositoryProvider)
+      .getMonthlyReport(year: selected.year, month: selected.month);
 });

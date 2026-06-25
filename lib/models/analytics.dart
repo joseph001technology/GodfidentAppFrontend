@@ -122,6 +122,45 @@ class WeeklyReport {
       );
 }
 
+class MonthlyReport {
+  final int year;
+  final int month;
+  final String monthName;
+  final int daysInMonth;
+  final int activeDays;
+  final double consistencyScore;
+  final int chaptersRead;
+  final int prayersLogged;
+  final int devotionalsRead;
+  final int studySessions;
+
+  const MonthlyReport({
+    required this.year,
+    required this.month,
+    required this.monthName,
+    required this.daysInMonth,
+    required this.activeDays,
+    required this.consistencyScore,
+    required this.chaptersRead,
+    required this.prayersLogged,
+    required this.devotionalsRead,
+    required this.studySessions,
+  });
+
+  factory MonthlyReport.fromJson(Map<String, dynamic> j) => MonthlyReport(
+        year: j['year'] ?? DateTime.now().year,
+        month: j['month'] ?? DateTime.now().month,
+        monthName: j['month_name'] ?? '',
+        daysInMonth: j['days_in_month'] ?? 0,
+        activeDays: j['active_days'] ?? 0,
+        consistencyScore: (j['consistency_score'] ?? 0.0).toDouble(),
+        chaptersRead: j['chapters_read'] ?? 0,
+        prayersLogged: j['prayers_logged'] ?? 0,
+        devotionalsRead: j['devotionals_read'] ?? 0,
+        studySessions: j['study_sessions'] ?? 0,
+      );
+}
+
 class DayReport {
   final String date;
   final String dayName;

@@ -1,5 +1,8 @@
 class AppConstants {
-  static const String baseUrl = 'https://godfidentappbackend.onrender.com';
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://godfidentappbackend.onrender.com',
+  );
   static const String appName = 'Godfident';
 
   // Storage keys

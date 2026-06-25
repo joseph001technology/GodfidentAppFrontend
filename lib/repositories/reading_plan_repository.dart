@@ -1,4 +1,5 @@
 import '../core/dio_client.dart';
+import '../core/api_response.dart';
 import '../models/reading_plan.dart';
 
 class ReadingPlanRepository {
@@ -6,19 +7,19 @@ class ReadingPlanRepository {
 
   Future<List<ReadingPlan>> getPlans() async {
     final res = await _dio.get('/api/reading-plans/plans/');
-    final list = res.data['results'] ?? res.data;
+    final list = readList(res.data);
     return (list as List).map((j) => ReadingPlan.fromJson(j)).toList();
   }
 
   Future<List<ReadingPlanDay>> getPlanDays(int planId) async {
     final res = await _dio.get('/api/reading-plans/plans/$planId/days/');
-    final list = res.data['data'] ?? res.data;
+    final list = readList(res.data);
     return (list as List).map((j) => ReadingPlanDay.fromJson(j)).toList();
   }
 
   Future<List<UserReadingPlan>> getMyPlans() async {
     final res = await _dio.get('/api/reading-plans/my-plans/');
-    final list = res.data['results'] ?? res.data;
+    final list = readList(res.data);
     return (list as List).map((j) => UserReadingPlan.fromJson(j)).toList();
   }
 

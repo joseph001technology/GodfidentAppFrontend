@@ -1,3 +1,13 @@
+class PrayerCategory {
+  final int id;
+  final String name;
+
+  const PrayerCategory({required this.id, required this.name});
+
+  factory PrayerCategory.fromJson(Map<String, dynamic> j) =>
+      PrayerCategory(id: j['id'] ?? 0, name: j['name'] ?? '');
+}
+
 class Prayer {
   final int id;
   final String prayerType;
@@ -45,7 +55,7 @@ class Prayer {
         reminderEnabled: j['reminder_enabled'] ?? false,
         category: j['category'],
         categoryName: j['category_name'],
-        timesPrayed: j['times_prayed'] ?? 0,
+        timesPrayed: int.tryParse('${j['times_prayed'] ?? 0}') ?? 0,
         createdAt: j['created_at'] ?? '',
         updatedAt: j['updated_at'] ?? '',
         answeredAt: j['answered_at'],
@@ -76,7 +86,11 @@ class PrayerStats {
         total: j['total'] ?? 0,
         active: j['active'] ?? 0,
         answered: j['answered'] ?? 0,
-        answerRate: (j['answer_rate'] ?? 0.0).toDouble(),
+        answerRate: (j['answer_rate'] ??
+                ((j['total'] ?? 0) == 0
+                    ? 0.0
+                    : ((j['answered'] ?? 0) / (j['total'] ?? 1)) * 100))
+            .toDouble(),
         byType: Map<String, int>.from(j['by_type'] ?? {}),
         timesPrayed: j['times_prayed'] ?? 0,
       );

@@ -1,5 +1,7 @@
 class UserProfile {
   final String preferredTranslation;
+  final String bio;
+  final String? avatar;
   final String timezone;
   final bool dailyDevotionalReminder;
   final bool readingReminder;
@@ -8,6 +10,8 @@ class UserProfile {
 
   const UserProfile({
     this.preferredTranslation = 'KJV',
+    this.bio = '',
+    this.avatar,
     this.timezone = 'UTC',
     this.dailyDevotionalReminder = true,
     this.readingReminder = true,
@@ -17,6 +21,8 @@ class UserProfile {
 
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
         preferredTranslation: j['preferred_translation'] ?? 'KJV',
+        bio: j['bio'] ?? '',
+        avatar: j['avatar'],
         timezone: j['timezone'] ?? 'UTC',
         dailyDevotionalReminder: j['daily_devotional_reminder'] ?? true,
         readingReminder: j['reading_reminder'] ?? true,
@@ -26,6 +32,8 @@ class UserProfile {
 
   Map<String, dynamic> toJson() => {
         'preferred_translation': preferredTranslation,
+        'bio': bio,
+        if (avatar != null) 'avatar': avatar,
         'timezone': timezone,
         'daily_devotional_reminder': dailyDevotionalReminder,
         'reading_reminder': readingReminder,
@@ -35,6 +43,8 @@ class UserProfile {
 
   UserProfile copyWith({
     String? preferredTranslation,
+    String? bio,
+    String? avatar,
     String? timezone,
     bool? dailyDevotionalReminder,
     bool? readingReminder,
@@ -43,6 +53,8 @@ class UserProfile {
   }) =>
       UserProfile(
         preferredTranslation: preferredTranslation ?? this.preferredTranslation,
+        bio: bio ?? this.bio,
+        avatar: avatar ?? this.avatar,
         timezone: timezone ?? this.timezone,
         dailyDevotionalReminder: dailyDevotionalReminder ?? this.dailyDevotionalReminder,
         readingReminder: readingReminder ?? this.readingReminder,

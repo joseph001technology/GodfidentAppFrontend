@@ -1,4 +1,5 @@
 import '../core/dio_client.dart';
+import '../core/api_response.dart';
 import '../models/prayer.dart';
 
 class PrayerRepository {
@@ -16,8 +17,18 @@ class PrayerRepository {
       if (search != null && search.isNotEmpty) 'search': search,
       'ordering': ordering,
     });
-    final list = res.data['results'] ?? res.data;
+    final list = readList(res.data);
     return (list as List).map((j) => Prayer.fromJson(j)).toList();
+  }
+
+  Future<List<PrayerCategory>> getCategories() async {
+    final res = await _dio.get('/api/prayer/categories/');
+    return readList(res.data).map((j) => PrayerCategory.fromJson(j)).toList();
+  }
+
+  Future<Prayer> getDetail(int id) async {
+    final res = await _dio.get('/api/prayer/$id/');
+    return Prayer.fromJson(readMap(res.data));
   }
 
   Future<Prayer> create({
@@ -25,6 +36,8 @@ class PrayerRepository {
     required String content,
     String prayerType = 'request',
     String scripture = '',
+    int? category,
+    bool reminderEnabled = false,
     bool isPrivate = true,
   }) async {
     final res = await _dio.post('/api/prayer/', data: {
@@ -32,6 +45,8 @@ class PrayerRepository {
       'content': content,
       'prayer_type': prayerType,
       if (scripture.isNotEmpty) 'scripture': scripture,
+      if (category != null) 'category': category,
+      'reminder_enabled': reminderEnabled,
       'is_private': isPrivate,
     });
     return Prayer.fromJson(res.data);
@@ -39,7 +54,7 @@ class PrayerRepository {
 
   Future<Prayer> update(int id, Map<String, dynamic> data) async {
     final res = await _dio.patch('/api/prayer/$id/', data: data);
-    return Prayer.fromJson(res.data);
+    return Prayer.fromJson(readMap(res.data));
   }
 
   Future<void> delete(int id) async {
@@ -60,6 +75,6 @@ class PrayerRepository {
 
   Future<PrayerStats> getStats() async {
     final res = await _dio.get('/api/prayer/stats/');
-    return PrayerStats.fromJson(res.data['data']);
+    return PrayerStats.fromJson(readDataMap(res.data));
   }
 }

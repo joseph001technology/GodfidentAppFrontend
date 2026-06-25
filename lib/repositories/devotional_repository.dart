@@ -1,4 +1,5 @@
 import '../core/dio_client.dart';
+import '../core/api_response.dart';
 import '../models/devotional.dart';
 
 class DevotionalRepository {
@@ -19,7 +20,7 @@ class DevotionalRepository {
       if (search != null && search.isNotEmpty) 'search': search,
       if (category != null) 'category': category,
     });
-    final list = res.data['results'] ?? res.data;
+    final list = readList(res.data);
     return (list as List).map((j) => Devotional.fromJson(j)).toList();
   }
 
@@ -38,13 +39,13 @@ class DevotionalRepository {
 
   Future<List<Devotional>> getSaved() async {
     final res = await _dio.get('/api/devotionals/saved/');
-    final list = res.data['results'] ?? res.data;
+    final list = readList(res.data);
     return (list as List).map((j) => Devotional.fromJson(j)).toList();
   }
 
   Future<List<DevotionalCategory>> getCategories() async {
     final res = await _dio.get('/api/devotionals/categories/');
-    final list = res.data['results'] ?? res.data;
+    final list = readList(res.data);
     return (list as List).map((j) => DevotionalCategory.fromJson(j)).toList();
   }
 }

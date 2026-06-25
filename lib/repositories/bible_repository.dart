@@ -1,4 +1,5 @@
 import '../core/dio_client.dart';
+import '../core/api_response.dart';
 import '../models/bible.dart';
 
 class BibleRepository {
@@ -6,7 +7,7 @@ class BibleRepository {
 
   Future<List<BibleTranslation>> getTranslations() async {
     final res = await _dio.get('/api/bible/translations/');
-    final list = res.data is List ? res.data : res.data['results'] ?? [];
+    final list = readList(res.data);
     return (list as List).map((j) => BibleTranslation.fromJson(j)).toList();
   }
 
@@ -14,7 +15,7 @@ class BibleRepository {
     final res = await _dio.get('/api/bible/books/', queryParameters: {
       if (testament != null) 'testament': testament,
     });
-    final list = res.data is List ? res.data : res.data['results'] ?? [];
+    final list = readList(res.data);
     return (list as List).map((j) => BibleBook.fromJson(j)).toList();
   }
 
@@ -73,7 +74,7 @@ class BibleRepository {
       'translation': translation,
       if (testament != null) 'testament': testament,
     });
-    final list = res.data is List ? res.data : res.data['results'] ?? [];
+    final list = readList(res.data);
     return (list as List).map((j) => BibleVerse.fromJson(j)).toList();
   }
 
@@ -87,14 +88,14 @@ class BibleRepository {
       'chapter': chapter,
       'verse': verse,
     });
-    final list = res.data['data'] ?? res.data;
+    final list = readList(res.data);
     return (list as List).map((j) => CrossReference.fromJson(j)).toList();
   }
 
   // Bookmarks
   Future<List<Bookmark>> getBookmarks() async {
     final res = await _dio.get('/api/bible/bookmarks/');
-    final list = res.data is List ? res.data : res.data['results'] ?? [];
+    final list = readList(res.data);
     return (list as List).map((j) => Bookmark.fromJson(j)).toList();
   }
 
@@ -113,6 +114,11 @@ class BibleRepository {
     return Bookmark.fromJson(res.data);
   }
 
+  Future<Bookmark> updateBookmark(int id, {String note = ''}) async {
+    final res = await _dio.patch('/api/bible/bookmarks/$id/', data: {'note': note});
+    return Bookmark.fromJson(readMap(res.data));
+  }
+
   Future<void> deleteBookmark(int id) async {
     await _dio.delete('/api/bible/bookmarks/$id/');
   }
@@ -122,7 +128,7 @@ class BibleRepository {
     final res = await _dio.get('/api/bible/highlights/', queryParameters: {
       if (color != null) 'color': color,
     });
-    final list = res.data is List ? res.data : res.data['results'] ?? [];
+    final list = readList(res.data);
     return (list as List).map((j) => Highlight.fromJson(j)).toList();
   }
 
@@ -143,10 +149,22 @@ class BibleRepository {
     return Highlight.fromJson(res.data);
   }
 
+  Future<Highlight> updateHighlight(int id, {String? color, String? note}) async {
+    final res = await _dio.patch('/api/bible/highlights/$id/', data: {
+      if (color != null) 'color': color,
+      if (note != null) 'note': note,
+    });
+    return Highlight.fromJson(readMap(res.data));
+  }
+
+  Future<void> deleteHighlight(int id) async {
+    await _dio.delete('/api/bible/highlights/$id/');
+  }
+
   // Notes
   Future<List<VerseNote>> getNotes() async {
     final res = await _dio.get('/api/bible/notes/');
-    final list = res.data is List ? res.data : res.data['results'] ?? [];
+    final list = readList(res.data);
     return (list as List).map((j) => VerseNote.fromJson(j)).toList();
   }
 

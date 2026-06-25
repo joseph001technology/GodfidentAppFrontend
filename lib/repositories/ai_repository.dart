@@ -1,4 +1,5 @@
 import '../core/dio_client.dart';
+import '../core/api_response.dart';
 import '../models/chat_message.dart';
 
 class AiRepository {
@@ -74,13 +75,22 @@ class AiRepository {
     final res = await _dio.get('/api/ai/study-history/', queryParameters: {
       if (type != null) 'type': type,
     });
-    final list = res.data['results'] ?? res.data;
+    final list = readList(res.data);
     return (list as List).map((j) => StudySession.fromJson(j)).toList();
   }
 
   Future<List<ChatSession>> getSessions() async {
     final res = await _dio.get('/api/ai/sessions/');
-    final list = res.data['results'] ?? res.data;
+    final list = readList(res.data);
     return (list as List).map((j) => ChatSession.fromJson(j)).toList();
+  }
+
+  Future<ChatSession> getSession(int id) async {
+    final res = await _dio.get('/api/ai/sessions/$id/');
+    return ChatSession.fromJson(readMap(res.data));
+  }
+
+  Future<void> deleteSession(int id) async {
+    await _dio.delete('/api/ai/sessions/$id/');
   }
 }

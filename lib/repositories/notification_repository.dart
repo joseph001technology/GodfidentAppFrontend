@@ -1,4 +1,5 @@
 import '../core/dio_client.dart';
+import '../core/api_response.dart';
 import '../models/notification.dart';
 
 class NotificationRepository {
@@ -8,7 +9,7 @@ class NotificationRepository {
     final res = await _dio.get('/api/notifications/', queryParameters: {
       if (unreadOnly) 'unread': 'true',
     });
-    final list = res.data['results'] ?? res.data;
+    final list = readList(res.data);
     return (list as List).map((j) => AppNotification.fromJson(j)).toList();
   }
 
