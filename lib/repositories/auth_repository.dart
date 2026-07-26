@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import '../core/dio_client.dart';
 import '../core/secure_storage.dart';
 import '../models/user.dart';

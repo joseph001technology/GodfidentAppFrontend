@@ -46,6 +46,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         context.go('/login');
       }
     } on DioException catch (e) {
+      print("TYPE: ${e.type}");
+      print("MESSAGE: ${e.message}");
+      print("ERROR: ${e.error}");
+      print("RESPONSE: ${e.response?.data}");
       setState(() => _error = extractError(e));
     } finally {
       if (mounted) setState(() => _loading = false);

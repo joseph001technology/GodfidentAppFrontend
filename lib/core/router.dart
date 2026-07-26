@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
@@ -27,6 +26,12 @@ import '../screens/ai/explain_verse_screen.dart';
 import '../screens/ai/topic_study_screen.dart';
 import '../screens/ai/character_study_screen.dart';
 import '../screens/analytics/dashboard_screen.dart';
+import '../screens/notes/notes_screen.dart';
+import '../screens/notes/note_editor_screen.dart';
+import '../screens/rules/universal_rules_screen.dart';
+import '../screens/rules/rule_editor_screen.dart';
+import '../screens/reminders/reminders_screen.dart';
+import '../screens/reminders/reminder_editor_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/settings/profile_screen.dart';
@@ -103,6 +108,74 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(path: 'stats', builder: (_, __) => const PrayerStatsScreen()),
             ],
           ),
+          // Notes routes
+          GoRoute(
+            path: '/notes',
+            builder: (_, __) => const NotesScreen(),
+            routes: [
+              GoRoute(
+                path: 'new',
+                builder: (_, state) => NoteEditorScreen(
+                  topicId: state.uri.queryParameters['topic'],
+                ),
+              ),
+              GoRoute(
+                path: ':id',
+                builder: (_, state) => NoteEditorScreen(
+                  noteId: state.pathParameters['id'],
+                ),
+              ),
+            ],
+          ),
+          // Rules routes
+          GoRoute(
+            path: '/rules',
+            builder: (_, __) => const UniversalRulesScreen(),
+            routes: [
+              GoRoute(
+                path: 'new',
+                builder: (_, __) => const RuleEditorScreen(),
+              ),
+              GoRoute(
+                path: ':id',
+                builder: (_, state) => RuleEditorScreen(
+                  ruleId: state.pathParameters['id'],
+                ),
+              ),
+            ],
+          ),
+          // Reminders routes
+          GoRoute(
+            path: '/reminders',
+            builder: (_, __) => const RemindersScreen(),
+            routes: [
+              GoRoute(
+                path: 'new',
+                builder: (_, __) => const ReminderEditorScreen(),
+              ),
+              GoRoute(
+                path: ':id',
+                builder: (_, state) => ReminderEditorScreen(
+                  reminderId: state.pathParameters['id'],
+                ),
+              ),
+            ],
+          ),
+          // Analytics routes
+          GoRoute(
+            path: '/analytics',
+            builder: (_, __) => const DashboardScreen(),
+          ),
+          // Profile routes
+          GoRoute(
+            path: '/profile',
+            builder: (_, __) => const ProfileScreen(),
+            routes: [
+              GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
+              GoRoute(path: 'change-password', builder: (_, __) => const ChangePasswordScreen()),
+            ],
+          ),
+          // Legacy routes (kept for backward compatibility)
           GoRoute(
             path: '/ai',
             builder: (_, __) => const AiHomeScreen(),
@@ -116,6 +189,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(path: 'character-study', builder: (_, __) => const CharacterStudyScreen()),
             ],
           ),
+          // More/Dashboard routes (for other features)
           GoRoute(
             path: '/more',
             builder: (_, __) => const DevotionalListScreen(),
@@ -132,11 +206,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: 'plans/:id/day',
                 builder: (_, state) => PlanDayScreen(planId: int.parse(state.pathParameters['id']!)),
               ),
-              GoRoute(path: 'analytics', builder: (_, __) => const DashboardScreen()),
               GoRoute(path: 'notifications', builder: (_, __) => const NotificationsScreen()),
-              GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
-              GoRoute(path: 'profile', builder: (_, __) => const ProfileScreen()),
-              GoRoute(path: 'change-password', builder: (_, __) => const ChangePasswordScreen()),
+              GoRoute(path: 'rules', builder: (_, __) => const UniversalRulesScreen()),
+              GoRoute(path: 'reminders', builder: (_, __) => const RemindersScreen()),
             ],
           ),
         ],

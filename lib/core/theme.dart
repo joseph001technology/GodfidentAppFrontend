@@ -2,8 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // Brand colors
-  static const Color gold = Color(0xFFC9A96E);
+  // ──────────────────────────────────────────────
+  // PRIMARY COLORS (Premium Spiritual Growth Palette)
+  // ──────────────────────────────────────────────
+  static const Color emerald = Color(0xFF10B981);    // Spiritual growth, renewal
+  static const Color deepNavy = Color(0xFF0F0F1A);   // Deep, peaceful background
+  static const Color midnightPurple = Color(0xFF2D1B4E); // Mystical, contemplative
+  
+  // ACCENT COLORS
+  static const Color gold = Color(0xFFC9A96E);       // Divine, precious
+  static const Color softBlue = Color(0xFF60A5FA);   // Calm, trust
+  static const Color warmGray = Color(0xFF9CA3AF);   // Balance, grounding
+  
+  // SEMANTIC COLORS
   static const Color navy = Color(0xFF0F0F1A);
   static const Color navySurface = Color(0xFF1A1A2E);
   static const Color navyVariant = Color(0xFF252540);
@@ -18,7 +29,10 @@ class AppTheme {
         onPrimary: Color(0xFF1A1A2E),
         primaryContainer: Color(0xFF2D2D44),
         onPrimaryContainer: gold,
-        secondary: Color(0xFF8E8EB0),
+        secondary: softBlue,
+        secondaryContainer: Color(0xFF1E3A5F),
+        tertiary: emerald,
+        tertiaryContainer: Color(0xFF0D4D32),
         surface: navySurface,
         surfaceContainerHighest: navyVariant,
         onSurface: Color(0xFFE8E8F0),
@@ -40,7 +54,7 @@ class AppTheme {
         color: navySurface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: navyOutline, width: 0.5),
         ),
       ),
@@ -50,15 +64,15 @@ class AppTheme {
         filled: true,
         fillColor: navyVariant,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: navyOutline),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: navyOutline),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: gold, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -68,7 +82,7 @@ class AppTheme {
           backgroundColor: gold,
           foregroundColor: const Color(0xFF1A1A2E),
           minimumSize: const Size(double.infinity, 50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           textStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
@@ -80,7 +94,7 @@ class AppTheme {
         selectedColor: gold.withOpacity(0.2),
         labelStyle: GoogleFonts.inter(fontSize: 12),
         side: const BorderSide(color: navyOutline, width: 0.5),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: navySurface,

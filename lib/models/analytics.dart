@@ -29,17 +29,20 @@ class ReadingStats {
   final Map<String, dynamic> streak;
   final int chaptersThisWeek;
   final int chaptersThisMonth;
+  final String? lastReadLocation;
 
   const ReadingStats({
     required this.streak,
     required this.chaptersThisWeek,
     required this.chaptersThisMonth,
+    this.lastReadLocation,
   });
 
   factory ReadingStats.fromJson(Map<String, dynamic> j) => ReadingStats(
         streak: Map<String, dynamic>.from(j['streak'] ?? {}),
         chaptersThisWeek: j['chapters_this_week'] ?? 0,
         chaptersThisMonth: j['chapters_this_month'] ?? 0,
+        lastReadLocation: j['last_read_location'] as String?,
       );
 
   int get currentStreak => streak['current_streak'] ?? 0;

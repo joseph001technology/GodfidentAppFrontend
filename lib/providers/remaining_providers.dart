@@ -5,12 +5,18 @@ import '../models/reading_plan.dart';
 import '../models/chat_message.dart';
 import '../models/notification.dart';
 import '../models/analytics.dart';
+import '../models/note.dart';
+import '../models/universal_rule.dart';
+import '../models/reminder.dart';
 import '../repositories/devotional_repository.dart';
 import '../repositories/prayer_repository.dart';
 import '../repositories/reading_plan_repository.dart';
 import '../repositories/ai_repository.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/analytics_repository.dart';
+import '../repositories/notes_repository.dart';
+import '../repositories/universal_rules_repository.dart';
+import '../repositories/reminders_repository.dart';
 
 // ── Repositories ──────────────────────────────────────────────────────────────
 
@@ -20,6 +26,9 @@ final planRepositoryProvider       = Provider((_) => ReadingPlanRepository());
 final aiRepositoryProvider         = Provider((_) => AiRepository());
 final notificationRepositoryProvider = Provider((_) => NotificationRepository());
 final analyticsRepositoryProvider  = Provider((_) => AnalyticsRepository());
+final notesRepositoryProvider      = Provider((_) => LocalNotesRepository());
+final rulesRepositoryProvider      = Provider((_) => LocalUniversalRulesRepository());
+final remindersRepositoryProvider  = Provider((_) => LocalRemindersRepository());
 
 // ── Devotionals ───────────────────────────────────────────────────────────────
 
@@ -273,4 +282,181 @@ final monthlyReportProvider = FutureProvider<MonthlyReport>((ref) {
   return ref
       .read(analyticsRepositoryProvider)
       .getMonthlyReport(year: selected.year, month: selected.month);
+});
+
+// ── NOTES ─────────────────────────────────────────────────────────────────────
+
+final notesTopicsProvider = StateNotifierProvider<NotesNotifier, AsyncValue<List<NoteTopic>>>((ref) {
+  return NotesNotifier(ref.read(notesRepositoryProvider));
+});
+
+class NotesNotifier extends StateNotifier<AsyncValue<List<NoteTopic>>> {
+  final NotesRepository _repo;
+  NotesNotifier(this._repo) : super(const AsyncValue.loading()) {
+    load();
+  }
+
+  Future<void> load() async {
+    state = const AsyncValue.loading();
+    try {
+      final topics = await _repo.getAllTopics();
+      state = AsyncValue.data(topics);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> createTopic(String name, {String description = ''}) async {
+    await _repo.createTopic(name, description: description);
+    await load();
+  }
+
+  Future<void> deleteTopic(String id) async {
+    await _repo.deleteTopic(id);
+    await load();
+  }
+}
+
+final notesProvider = StateNotifierProvider<AllNotesNotifier, AsyncValue<List<Note>>>((ref) {
+  return AllNotesNotifier(ref.read(notesRepositoryProvider));
+});
+
+class AllNotesNotifier extends StateNotifier<AsyncValue<List<Note>>> {
+  final NotesRepository _repo;
+  AllNotesNotifier(this._repo) : super(const AsyncValue.loading()) {
+    load();
+  }
+
+  Future<void> load() async {
+    state = const AsyncValue.loading();
+    try {
+      final notes = await _repo.getAllNotes();
+      state = AsyncValue.data(notes);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+}
+
+final notesByTopicProvider = FutureProvider.family<List<Note>, String>((ref, topicId) {
+  return ref.read(notesRepositoryProvider).getNotesByTopic(topicId);
+});
+
+final favoritesNotesProvider = FutureProvider<List<Note>>((ref) {
+  return ref.read(notesRepositoryProvider).getFavorites();
+});
+
+final searchNotesProvider = StateProvider<String>((ref) => '');
+
+final searchNotesResultsProvider = FutureProvider<List<Note>>((ref) {
+  final query = ref.watch(searchNotesProvider);
+  if (query.isEmpty) return Future.value([]);
+  return ref.read(notesRepositoryProvider).searchNotes(query);
+});
+
+// ── UNIVERSAL RULES ──────────────────────────────────────────────────────────
+
+final universalRulesProvider = StateNotifierProvider<RulesNotifier, AsyncValue<List<UniversalRule>>>((ref) {
+  return RulesNotifier(ref.read(rulesRepositoryProvider));
+});
+
+class RulesNotifier extends StateNotifier<AsyncValue<List<UniversalRule>>> {
+  final UniversalRulesRepository _repo;
+  RulesNotifier(this._repo) : super(const AsyncValue.loading()) {
+    load();
+  }
+
+  Future<void> load() async {
+    state = const AsyncValue.loading();
+    try {
+      final rules = await _repo.getActiveRules();
+      state = AsyncValue.data(rules);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> deleteRule(String id) async {
+    await _repo.deleteRule(id);
+    await load();
+  }
+
+  Future<void> markCompleted(String id) async {
+    await _repo.markCompleted(id);
+    await load();
+  }
+
+  Future<void> togglePin(String id) async {
+    await _repo.togglePin(id);
+    await load();
+  }
+}
+
+final todaysRulesProvider = FutureProvider<List<UniversalRule>>((ref) {
+  return ref.read(rulesRepositoryProvider).getTodaysRules();
+});
+
+final archivedRulesProvider = FutureProvider<List<UniversalRule>>((ref) {
+  return ref.read(rulesRepositoryProvider).getArchivedRules();
+});
+
+// ── REMINDERS ─────────────────────────────────────────────────────────────────
+
+final remindersProvider = StateNotifierProvider<RemindersNotifier, AsyncValue<List<Reminder>>>((ref) {
+  return RemindersNotifier(ref.read(remindersRepositoryProvider));
+});
+
+class RemindersNotifier extends StateNotifier<AsyncValue<List<Reminder>>> {
+  final RemindersRepository _repo;
+  RemindersNotifier(this._repo) : super(const AsyncValue.loading()) {
+    load();
+  }
+
+  Future<void> load() async {
+    state = const AsyncValue.loading();
+    try {
+      final reminders = await _repo.getActiveReminders();
+      state = AsyncValue.data(reminders);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> add(Reminder reminder) async {
+    await _repo.createReminder(
+      title: reminder.title,
+      description: reminder.description,
+      category: reminder.category,
+      scheduledTime: reminder.scheduledTime,
+      frequency: reminder.frequency,
+      repeatUntil: reminder.repeatUntil,
+      daysOfWeek: reminder.daysOfWeek,
+      repeatUntilCompleted: reminder.repeatUntilCompleted,
+      snoozeDurationMinutes: reminder.snoozeDurationMinutes,
+    );
+    await load();
+  }
+
+  Future<void> deleteReminder(String id) async {
+    await _repo.deleteReminder(id);
+    await load();
+  }
+
+  Future<void> toggleReminder(String id) async {
+    await _repo.toggleReminder(id);
+    await load();
+  }
+
+  Future<void> snooze(String id, Duration duration) async {
+    await _repo.snoozeReminder(id, duration);
+    await load();
+  }
+}
+
+final upcomingRemindersProvider = FutureProvider<List<Reminder>>((ref) {
+  return ref.read(remindersRepositoryProvider).getUpcomingReminders(const Duration(hours: 24));
+});
+
+final remindersByCategoryProvider = FutureProvider.family<List<Reminder>, ReminderCategory>((ref, category) {
+  return ref.read(remindersRepositoryProvider).getRemindersByCategory(category);
 });
