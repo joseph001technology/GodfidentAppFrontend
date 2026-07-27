@@ -151,7 +151,7 @@ class _WeeklyChart extends StatelessWidget {
           barRods: [
             BarChartRodData(
               toY: d.chaptersRead.toDouble(),
-              color: d.isToday ? AppTheme.gold : AppTheme.gold.withOpacity(0.4),
+              color: d.isToday ? AppTheme.gold : AppTheme.gold.withValues(alpha: 0.4),
               width: 22,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
             ),
@@ -206,9 +206,9 @@ class _HeatmapGrid extends StatelessWidget {
 
   Color _cellColor(int count) {
     if (count == 0) return AppTheme.navyVariant;
-    if (count == 1) return AppTheme.gold.withOpacity(0.3);
-    if (count == 2) return AppTheme.gold.withOpacity(0.5);
-    if (count <= 4) return AppTheme.gold.withOpacity(0.75);
+    if (count == 1) return AppTheme.gold.withValues(alpha: 0.3);
+    if (count == 2) return AppTheme.gold.withValues(alpha: 0.5);
+    if (count <= 4) return AppTheme.gold.withValues(alpha: 0.75);
     return AppTheme.gold;
   }
 

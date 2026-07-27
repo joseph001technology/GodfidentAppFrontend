@@ -64,13 +64,13 @@ class _PrayerFormScreenState extends ConsumerState<PrayerFormScreen> {
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
+                    color: Colors.red.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(_error!, style: const TextStyle(color: Colors.redAccent)),
                 ),
               DropdownButtonFormField<String>(
-                value: _type,
+                initialValue: _type,
                 decoration: const InputDecoration(labelText: 'Type'),
                 items: _types.map((t) => DropdownMenuItem(
                   value: t,

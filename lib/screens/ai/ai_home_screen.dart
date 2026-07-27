@@ -23,12 +23,12 @@ class AiHomeScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppTheme.gold.withOpacity(0.2), AppTheme.navyVariant],
+                colors: [AppTheme.gold.withValues(alpha: 0.2), AppTheme.navyVariant],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.gold.withOpacity(0.3)),
+              border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
@@ -81,7 +81,7 @@ class _AiTool {
 
 class _AiToolCard extends StatelessWidget {
   final _AiTool tool;
-  const _AiToolCard({super.key, required this.tool});
+  const _AiToolCard({required this.tool});
 
   @override
   Widget build(BuildContext context) {

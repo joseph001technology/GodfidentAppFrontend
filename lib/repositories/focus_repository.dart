@@ -10,7 +10,7 @@ class FocusRepository {
     final res = await _dio.get('/api/focus/sessions/', queryParameters: {
       if (limit != null) 'limit': limit,
     });
-    return (readList(res.data) as List).map((j) => FocusSession.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => FocusSession.fromJson(j)).toList();
   }
 
   Future<FocusSession> startSession() async {
@@ -29,7 +29,7 @@ class FocusRepository {
   // ── Blocked Apps ───────────────────────────────────────────────
   Future<List<BlockedApp>> getBlockedApps() async {
     final res = await _dio.get('/api/focus/blocked-apps/');
-    return (readList(res.data) as List).map((j) => BlockedApp.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => BlockedApp.fromJson(j)).toList();
   }
 
   Future<BlockedApp> addBlockedApp(Map<String, dynamic> data) async {
@@ -44,7 +44,7 @@ class FocusRepository {
   // ── Blocked Websites ──────────────────────────────────────────
   Future<List<BlockedWebsite>> getBlockedWebsites() async {
     final res = await _dio.get('/api/focus/blocked-websites/');
-    return (readList(res.data) as List).map((j) => BlockedWebsite.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => BlockedWebsite.fromJson(j)).toList();
   }
 
   Future<BlockedWebsite> addBlockedWebsite(Map<String, dynamic> data) async {
@@ -59,7 +59,7 @@ class FocusRepository {
   // ── Whitelist ─────────────────────────────────────────────────
   Future<List<WhitelistApp>> getWhitelistApps() async {
     final res = await _dio.get('/api/focus/whitelist-apps/');
-    return (readList(res.data) as List).map((j) => WhitelistApp.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => WhitelistApp.fromJson(j)).toList();
   }
 
   Future<WhitelistApp> addWhitelistApp(Map<String, dynamic> data) async {
@@ -73,13 +73,13 @@ class FocusRepository {
 
   Future<List<WhitelistWebsite>> getWhitelistWebsites() async {
     final res = await _dio.get('/api/focus/whitelist-websites/');
-    return (readList(res.data) as List).map((j) => WhitelistWebsite.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => WhitelistWebsite.fromJson(j)).toList();
   }
 
   // ── Schedules ─────────────────────────────────────────────────
   Future<List<FocusSchedule>> getSchedules() async {
     final res = await _dio.get('/api/focus/schedules/');
-    return (readList(res.data) as List).map((j) => FocusSchedule.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => FocusSchedule.fromJson(j)).toList();
   }
 
   Future<FocusSchedule> createSchedule(Map<String, dynamic> data) async {
@@ -96,7 +96,7 @@ class FocusRepository {
     final res = await _dio.get('/api/focus/blocked-attempts/', queryParameters: {
       if (limit != null) 'limit': limit,
     });
-    return (readList(res.data) as List).map((j) => BlockedAttempt.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => BlockedAttempt.fromJson(j)).toList();
   }
 
   // ── Stats ─────────────────────────────────────────────────────

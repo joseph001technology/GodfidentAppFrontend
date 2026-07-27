@@ -101,7 +101,7 @@ class _PrayerTile extends ConsumerWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: _typeColor.withOpacity(0.15),
+            color: _typeColor.withValues(alpha: 0.15),
             shape: BoxShape.circle,
           ),
           child: Icon(_typeIcon, color: _typeColor, size: 20),

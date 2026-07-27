@@ -8,7 +8,7 @@ class NotesRepository {
   // ── Folders ────────────────────────────────────────────────────
   Future<List<NoteFolder>> getFolders() async {
     final res = await _dio.get('/api/notes/folders/');
-    return (readList(res.data) as List).map((j) => NoteFolder.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => NoteFolder.fromJson(j)).toList();
   }
 
   Future<NoteFolder> createFolder(Map<String, dynamic> data) async {
@@ -28,7 +28,7 @@ class NotesRepository {
   // ── Topics ─────────────────────────────────────────────────────
   Future<List<NoteTopic>> getTopics() async {
     final res = await _dio.get('/api/notes/topics/');
-    return (readList(res.data) as List).map((j) => NoteTopic.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => NoteTopic.fromJson(j)).toList();
   }
 
   Future<NoteTopic> createTopic(Map<String, dynamic> data) async {
@@ -49,7 +49,7 @@ class NotesRepository {
       if (search != null) 'search': search,
       'ordering': ordering,
     });
-    return (readList(res.data) as List).map((j) => Note.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => Note.fromJson(j)).toList();
   }
 
   Future<Note> getNote(int id) async {

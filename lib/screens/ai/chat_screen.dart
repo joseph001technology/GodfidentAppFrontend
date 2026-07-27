@@ -150,7 +150,7 @@ class _MessageBubble extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: isUser ? AppTheme.gold.withOpacity(0.2) : AppTheme.navyVariant,
+                color: isUser ? AppTheme.gold.withValues(alpha: 0.2) : AppTheme.navyVariant,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
@@ -158,7 +158,7 @@ class _MessageBubble extends StatelessWidget {
                   bottomRight: Radius.circular(isUser ? 4 : 16),
                 ),
                 border: Border.all(
-                    color: isUser ? AppTheme.gold.withOpacity(0.3) : AppTheme.navyOutline,
+                    color: isUser ? AppTheme.gold.withValues(alpha: 0.3) : AppTheme.navyOutline,
                     width: 0.5),
               ),
               child: isThinking
@@ -213,7 +213,7 @@ class _TypingIndicatorState extends State<_TypingIndicator>
             margin: const EdgeInsets.symmetric(horizontal: 2),
             width: 6, height: 6,
             decoration: BoxDecoration(
-              color: AppTheme.gold.withOpacity(0.3 + opacity * 0.7),
+              color: AppTheme.gold.withValues(alpha: 0.3 + opacity * 0.7),
               shape: BoxShape.circle,
             ),
           );

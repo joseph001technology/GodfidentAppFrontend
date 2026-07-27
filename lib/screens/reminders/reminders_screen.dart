@@ -18,7 +18,7 @@ class RemindersScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             remindersAsync.when(loading: () => const ShimmerList(count: 4),
               error: (_, __) => const ErrorView(message: 'Could not load reminders'),
-              data: (reminders) => reminders.isEmpty ? Center(child: Padding(padding: EdgeInsets.all(32),
+              data: (reminders) => reminders.isEmpty ? const Center(child: Padding(padding: EdgeInsets.all(32),
                 child: Text('No reminders yet', style: TextStyle(color: AppTheme.textMuted))))
                 : ListView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
                     itemCount: reminders.length,

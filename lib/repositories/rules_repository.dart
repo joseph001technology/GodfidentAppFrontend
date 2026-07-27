@@ -7,7 +7,7 @@ class RulesRepository {
 
   Future<List<Rule>> getToday() async {
     final res = await _dio.get('/api/rules/today/');
-    return (readList(res.data) as List).map((j) => Rule.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => Rule.fromJson(j)).toList();
   }
 
   Future<List<Rule>> getList({
@@ -22,7 +22,7 @@ class RulesRepository {
       if (search != null) 'search': search,
       'ordering': ordering,
     });
-    return (readList(res.data) as List).map((j) => Rule.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => Rule.fromJson(j)).toList();
   }
 
   Future<Rule> create(Map<String, dynamic> data) async {
@@ -60,6 +60,6 @@ class RulesRepository {
   // ── Categories ─────────────────────────────────────────────────
   Future<List<RuleCategory>> getCategories() async {
     final res = await _dio.get('/api/rules/categories/');
-    return (readList(res.data) as List).map((j) => RuleCategory.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => RuleCategory.fromJson(j)).toList();
   }
 }

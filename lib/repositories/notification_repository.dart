@@ -10,7 +10,7 @@ class NotificationRepository {
       if (unreadOnly) 'unread': 'true',
     });
     final list = readList(res.data);
-    return (list as List).map((j) => AppNotification.fromJson(j)).toList();
+    return (list).map((j) => AppNotification.fromJson(j)).toList();
   }
 
   Future<void> markRead(int id) async {

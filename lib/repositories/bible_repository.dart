@@ -8,7 +8,7 @@ class BibleRepository {
   Future<List<BibleTranslation>> getTranslations() async {
     final res = await _dio.get('/api/bible/translations/');
     final list = readList(res.data);
-    return (list as List).map((j) => BibleTranslation.fromJson(j)).toList();
+    return (list).map((j) => BibleTranslation.fromJson(j)).toList();
   }
 
   Future<List<BibleBook>> getBooks({String? testament}) async {
@@ -16,7 +16,7 @@ class BibleRepository {
       if (testament != null) 'testament': testament,
     });
     final list = readList(res.data);
-    return (list as List).map((j) => BibleBook.fromJson(j)).toList();
+    return (list).map((j) => BibleBook.fromJson(j)).toList();
   }
 
   Future<BibleVerse> getVerse({
@@ -75,7 +75,7 @@ class BibleRepository {
       if (testament != null) 'testament': testament,
     });
     final list = readList(res.data);
-    return (list as List).map((j) => BibleVerse.fromJson(j)).toList();
+    return (list).map((j) => BibleVerse.fromJson(j)).toList();
   }
 
   Future<List<CrossReference>> getCrossReferences({
@@ -89,14 +89,14 @@ class BibleRepository {
       'verse': verse,
     });
     final list = readList(res.data);
-    return (list as List).map((j) => CrossReference.fromJson(j)).toList();
+    return (list).map((j) => CrossReference.fromJson(j)).toList();
   }
 
   // Bookmarks
   Future<List<Bookmark>> getBookmarks() async {
     final res = await _dio.get('/api/bible/bookmarks/');
     final list = readList(res.data);
-    return (list as List).map((j) => Bookmark.fromJson(j)).toList();
+    return (list).map((j) => Bookmark.fromJson(j)).toList();
   }
 
   Future<Bookmark> createBookmark({
@@ -129,7 +129,7 @@ class BibleRepository {
       if (color != null) 'color': color,
     });
     final list = readList(res.data);
-    return (list as List).map((j) => Highlight.fromJson(j)).toList();
+    return (list).map((j) => Highlight.fromJson(j)).toList();
   }
 
   Future<Highlight> createHighlight({
@@ -165,7 +165,7 @@ class BibleRepository {
   Future<List<VerseNote>> getNotes() async {
     final res = await _dio.get('/api/bible/notes/');
     final list = readList(res.data);
-    return (list as List).map((j) => VerseNote.fromJson(j)).toList();
+    return (list).map((j) => VerseNote.fromJson(j)).toList();
   }
 
   Future<VerseNote> createNote({

@@ -306,7 +306,7 @@ class _HomeScreenRedesignedState extends ConsumerState<HomeScreenRedesigned> {
                       Container(
                         width: 44,
                         height: 44,
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: AppTheme.navySurface,
                           borderRadius: DesignUtils.mediumRadius,
                         ),
@@ -345,7 +345,7 @@ class _HomeScreenRedesignedState extends ConsumerState<HomeScreenRedesigned> {
                       Container(
                         width: 44,
                         height: 44,
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: AppTheme.navySurface,
                           borderRadius: DesignUtils.mediumRadius,
                         ),

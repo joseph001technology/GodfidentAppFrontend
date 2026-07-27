@@ -121,7 +121,7 @@ class GradientHeroCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(
-            color: gradient.colors.first.withOpacity(0.3),
+            color: gradient.colors.first.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -151,10 +151,10 @@ class StatPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: (color ?? AppTheme.gold).withOpacity(0.1),
+        color: (color ?? AppTheme.gold).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: (color ?? AppTheme.gold).withOpacity(0.2),
+          color: (color ?? AppTheme.gold).withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -176,7 +176,7 @@ class StatPill extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: (color ?? AppTheme.gold).withOpacity(0.7),
+              color: (color ?? AppTheme.gold).withValues(alpha: 0.7),
               fontSize: 11,
               fontWeight: FontWeight.w500,
               fontFamily: 'Inter',

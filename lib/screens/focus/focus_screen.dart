@@ -66,10 +66,10 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
 
   Widget _buildStats(AsyncValue<dynamic> statsAsync) {
     return statsAsync.when(
-      loading: () => Row(children: const [Expanded(child: LoadingShimmer(height: 100)), SizedBox(width: 10), Expanded(child: LoadingShimmer(height: 100)), SizedBox(width: 10), Expanded(child: LoadingShimmer(height: 100))]),
-      error: (_, __) => Row(children: [_StatCard(icon: '🎯', label: 'Focus Score', value: '--', color: AppTheme.gold),
-        const SizedBox(width: 10), _StatCard(icon: '📱', label: 'Avg Screen', value: '--', color: AppTheme.accentPurple),
-        const SizedBox(width: 10), _StatCard(icon: '⏱️', label: 'Time Saved', value: '--', color: AppTheme.emerald)]),
+      loading: () => const Row(children: [Expanded(child: LoadingShimmer(height: 100)), SizedBox(width: 10), Expanded(child: LoadingShimmer(height: 100)), SizedBox(width: 10), Expanded(child: LoadingShimmer(height: 100))]),
+      error: (_, __) => const Row(children: [_StatCard(icon: '🎯', label: 'Focus Score', value: '--', color: AppTheme.gold),
+        SizedBox(width: 10), _StatCard(icon: '📱', label: 'Avg Screen', value: '--', color: AppTheme.accentPurple),
+        SizedBox(width: 10), _StatCard(icon: '⏱️', label: 'Time Saved', value: '--', color: AppTheme.emerald)]),
       data: (stats) => Row(children: [
         _StatCard(icon: '🎯', label: 'Focus Score', value: '${stats.averageFocusScore.toInt()}%', color: AppTheme.gold),
         const SizedBox(width: 10),
@@ -125,8 +125,8 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
-        colors: [color.withOpacity(0.1), AppTheme.navySurface]),
-        borderRadius: BorderRadius.circular(16), border: Border.all(color: color.withOpacity(0.15))),
+        colors: [color.withValues(alpha: 0.1), AppTheme.navySurface]),
+        borderRadius: BorderRadius.circular(16), border: Border.all(color: color.withValues(alpha: 0.15))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(icon, style: const TextStyle(fontSize: 22)),
         const SizedBox(height: 8),

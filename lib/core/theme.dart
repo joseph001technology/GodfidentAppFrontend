@@ -44,8 +44,6 @@ class AppTheme {
         onSurface: textPrimary,
         outline: navyOutline,
         error: Color(0xFFCF6679),
-        background: navy,
-        onBackground: textPrimary,
         tertiary: emerald,
       ),
       scaffoldBackgroundColor: navy,
@@ -104,7 +102,7 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: navyVariant,
-        selectedColor: gold.withOpacity(0.2),
+        selectedColor: gold.withValues(alpha: 0.2),
         labelStyle: const TextStyle(fontSize: 12, color: textPrimary, fontFamily: 'Inter'),
         side: const BorderSide(color: navyOutline, width: 0.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -139,7 +137,7 @@ class AppTheme {
           return textMuted;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return gold.withOpacity(0.3);
+          if (states.contains(WidgetState.selected)) return gold.withValues(alpha: 0.3);
           return navyOutline;
         }),
       ),

@@ -27,8 +27,10 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       await AuthRepository().forgotPassword(_email.text.trim());
       if (mounted) setState(() => _sent = true);
     } on DioException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(extractError(e))));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

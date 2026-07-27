@@ -23,7 +23,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
   late TextEditingController _bibleRefController;
-  String? _selectedTopicId;
+  int? _selectedTopicId;
   bool _isPinned = false;
 
   @override
@@ -32,7 +32,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _titleController = TextEditingController();
     _bodyController = TextEditingController();
     _bibleRefController = TextEditingController();
-    _selectedTopicId = widget.topicId;
+    _selectedTopicId = widget.topicId != null ? int.tryParse(widget.topicId!) : null;
   }
 
   Future<void> _saveNote() async {
@@ -43,48 +43,24 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       return;
     }
 
-    if (_selectedTopicId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a topic')),
-      );
-      return;
-    }
-
     final notesRepo = ref.read(notesRepositoryProvider);
-    final bibleRefs = _bibleRefController.text
-        .split(',')
-        .map((ref) => ref.trim())
-        .where((ref) => ref.isNotEmpty)
-        .toList();
+
+    final data = <String, dynamic>{
+      'title': _titleController.text,
+      'content': _bodyController.text,
+      if (_selectedTopicId != null) 'topics': [_selectedTopicId!],
+      'is_pinned': _isPinned,
+    };
 
     if (widget.noteId != null) {
-      // Update existing note
-      final note = Note(
-        id: widget.noteId!,
-        topicId: _selectedTopicId!,
-        title: _titleController.text,
-        content: _bodyController.text,
-        bibleReferences: bibleRefs,
-        isFavorite: false,
-        isPinned: _isPinned,
-        isArchived: false,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      await notesRepo.updateNote(note);
+      final id = int.tryParse(widget.noteId!) ?? 0;
+      await notesRepo.updateNote(id, data);
     } else {
-      // Create new note
-      await notesRepo.createNote(
-        _titleController.text,
-        _bodyController.text,
-        _selectedTopicId!,
-      );
+      await notesRepo.createNote(data);
     }
 
     // Invalidate providers
     ref.invalidate(notesProvider);
-    ref.invalidate(notesByTopicProvider);
-    ref.invalidate(favoritesNotesProvider);
 
     if (mounted) {
       context.pop();
@@ -174,7 +150,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                   hintStyle: TextStyle(color: AppTheme.warmGray.withValues(alpha: 0.5)),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.all(12),
-                  prefixIcon: Icon(Icons.book, color: AppTheme.emerald),
+                  prefixIcon: const Icon(Icons.book, color: AppTheme.emerald),
                 ),
                 maxLines: 1,
               ),
@@ -214,7 +190,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                 Switch(
                   value: _isPinned,
                   onChanged: (value) => setState(() => _isPinned = value),
-                  activeColor: AppTheme.emerald,
+                  activeThumbColor: AppTheme.emerald,
                 ),
               ],
             ),
@@ -231,17 +207,17 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.2)),
       ),
-      child: DropdownButton<String>(
+      child: DropdownButton<int?>(
         value: _selectedTopicId,
         isExpanded: true,
         underline: const SizedBox(),
         style: const TextStyle(color: Colors.white),
         dropdownColor: AppTheme.navyVariant,
         items: [
-          DropdownMenuItem<String>(
+          const DropdownMenuItem<int?>(
             value: null,
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12),
               child: Text(
                 'Select a topic',
                 style: TextStyle(color: AppTheme.warmGray),
@@ -249,7 +225,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
             ),
           ),
           ...topics.map((topic) {
-            return DropdownMenuItem<String>(
+            return DropdownMenuItem<int?>(
               value: topic.id,
               child: Padding(
                 padding: const EdgeInsets.all(12),

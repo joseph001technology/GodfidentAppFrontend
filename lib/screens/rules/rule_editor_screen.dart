@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
-import '../../models/universal_rule.dart';
-import '../../providers/remaining_providers.dart';
+import '../../providers/rules_provider.dart';
 
 class RuleEditorScreen extends ConsumerStatefulWidget {
   final String? ruleId;
@@ -20,7 +19,7 @@ class RuleEditorScreen extends ConsumerStatefulWidget {
 class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
-  late RuleCategory _selectedCategory;
+  int? _selectedCategoryId;
   String _selectedColorHex = '#10B981';
   bool _isPinned = false;
 
@@ -45,83 +44,34 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
     super.initState();
     _titleController = TextEditingController();
     _descriptionController = TextEditingController();
-    _selectedCategory = RuleCategory.custom;
-
-    // Load existing rule if editing
-    if (widget.ruleId != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _loadRule());
-    }
-  }
-
-  void _loadRule() async {
-    final rulesRepo = ref.read(rulesRepositoryProvider);
-    try {
-      // TODO: Implement getRuleById in repository
-      // final rule = await rulesRepo.getRuleById(widget.ruleId!);
-      // if (rule != null && mounted) {
-      //   setState(() {
-      //     _titleController.text = rule.title;
-      //     _descriptionController.text = rule.description;
-      //     _selectedCategory = rule.category;
-      //     _selectedColorHex = rule.colorTag;
-      //     _isPinned = rule.isPinned;
-      //   });
-      // }
-    } catch (e) {
-      // Handle error
-    }
   }
 
   Future<void> _saveRule() async {
-    if (_titleController.text.isEmpty || _descriptionController.text.isEmpty) {
+    if (_titleController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Title and description are required')),
+        const SnackBar(content: Text('Title is required')),
       );
       return;
     }
 
     final rulesRepo = ref.read(rulesRepositoryProvider);
 
+    final data = <String, dynamic>{
+      'title': _titleController.text,
+      if (_descriptionController.text.isNotEmpty) 'description': _descriptionController.text,
+      if (_selectedCategoryId != null) 'category': _selectedCategoryId,
+      'is_pinned': _isPinned,
+    };
+
     if (widget.ruleId != null) {
-      // Update existing rule
-      final rule = UniversalRule(
-        id: widget.ruleId!,
-        title: _titleController.text,
-        description: _descriptionController.text,
-        category: _selectedCategory,
-        colorTag: _selectedColorHex,
-        isPinned: _isPinned,
-        isArchived: false,
-        isCompleted: false,
-        repeatDaily: true,
-      );
-      await rulesRepo.updateRule(rule);
+      final id = int.tryParse(widget.ruleId!) ?? 0;
+      await rulesRepo.update(id, data);
     } else {
-      // Create new rule
-      final rule = UniversalRule(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: _titleController.text,
-        description: _descriptionController.text,
-        category: _selectedCategory,
-        colorTag: _selectedColorHex,
-        isPinned: _isPinned,
-        isArchived: false,
-        isCompleted: false,
-        repeatDaily: true,
-      );
-      await rulesRepo.createRule(
-        title: rule.title,
-        description: rule.description,
-        category: rule.category,
-        colorTag: rule.colorTag,
-        isPinned: rule.isPinned,
-      );
+      await rulesRepo.create(data);
     }
 
-    // Invalidate providers to refresh the UI
-    ref.invalidate(universalRulesProvider);
-    ref.invalidate(todaysRulesProvider);
-    ref.invalidate(archivedRulesProvider);
+    ref.invalidate(rulesProvider);
+    ref.invalidate(todayRulesProvider);
 
     if (mounted) {
       context.pop();
@@ -172,7 +122,6 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Emoji and title section
             Row(
               children: [
                 Container(
@@ -186,15 +135,8 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
                       width: 2,
                     ),
                   ),
-                  child: Center(
-                    child: Text(_selectedCategory.toString().split('.').last == 'prayer' ? '🙏'
-                        : _selectedCategory.toString().split('.').last == 'reading' ? '📖'
-                        : _selectedCategory.toString().split('.').last == 'discipline' ? '💪'
-                        : _selectedCategory.toString().split('.').last == 'lifestyle' ? '✨'
-                        : _selectedCategory.toString().split('.').last == 'devotion' ? '⛪'
-                        : '📌', 
-                      style: const TextStyle(fontSize: 28),
-                    ),
+                  child: const Center(
+                    child: Text('📌', style: TextStyle(fontSize: 28)),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -217,7 +159,6 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
               ],
             ),
             const SizedBox(height: 24),
-            // Description field
             Text(
               'Description',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -245,7 +186,6 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            // Category selector
             Text(
               'Category',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -255,7 +195,6 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
             const SizedBox(height: 8),
             _buildCategorySelector(),
             const SizedBox(height: 24),
-            // Color selector
             Text(
               'Color',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -265,7 +204,6 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
             const SizedBox(height: 8),
             _buildColorSelector(),
             const SizedBox(height: 24),
-            // Pin button
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -278,7 +216,7 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
                 Switch(
                   value: _isPinned,
                   onChanged: (value) => setState(() => _isPinned = value),
-                  activeColor: AppTheme.emerald,
+                  activeThumbColor: AppTheme.emerald,
                 ),
               ],
             ),
@@ -289,43 +227,38 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
   }
 
   Widget _buildCategorySelector() {
-    const categories = [
-      RuleCategory.prayer,
-      RuleCategory.reading,
-      RuleCategory.discipline,
-      RuleCategory.lifestyle,
-      RuleCategory.devotion,
-      RuleCategory.custom,
-    ];
-    
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: categories.map((cat) {
-        final isSelected = _selectedCategory == cat;
-        final catName = cat.toString().split('.').last;
-        return GestureDetector(
-          onTap: () => setState(() => _selectedCategory = cat),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: isSelected ? AppTheme.emerald : AppTheme.warmGray.withValues(alpha: 0.3),
-                width: isSelected ? 2 : 1,
+    final categoriesAsync = ref.watch(ruleCategoriesProvider);
+    return categoriesAsync.when(
+      data: (categories) => Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: categories.map((cat) {
+          final isSelected = _selectedCategoryId == cat.id;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedCategoryId = isSelected ? null : cat.id),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: isSelected ? AppTheme.emerald : AppTheme.warmGray.withValues(alpha: 0.3),
+                  width: isSelected ? 2 : 1,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                color: isSelected ? AppTheme.emerald.withValues(alpha: 0.15) : Colors.transparent,
               ),
-              borderRadius: BorderRadius.circular(20),
-              color: isSelected ? AppTheme.emerald.withValues(alpha: 0.15) : Colors.transparent,
-            ),
-            child: Text(
-              catName.replaceFirst(catName[0], catName[0].toUpperCase()),
-              style: TextStyle(
-                color: isSelected ? AppTheme.emerald : AppTheme.warmGray,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              child: Text(
+                cat.name,
+                style: TextStyle(
+                  color: isSelected ? AppTheme.emerald : AppTheme.warmGray,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
               ),
             ),
-          ),
-        );
-      }).toList(),
+          );
+        }).toList(),
+      ),
+      loading: () => const CircularProgressIndicator(),
+      error: (_, __) => const Text('Could not load categories', style: TextStyle(color: AppTheme.warmGray)),
     );
   }
 
@@ -366,4 +299,3 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
     );
   }
 }
-

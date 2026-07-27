@@ -27,11 +27,11 @@ class VerseCard extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: gradient ?? Gradients.verseOfDay,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
               color: AppTheme.glowGold,
               blurRadius: 24,
-              offset: const Offset(0, 8),
+              offset: Offset(0, 8),
             ),
           ],
         ),
@@ -47,7 +47,7 @@ class VerseCard extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: 'Lora',
                     fontSize: 48,
-                    color: AppTheme.gold.withOpacity(0.3),
+                    color: AppTheme.gold.withValues(alpha: 0.3),
                     height: 0.8,
                   ),
                 ),
@@ -74,7 +74,7 @@ class VerseCard extends StatelessWidget {
               style: TextStyle(
                 fontFamily: 'Lora',
                 fontSize: 48,
-                color: AppTheme.gold.withOpacity(0.3),
+                color: AppTheme.gold.withValues(alpha: 0.3),
                 height: 0.5,
               ),
             ),
@@ -85,7 +85,7 @@ class VerseCard extends StatelessWidget {
                   width: 20,
                   height: 2,
                   decoration: BoxDecoration(
-                    color: AppTheme.gold.withOpacity(0.5),
+                    color: AppTheme.gold.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(1),
                   ),
                 ),
@@ -95,7 +95,7 @@ class VerseCard extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 13,
-                    color: AppTheme.gold.withOpacity(0.8),
+                    color: AppTheme.gold.withValues(alpha: 0.8),
                     fontWeight: FontWeight.w600,
                   ),
                 ),

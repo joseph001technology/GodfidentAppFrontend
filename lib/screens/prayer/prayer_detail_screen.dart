@@ -68,7 +68,7 @@ class PrayerDetailScreen extends ConsumerWidget {
                 Chip(
                   label: Text(prayer.status),
                   backgroundColor: prayer.isAnswered
-                      ? Colors.green.withOpacity(0.15)
+                      ? Colors.green.withValues(alpha: 0.15)
                       : AppTheme.navyVariant,
                   labelStyle: TextStyle(
                     color: prayer.isAnswered ? Colors.green : Colors.grey,

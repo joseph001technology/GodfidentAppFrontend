@@ -18,7 +18,7 @@ class PrayerRepository {
       'ordering': ordering,
     });
     final list = readList(res.data);
-    return (list as List).map((j) => Prayer.fromJson(j)).toList();
+    return (list).map((j) => Prayer.fromJson(j)).toList();
   }
 
   Future<List<PrayerCategory>> getCategories() async {

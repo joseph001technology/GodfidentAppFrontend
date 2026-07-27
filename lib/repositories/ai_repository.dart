@@ -76,13 +76,13 @@ class AiRepository {
       if (type != null) 'type': type,
     });
     final list = readList(res.data);
-    return (list as List).map((j) => StudySession.fromJson(j)).toList();
+    return (list).map((j) => StudySession.fromJson(j)).toList();
   }
 
   Future<List<ChatSession>> getSessions() async {
     final res = await _dio.get('/api/ai/sessions/');
     final list = readList(res.data);
-    return (list as List).map((j) => ChatSession.fromJson(j)).toList();
+    return (list).map((j) => ChatSession.fromJson(j)).toList();
   }
 
   Future<ChatSession> getSession(int id) async {

@@ -26,7 +26,7 @@ class SettingsScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 const _SectionLabel('FEATURES'),
                 const SizedBox(height: 8),
-                _FeatureGrid(),
+                const _FeatureGrid(),
                 const SizedBox(height: 24),
                 const _SectionLabel('TOOLS'),
                 const SizedBox(height: 8),
@@ -61,7 +61,7 @@ class SettingsScreen extends ConsumerWidget {
       child: OutlinedButton.icon(
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.red,
-          side: BorderSide(color: Colors.red.withOpacity(0.4)),
+          side: BorderSide(color: Colors.red.withValues(alpha: 0.4)),
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
@@ -85,6 +85,7 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
+}
 
 class _SectionLabel extends StatelessWidget {
   final String label;
@@ -118,7 +119,7 @@ class _FeatureGrid extends StatelessWidget {
           onTap: () => context.push(f['route'] as String),
           child: Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppTheme.navySurface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppTheme.navyOutline.withOpacity(0.5))),
+            decoration: BoxDecoration(color: AppTheme.navySurface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppTheme.navyOutline.withValues(alpha: 0.5))),
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Text(f['icon'] as String, style: const TextStyle(fontSize: 24)),
               const SizedBox(height: 6),
@@ -143,7 +144,7 @@ class _ProfileCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(color: AppTheme.navySurface, borderRadius: BorderRadius.circular(20)),
         child: Row(children: [
-          CircleAvatar(radius: 30, backgroundColor: AppTheme.gold.withOpacity(0.15),
+          CircleAvatar(radius: 30, backgroundColor: AppTheme.gold.withValues(alpha: 0.15),
             child: Text(user?.initials ?? 'G', style: const TextStyle(color: AppTheme.gold, fontSize: 22, fontWeight: FontWeight.w700))),
           const SizedBox(width: 16),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -170,6 +171,4 @@ Widget _tile(BuildContext context, IconData icon, String title, String? route, C
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
   );
-}
-
 }

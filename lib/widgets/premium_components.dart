@@ -15,14 +15,14 @@ class ProgressRing extends StatelessWidget {
   final double strokeWidth;
 
   const ProgressRing({
-    Key? key,
+    super.key,
     required this.percentage,
     this.size = 120,
     this.progressColor = AppTheme.gold,
     this.label = '',
     this.value,
     this.strokeWidth = 8,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +66,7 @@ class ProgressRing extends StatelessWidget {
           ),
         ),
         if (label.isNotEmpty) ...[
-          SizedBox(height: DesignUtils.spacingSm),
+          const SizedBox(height: DesignUtils.spacingSm),
           Text(
             label,
             textAlign: TextAlign.center,
@@ -92,7 +92,7 @@ class StatCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const StatCard({
-    Key? key,
+    super.key,
     required this.title,
     required this.value,
     required this.subtitle,
@@ -100,7 +100,7 @@ class StatCard extends StatelessWidget {
     this.backgroundColor,
     this.iconColor = AppTheme.gold,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -123,7 +123,7 @@ class StatCard extends StatelessWidget {
             Container(
               width: 44,
               height: 44,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppTheme.navySurface,
                 borderRadius: DesignUtils.mediumRadius,
               ),
@@ -170,14 +170,14 @@ class PremiumCard extends StatelessWidget {
   final double elevation;
 
   const PremiumCard({
-    Key? key,
+    super.key,
     required this.child,
     this.padding = const EdgeInsets.all(DesignUtils.spacingLg),
     this.gradient,
     this.borderRadius = DesignUtils.largeRadius,
     this.onTap,
     this.elevation = 0,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -218,12 +218,12 @@ class StreakBadge extends StatelessWidget {
   final Color iconColor;
 
   const StreakBadge({
-    Key? key,
+    super.key,
     required this.streak,
     required this.label,
     required this.icon,
     this.iconColor = AppTheme.gold,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -276,12 +276,12 @@ class ContinueReadingCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const ContinueReadingCard({
-    Key? key,
+    super.key,
     required this.title,
     required this.subtitle,
     required this.progress,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -326,7 +326,7 @@ class ContinueReadingCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress,
                 minHeight: 6,
-                backgroundColor: Colors.grey.withOpacity(0.2),
+                backgroundColor: Colors.grey.withValues(alpha: 0.2),
                 valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.gold),
               ),
             ),
@@ -346,10 +346,10 @@ class ShimmerLoading extends StatefulWidget {
   final bool isLoading;
 
   const ShimmerLoading({
-    Key? key,
+    super.key,
     required this.child,
     this.isLoading = true,
-  }) : super(key: key);
+  });
 
   @override
   State<ShimmerLoading> createState() => _ShimmerLoadingState();

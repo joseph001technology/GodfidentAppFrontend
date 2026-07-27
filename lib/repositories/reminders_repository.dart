@@ -19,7 +19,7 @@ class RemindersRepository {
       if (search != null) 'search': search,
       'ordering': ordering,
     });
-    return (readList(res.data) as List).map((j) => Reminder.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => Reminder.fromJson(j)).toList();
   }
 
   Future<Reminder> getDetail(int id) async {
@@ -55,7 +55,7 @@ class RemindersRepository {
 
   Future<List<ReminderHistory>> getHistory(int id) async {
     final res = await _dio.get('/api/reminders/$id/history/');
-    return (readList(res.data) as List).map((j) => ReminderHistory.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => ReminderHistory.fromJson(j)).toList();
   }
 
   Future<List<Reminder>> getCalendar({required int year, required int month}) async {
@@ -63,12 +63,12 @@ class RemindersRepository {
       'year': year,
       'month': month,
     });
-    return (readList(res.data) as List).map((j) => Reminder.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => Reminder.fromJson(j)).toList();
   }
 
   // ── Categories ─────────────────────────────────────────────────
   Future<List<ReminderCategory>> getCategories() async {
     final res = await _dio.get('/api/reminders/categories/');
-    return (readList(res.data) as List).map((j) => ReminderCategory.fromJson(j)).toList();
+    return (readList(res.data)).map((j) => ReminderCategory.fromJson(j)).toList();
   }
 }

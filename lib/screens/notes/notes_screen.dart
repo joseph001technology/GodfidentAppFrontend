@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../../providers/notes_provider.dart';
-import '../../providers/rules_provider.dart';
-import '../../providers/reminders_provider.dart';
-import '../../providers/achievements_provider.dart';
 import '../../widgets/common/app_widgets.dart';
 
 class NotesScreen extends ConsumerWidget {
@@ -21,10 +18,10 @@ class NotesScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             notesAsync.when(loading: () => const ShimmerList(count: 4),
               error: (_, __) => const ErrorView(message: 'Could not load notes'),
-              data: (notes) => notes.isEmpty ? Center(child: Padding(padding: EdgeInsets.all(32),
+              data: (notes) => notes.isEmpty ? const Center(child: Padding(padding: EdgeInsets.all(32),
                 child: Column(children: [
                   Icon(Icons.note_outlined, size: 56, color: AppTheme.navyOutline),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   Text('No notes yet', style: TextStyle(color: AppTheme.textMuted, fontSize: 14)),
                 ]))) : ListView.builder(
                   shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),

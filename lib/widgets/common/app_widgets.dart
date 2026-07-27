@@ -131,7 +131,7 @@ class GoldDivider extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.transparent, AppTheme.gold.withOpacity(0.4), Colors.transparent],
+            colors: [Colors.transparent, AppTheme.gold.withValues(alpha: 0.4), Colors.transparent],
           ),
         ),
       );
@@ -180,9 +180,9 @@ class MethodBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(
         method,

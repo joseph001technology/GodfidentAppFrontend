@@ -24,7 +24,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   void dispose() {
-    for (final c in [_firstName, _lastName, _email, _password, _confirm]) c.dispose();
+    for (final c in [_firstName, _lastName, _email, _password, _confirm]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -46,10 +48,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         context.go('/login');
       }
     } on DioException catch (e) {
-      print("TYPE: ${e.type}");
-      print("MESSAGE: ${e.message}");
-      print("ERROR: ${e.error}");
-      print("RESPONSE: ${e.response?.data}");
+      debugPrint("TYPE: ${e.type}");
+      debugPrint("MESSAGE: ${e.message}");
+      debugPrint("ERROR: ${e.error}");
+      debugPrint("RESPONSE: ${e.response?.data}");
       setState(() => _error = extractError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -72,9 +74,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
+                    color: Colors.red.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                   ),
                   child: Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
                 ),

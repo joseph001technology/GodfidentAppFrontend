@@ -21,7 +21,7 @@ class DevotionalRepository {
       if (category != null) 'category': category,
     });
     final list = readList(res.data);
-    return (list as List).map((j) => Devotional.fromJson(j)).toList();
+    return (list).map((j) => Devotional.fromJson(j)).toList();
   }
 
   Future<Devotional> getDetail(int id) async {
@@ -40,12 +40,12 @@ class DevotionalRepository {
   Future<List<Devotional>> getSaved() async {
     final res = await _dio.get('/api/devotionals/saved/');
     final list = readList(res.data);
-    return (list as List).map((j) => Devotional.fromJson(j)).toList();
+    return (list).map((j) => Devotional.fromJson(j)).toList();
   }
 
   Future<List<DevotionalCategory>> getCategories() async {
     final res = await _dio.get('/api/devotionals/categories/');
     final list = readList(res.data);
-    return (list as List).map((j) => DevotionalCategory.fromJson(j)).toList();
+    return (list).map((j) => DevotionalCategory.fromJson(j)).toList();
   }
 }

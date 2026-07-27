@@ -108,7 +108,7 @@ class _NotificationTile extends ConsumerWidget {
               width: 3,
             ),
           ),
-          color: notification.isRead ? Colors.transparent : _color.withOpacity(0.05),
+          color: notification.isRead ? Colors.transparent : _color.withValues(alpha: 0.05),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
@@ -118,7 +118,7 @@ class _NotificationTile extends ConsumerWidget {
               width: 36, height: 36,
               margin: const EdgeInsets.only(right: 12, top: 2),
               decoration: BoxDecoration(
-                color: _color.withOpacity(0.15),
+                color: _color.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(_icon, color: _color, size: 18),

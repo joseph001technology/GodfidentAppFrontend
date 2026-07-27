@@ -73,9 +73,9 @@ class _PlanCard extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _typeColor.withOpacity(0.15),
+                  color: _typeColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _typeColor.withOpacity(0.4)),
+                  border: Border.all(color: _typeColor.withValues(alpha: 0.4)),
                 ),
                 child: Text(plan.planType,
                     style: TextStyle(color: _typeColor, fontSize: 11, fontWeight: FontWeight.w600)),

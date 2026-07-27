@@ -133,7 +133,7 @@ class _BookTile extends ConsumerWidget {
             Row(children: [
               Text(book.name, style: Theme.of(context).textTheme.titleLarge),
               const Spacer(),
-              Text('$translation',
+              Text(translation,
                   style: const TextStyle(color: AppTheme.gold, fontSize: 13)),
             ]),
             const SizedBox(height: 16),

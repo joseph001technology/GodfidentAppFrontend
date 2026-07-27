@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:godfident/models/reminder.dart';
-import 'package:godfident/providers/remaining_providers.dart';
-import 'package:godfident/core/theme.dart';
+import '../../providers/reminders_provider.dart';
+import '../../core/theme.dart';
 
 class ReminderEditorScreen extends ConsumerStatefulWidget {
   final String? reminderId;
 
   const ReminderEditorScreen({
-    Key? key,
+    super.key,
     this.reminderId,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<ReminderEditorScreen> createState() =>
@@ -22,33 +21,18 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
   late TextEditingController descriptionController;
   DateTime selectedDate = DateTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
-  ReminderCategory selectedCategory = ReminderCategory.prayer;
-  ReminderFrequency selectedFrequency = ReminderFrequency.once;
+  int? selectedCategoryId;
+  String selectedRepeat = 'none';
   bool isEnabled = true;
   Duration snoozeDuration = const Duration(minutes: 5);
 
-  final categoryEmojis = {
-    ReminderCategory.prayer: '🙏',
-    ReminderCategory.bible: '📖',
-    ReminderCategory.devotion: '✨',
-    ReminderCategory.church: '⛪',
-    ReminderCategory.fasting: '🕊️',
-    ReminderCategory.sleep: '😴',
-    ReminderCategory.water: '💧',
-    ReminderCategory.custom: '📌',
-  };
+  static const repeatOptions = ['none', 'daily', 'weekly', 'monthly'];
 
   @override
   void initState() {
     super.initState();
     titleController = TextEditingController();
     descriptionController = TextEditingController();
-    _loadReminder();
-  }
-
-  void _loadReminder() {
-    // TODO: Load reminder by ID from repository when backend is ready
-    // For now, using defaults
   }
 
   @override
@@ -58,10 +42,10 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
     super.dispose();
   }
 
-  void _saveReminder() {
+  Future<void> _saveReminder() async {
     if (titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Please enter a reminder title'),
           backgroundColor: Colors.red,
         ),
@@ -69,38 +53,32 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
       return;
     }
 
-    final reminder = Reminder(
-      id: widget.reminderId ?? DateTime.now().toString(),
-      title: titleController.text.trim(),
-      description: descriptionController.text.trim(),
-      category: selectedCategory,
-      scheduledTime: DateTime(
-        selectedDate.year,
-        selectedDate.month,
-        selectedDate.day,
-        selectedTime.hour,
-        selectedTime.minute,
-      ),
-      frequency: selectedFrequency,
-      isEnabled: isEnabled,
-      snoozeDurationMinutes: snoozeDuration.inMinutes,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+    final data = <String, dynamic>{
+      'title': titleController.text.trim(),
+      if (descriptionController.text.trim().isNotEmpty) 'description': descriptionController.text.trim(),
+      'date': '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
+      'time': '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}:00',
+      'repeat': selectedRepeat,
+      if (selectedCategoryId != null) 'category': selectedCategoryId,
+      'snooze_minutes': snoozeDuration.inMinutes,
+    };
 
-    // Save via provider
-    ref.read(remindersProvider.notifier).add(reminder);
-    ref.invalidate(upcomingRemindersProvider);
-    ref.invalidate(remindersByCategoryProvider(selectedCategory));
+    if (widget.reminderId != null) {
+      final id = int.tryParse(widget.reminderId!) ?? 0;
+      await ref.read(remindersProvider.notifier).update(id, data);
+    } else {
+      await ref.read(remindersProvider.notifier).create(data);
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Reminder saved'),
-        backgroundColor: AppTheme.emerald,
-      ),
-    );
-
-    Navigator.of(context).pop();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Reminder saved'),
+          backgroundColor: AppTheme.emerald,
+        ),
+      );
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _selectDate() async {
@@ -139,12 +117,12 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
           ),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -153,24 +131,24 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
               label: 'Reminder Title',
               hint: 'e.g., Morning Prayer',
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             _buildTextField(
               controller: descriptionController,
               label: 'Description',
               hint: 'Add details about this reminder',
               maxLines: 3,
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             _buildCategorySelector(),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             _buildDateTimeSelector(),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             _buildFrequencySelector(),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             _buildSnoozeDurationSelector(),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             _buildEnabledToggle(),
-            SizedBox(height: 32),
+            const SizedBox(height: 32),
             _buildSaveButton(),
           ],
         ),
@@ -194,7 +172,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         TextField(
           controller: controller,
           maxLines: maxLines,
@@ -212,7 +190,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
-            contentPadding: EdgeInsets.all(12),
+            contentPadding: const EdgeInsets.all(12),
           ),
         ),
       ],
@@ -220,6 +198,8 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
   }
 
   Widget _buildCategorySelector() {
+    final categoriesAsync = ref.watch(reminderCategoriesProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -230,43 +210,47 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: ReminderCategory.values.map((category) {
-            final isSelected = selectedCategory == category;
-            return GestureDetector(
-              onTap: () => setState(() => selectedCategory = category),
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.emerald : AppTheme.navySurface,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected ? AppTheme.emerald : Colors.transparent,
+        const SizedBox(height: 12),
+        categoriesAsync.when(
+          data: (categories) => Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: categories.map((category) {
+              final isSelected = selectedCategoryId == category.id;
+              return GestureDetector(
+                onTap: () => setState(() => selectedCategoryId = isSelected ? null : category.id),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppTheme.emerald : AppTheme.navySurface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected ? AppTheme.emerald : Colors.transparent,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        category.icon ?? '📌',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        category.name.toUpperCase(),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: isSelected ? Colors.white : AppTheme.warmGray,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      categoryEmojis[category] ?? '📌',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      category.name.replaceAll('_', ' ').toUpperCase(),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: isSelected ? Colors.white : AppTheme.warmGray,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
+              );
+            }).toList(),
+          ),
+          loading: () => const CircularProgressIndicator(),
+          error: (_, __) => const Text('Could not load categories', style: TextStyle(color: AppTheme.warmGray)),
         ),
       ],
     );
@@ -286,11 +270,11 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               GestureDetector(
                 onTap: _selectDate,
                 child: Container(
-                  padding: EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppTheme.navySurface,
                     borderRadius: BorderRadius.circular(12),
@@ -306,7 +290,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
             ],
           ),
         ),
-        SizedBox(width: 12),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,11 +302,11 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               GestureDetector(
                 onTap: _selectTime,
                 child: Container(
-                  padding: EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppTheme.navySurface,
                     borderRadius: BorderRadius.circular(12),
@@ -353,24 +337,24 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: ReminderFrequency.values.map((frequency) {
-              final isSelected = selectedFrequency == frequency;
+            children: repeatOptions.map((repeat) {
+              final isSelected = selectedRepeat == repeat;
               return Padding(
-                padding: EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.only(right: 8),
                 child: GestureDetector(
-                  onTap: () => setState(() => selectedFrequency = frequency),
+                  onTap: () => setState(() => selectedRepeat = repeat),
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: isSelected ? AppTheme.emerald : AppTheme.navySurface,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      frequency.name.toUpperCase(),
+                      repeat.toUpperCase(),
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: isSelected ? Colors.white : AppTheme.warmGray,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
@@ -397,12 +381,12 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         DropdownButton<Duration>(
           value: snoozeDuration,
           dropdownColor: AppTheme.navySurface,
           isExpanded: true,
-          items: [
+          items: const [
             Duration(minutes: 5),
             Duration(minutes: 10),
             Duration(minutes: 15),
@@ -443,7 +427,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
         Switch(
           value: isEnabled,
           onChanged: (value) => setState(() => isEnabled = value),
-          activeColor: AppTheme.emerald,
+          activeTrackColor: AppTheme.emerald,
           activeThumbColor: Colors.white,
         ),
       ],
@@ -457,7 +441,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
         onPressed: _saveReminder,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.emerald,
-          padding: EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),

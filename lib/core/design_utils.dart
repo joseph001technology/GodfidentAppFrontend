@@ -111,14 +111,14 @@ class GlassmorphicContainer extends StatelessWidget {
   final Color backgroundColor;
 
   const GlassmorphicContainer({
-    Key? key,
+    super.key,
     required this.child,
     this.blur = 10,
     this.opacity = 0.1,
     this.borderRadius = const BorderRadius.all(Radius.circular(16)),
     this.border,
     this.backgroundColor = const Color(0x1AFFFFFF),
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -128,7 +128,7 @@ class GlassmorphicContainer extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
         child: Container(
           decoration: BoxDecoration(
-            color: backgroundColor.withOpacity(opacity),
+            color: backgroundColor.withValues(alpha: opacity),
             border: border,
             borderRadius: borderRadius,
           ),

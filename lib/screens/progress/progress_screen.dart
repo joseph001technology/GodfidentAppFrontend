@@ -35,7 +35,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen>
                     style: TextStyle(fontFamily: 'Lora', fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                 const SizedBox(height: 16),
                 prayerStreakAsync.when(
-                  loading: () => _StreakShimmer(),
+                  loading: () => const _StreakShimmer(),
                   error: (_, __) => const SizedBox.shrink(),
                   data: (streak) => _StreakCards(streak: streak),
                 ),
@@ -59,8 +59,8 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen>
       child: TabBar(
         controller: _tabController,
         indicator: BoxDecoration(
-          color: AppTheme.gold.withOpacity(0.2), borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppTheme.gold.withOpacity(0.3)),
+          color: AppTheme.gold.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
         ),
         labelColor: AppTheme.gold,
         unselectedLabelColor: AppTheme.textMuted,
@@ -73,13 +73,13 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen>
   }
 
   Widget _buildOverview() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+    return const SingleChildScrollView(
+      padding: EdgeInsets.all(16),
       child: Column(children: [
         _ConsistencyCard(),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         _StatsGrid(),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         _MotivationalCard(),
       ]),
     );
@@ -102,7 +102,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen>
               itemCount: 140,
               itemBuilder: (_, i) => Container(
                 decoration: BoxDecoration(
-                  color: (i % 5) > 2 ? AppTheme.emerald.withOpacity(0.6) : AppTheme.navyOutline.withOpacity(0.3),
+                  color: (i % 5) > 2 ? AppTheme.emerald.withValues(alpha: 0.6) : AppTheme.navyOutline.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -147,7 +147,7 @@ class _StreakShimmer extends StatelessWidget {
   const _StreakShimmer();
   @override
   Widget build(BuildContext context) {
-    return Row(children: const [
+    return const Row(children: [
       Expanded(child: LoadingShimmer(height: 72, borderRadius: 18)),
       SizedBox(width: 10),
       Expanded(child: LoadingShimmer(height: 72, borderRadius: 18)),
@@ -198,63 +198,20 @@ class _ConsistencyCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: AppTheme.navySurface, borderRadius: BorderRadius.circular(20)),
-      child: Row(children: [
+      child: const Row(children: [
         ProgressRing(progress: 0.72, size: 80, strokeWidth: 8,
-          child: Text('72%', style: const TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.gold)),
+          child: Text('72%', style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.gold)),
         ),
-        const SizedBox(width: 20),
+        SizedBox(width: 20),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Monthly Consistency', style: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-          const SizedBox(height: 8),
+          Text('Monthly Consistency', style: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+          SizedBox(height: 8),
           _CategoryBar(label: 'Prayer', value: 0.8, color: AppTheme.gold),
           _CategoryBar(label: 'Bible', value: 0.65, color: AppTheme.accentPurple),
           _CategoryBar(label: 'Focus', value: 0.45, color: AppTheme.emerald),
         ])),
       ]),
     );
-  }
-}
-
-
-class _StreakShimmer extends StatelessWidget {
-  const _StreakShimmer();
-  @override
-  Widget build(BuildContext context) {
-    return Row(children: const [Expanded(child: LoadingShimmer(height: 72, borderRadius: 18)), SizedBox(width: 10), Expanded(child: LoadingShimmer(height: 72, borderRadius: 18))]);
-  }
-}
-
-class _StreakCards extends StatelessWidget {
-  final PrayerStreak streak;
-  const _StreakCards({required this.streak});
-  @override
-  Widget build(BuildContext context) {
-    return Row(children: [
-      _StreakCard(emoji: '\u{1F64F}', value: '${streak.currentStreak}', label: 'Prayer Streak', gradient: Gradients.streak),
-      const SizedBox(width: 10),
-      _StreakCard(emoji: '\u{1F4D6}', value: '${streak.longestStreak}', label: 'Bible Streak', gradient: Gradients.bibleReading),
-    ]);
-  }
-}
-
-class _StreakCard extends StatelessWidget {
-  final String emoji, value, label;
-  final LinearGradient gradient;
-  const _StreakCard({required this.emoji, required this.value, required this.label, required this.gradient});
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(child: Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(gradient: gradient, borderRadius: BorderRadius.circular(18)),
-      child: Row(children: [
-        Text(emoji, style: const TextStyle(fontSize: 28)),
-        const SizedBox(width: 12),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(value, style: const TextStyle(fontFamily: 'Inter', fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-          Text(label, style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textSecondary)),
-        ]),
-      ]),
-    ));
   }
 }
 
@@ -282,10 +239,10 @@ class _StatsGrid extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: AppTheme.navySurface, borderRadius: BorderRadius.circular(20)),
-      child: Column(children: [
-        Row(children: [_StatItem(emoji: '\u{1F64F}', value: '24', label: 'Total Prayers'), const SizedBox(width: 12), _StatItem(emoji: '\u{1F4D6}', value: '12', label: 'Chapters')]),
-        const SizedBox(height: 12),
-        Row(children: [_StatItem(emoji: '\u{23F1}\u{FE0F}', value: '8h', label: 'Focus Hrs'), const SizedBox(width: 12), _StatItem(emoji: '\u{1F525}', value: '7d', label: 'Best Streak')]),
+      child: const Column(children: [
+        Row(children: [_StatItem(emoji: '\u{1F64F}', value: '24', label: 'Total Prayers'), SizedBox(width: 12), _StatItem(emoji: '\u{1F4D6}', value: '12', label: 'Chapters')]),
+        SizedBox(height: 12),
+        Row(children: [_StatItem(emoji: '\u{23F1}\u{FE0F}', value: '8h', label: 'Focus Hrs'), SizedBox(width: 12), _StatItem(emoji: '\u{1F525}', value: '7d', label: 'Best Streak')]),
       ]),
     );
   }
@@ -323,7 +280,7 @@ class _MotivationalCard extends StatelessWidget {
             style: TextStyle(fontFamily: 'Lora', fontSize: 15, fontStyle: FontStyle.italic, color: Colors.white, height: 1.5)),
         const SizedBox(height: 8),
         Text('Philippians 4:13',
-            style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.gold.withOpacity(0.8), fontWeight: FontWeight.w600)),
+            style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.gold.withValues(alpha: 0.8), fontWeight: FontWeight.w600)),
       ]),
     );
   }
@@ -389,7 +346,7 @@ class _BadgeCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: locked ? AppTheme.navyVariant : AppTheme.navySurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: locked ? AppTheme.navyOutline : ua.isRecent ? AppTheme.gold.withOpacity(0.4) : Colors.transparent),
+        border: Border.all(color: locked ? AppTheme.navyOutline : ua.isRecent ? AppTheme.gold.withValues(alpha: 0.4) : Colors.transparent),
       ),
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Text(ua.achievement.icon, style: TextStyle(fontSize: 28, color: locked ? AppTheme.textMuted : null)),
@@ -400,5 +357,3 @@ class _BadgeCard extends StatelessWidget {
     );
   }
 }
-
-

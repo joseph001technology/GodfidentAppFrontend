@@ -7,7 +7,6 @@ import '../../core/theme.dart';
 import '../../models/bible.dart';
 import '../../providers/bible_provider.dart';
 import '../../repositories/analytics_repository.dart';
-import '../../repositories/bible_repository.dart';
 import '../../widgets/common/app_widgets.dart';
 
 class ChapterScreen extends ConsumerStatefulWidget {

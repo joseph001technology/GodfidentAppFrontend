@@ -12,25 +12,26 @@ import '../screens/bible/verse_detail_screen.dart';
 import '../screens/bible/search_screen.dart';
 import '../screens/devotionals/devotional_list_screen.dart';
 import '../screens/devotionals/devotional_detail_screen.dart';
+// ignore: unnecessary_import
 import '../screens/devotionals/saved_devotionals_screen.dart';
 import '../screens/reading_plans/plans_screen.dart';
 import '../screens/reading_plans/my_plans_screen.dart';
 import '../screens/reading_plans/plan_day_screen.dart';
-import '../screens/prayer/prayer_list_screen.dart';
 import '../screens/prayer/prayer_form_screen.dart';
 import '../screens/prayer/prayer_detail_screen.dart';
 import '../screens/prayer/prayer_stats_screen.dart';
 import '../screens/ai/ai_home_screen.dart';
 import '../screens/ai/chat_screen.dart';
 import '../screens/ai/explain_verse_screen.dart';
+// ignore: unnecessary_import
 import '../screens/ai/topic_study_screen.dart';
+// ignore: unnecessary_import
 import '../screens/ai/character_study_screen.dart';
 import '../screens/analytics/dashboard_screen.dart';
 import '../screens/notes/notes_screen.dart';
 import '../screens/notes/note_editor_screen.dart';
 import '../screens/rules/universal_rules_screen.dart';
 import '../screens/rules/rule_editor_screen.dart';
-import '../screens/rules/rules_screen.dart';
 import '../screens/reminders/reminders_screen.dart';
 import '../screens/reminders/reminder_editor_screen.dart';
 import '../screens/notifications/notifications_screen.dart';

@@ -18,7 +18,7 @@ class AchievementsScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             achievementsAsync.when(loading: () => const _BadgesLoading(),
               error: (_, __) => const ErrorView(message: 'Could not load achievements'),
-              data: (badges) => badges.isEmpty ? Center(child: Padding(padding: EdgeInsets.all(32),
+              data: (badges) => badges.isEmpty ? const Center(child: Padding(padding: EdgeInsets.all(32),
                 child: Text('Complete activities to earn achievements!', style: TextStyle(color: AppTheme.textMuted))))
                 : GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 0.9, crossAxisSpacing: 10, mainAxisSpacing: 10),

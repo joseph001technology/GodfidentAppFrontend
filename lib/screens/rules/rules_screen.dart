@@ -18,7 +18,7 @@ class RulesScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             rulesAsync.when(loading: () => const ShimmerList(count: 4),
               error: (_, __) => const ErrorView(message: 'Could not load rules'),
-              data: (rules) => rules.isEmpty ? Center(child: Padding(padding: EdgeInsets.all(32), child: Text('No rules yet', style: TextStyle(color: AppTheme.textMuted))))
+              data: (rules) => rules.isEmpty ? const Center(child: Padding(padding: EdgeInsets.all(32), child: Text('No rules yet', style: TextStyle(color: AppTheme.textMuted))))
                 : ListView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
                     itemCount: rules.length,
                     itemBuilder: (_, i) =>Container(margin: const EdgeInsets.only(bottom: 6), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

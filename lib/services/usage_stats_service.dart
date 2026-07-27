@@ -9,6 +9,7 @@
 /// POST /api/analytics/log-usage/ when available.
 ///
 /// Until implemented, show honest "grant permission" empty state.
+library;
 
 class AppUsageRecord {
   final String appName;

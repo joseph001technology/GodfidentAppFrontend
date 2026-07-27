@@ -82,7 +82,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               Center(
                 child: CircleAvatar(
                   radius: 40,
-                  backgroundColor: AppTheme.gold.withOpacity(0.2),
+                  backgroundColor: AppTheme.gold.withValues(alpha: 0.2),
                   child: Text(
                     user?.initials ?? 'G',
                     style: const TextStyle(color: AppTheme.gold, fontSize: 28, fontWeight: FontWeight.w700),
@@ -120,7 +120,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
               // Translation picker
               DropdownButtonFormField<String>(
-                value: _translation,
+                initialValue: _translation,
                 decoration: const InputDecoration(
                   labelText: 'Preferred Translation',
                   prefixIcon: Icon(Icons.translate, color: AppTheme.gold),
@@ -139,14 +139,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     SwitchListTile(
                       title: const Text('Reading Reminders'),
                       value: _readingReminder,
-                      activeColor: AppTheme.gold,
+                      activeThumbColor: AppTheme.gold,
                       onChanged: (v) => setState(() => _readingReminder = v),
                     ),
                     const Divider(height: 1),
                     SwitchListTile(
                       title: const Text('Prayer Reminders'),
                       value: _prayerReminder,
-                      activeColor: AppTheme.gold,
+                      activeThumbColor: AppTheme.gold,
                       onChanged: (v) => setState(() => _prayerReminder = v),
                     ),
                   ],

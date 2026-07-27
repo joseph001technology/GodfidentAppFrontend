@@ -8,19 +8,19 @@ class ReadingPlanRepository {
   Future<List<ReadingPlan>> getPlans() async {
     final res = await _dio.get('/api/reading-plans/plans/');
     final list = readList(res.data);
-    return (list as List).map((j) => ReadingPlan.fromJson(j)).toList();
+    return (list).map((j) => ReadingPlan.fromJson(j)).toList();
   }
 
   Future<List<ReadingPlanDay>> getPlanDays(int planId) async {
     final res = await _dio.get('/api/reading-plans/plans/$planId/days/');
     final list = readList(res.data);
-    return (list as List).map((j) => ReadingPlanDay.fromJson(j)).toList();
+    return (list).map((j) => ReadingPlanDay.fromJson(j)).toList();
   }
 
   Future<List<UserReadingPlan>> getMyPlans() async {
     final res = await _dio.get('/api/reading-plans/my-plans/');
     final list = readList(res.data);
-    return (list as List).map((j) => UserReadingPlan.fromJson(j)).toList();
+    return (list).map((j) => UserReadingPlan.fromJson(j)).toList();
   }
 
   Future<UserReadingPlan> enroll(int planId) async {
