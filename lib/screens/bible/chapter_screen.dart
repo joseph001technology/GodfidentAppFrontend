@@ -28,11 +28,11 @@ class ChapterScreen extends ConsumerStatefulWidget {
 class _ChapterScreenState extends ConsumerState<ChapterScreen> {
   Timer? _logTimer;
   bool _logged = false;
+  int? _selectedVerseNumber;
 
   @override
   void initState() {
     super.initState();
-    // Auto-log reading after 10 seconds on screen
     _logTimer = Timer(const Duration(seconds: 10), _logReading);
   }
 
@@ -61,46 +61,90 @@ class _ChapterScreenState extends ConsumerState<ChapterScreen> {
 
     return chapterAsync.when(
       loading: () => Scaffold(
+        backgroundColor: AppTheme.navy,
         appBar: AppBar(title: Text('${widget.book} ${widget.chapter}')),
         body: const ShimmerList(count: 8),
       ),
       error: (e, _) => Scaffold(
+        backgroundColor: AppTheme.navy,
         appBar: AppBar(title: Text('${widget.book} ${widget.chapter}')),
         body: ErrorView(
           message: e.toString(),
           onRetry: () => ref.invalidate(chapterProvider(params)),
         ),
       ),
-      data: (chapter) => _ChapterView(chapter: chapter),
+      data: (chapter) => _ChapterView(
+        chapter: chapter,
+        selectedVerse: _selectedVerseNumber,
+        onVerseSelected: (v) {
+          setState(() {
+            _selectedVerseNumber = _selectedVerseNumber == v ? null : v;
+          });
+        },
+      ),
     );
   }
 }
 
 class _ChapterView extends ConsumerWidget {
   final BibleChapter chapter;
-  const _ChapterView({required this.chapter});
+  final int? selectedVerse;
+  final ValueChanged<int> onVerseSelected;
+
+  const _ChapterView({
+    required this.chapter,
+    required this.selectedVerse,
+    required this.onVerseSelected,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final translation = ref.watch(selectedTranslationProvider);
 
     return Scaffold(
+      backgroundColor: AppTheme.navy,
       appBar: AppBar(
-        title: Text('${chapter.book} ${chapter.chapter}'),
-        actions: [
-          // Translation chip
-          GestureDetector(
-            onTap: () => _showTranslationPicker(context, ref),
-            child: Container(
-              margin: const EdgeInsets.only(right: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                border: Border.all(color: AppTheme.gold, width: 0.8),
-                borderRadius: BorderRadius.circular(6),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              chapter.book,
+              style: const TextStyle(
+                fontFamily: 'Lora',
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimary,
               ),
-              child: Text(translation,
-                  style: const TextStyle(color: AppTheme.gold, fontSize: 12)),
             ),
+            Text(
+              'Chapter ${chapter.chapter}',
+              style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted),
+            ),
+          ],
+        ),
+        actions: [
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left, color: AppTheme.gold),
+                onPressed: chapter.hasPrevious
+                    ? () => context.pushReplacement(
+                          '/bible/chapter?book=${Uri.encodeComponent(chapter.book)}&chapter=${chapter.chapter - 1}&translation=$translation',
+                        )
+                    : null,
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, color: AppTheme.gold),
+                onPressed: chapter.hasNext
+                    ? () => context.pushReplacement(
+                          '/bible/chapter?book=${Uri.encodeComponent(chapter.book)}&chapter=${chapter.chapter + 1}&translation=$translation',
+                        )
+                    : null,
+              ),
+              const SizedBox(width: 8),
+            ],
           ),
         ],
       ),
@@ -110,46 +154,20 @@ class _ChapterView extends ConsumerWidget {
             child: ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               itemCount: chapter.verses.length,
-              itemBuilder: (_, i) => _VerseTile(
-                verse: chapter.verses[i],
-                book: chapter.book,
-              ),
+              itemBuilder: (_, i) {
+                final v = chapter.verses[i];
+                final isSelected = selectedVerse == v.verse;
+                return _VerseTile(
+                  verse: v,
+                  book: chapter.book,
+                  isSelected: isSelected,
+                  onTap: () => onVerseSelected(v.verse),
+                );
+              },
             ),
           ),
-          // Prev / Next navigation
           _ChapterNav(chapter: chapter),
         ],
-      ),
-    );
-  }
-
-  void _showTranslationPicker(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.navySurface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Select Translation',
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            ...['KJV', 'NIV', 'ESV', 'NKJV', 'NLT'].map((t) => ListTile(
-                  title: Text(t),
-                  trailing: ref.read(selectedTranslationProvider) == t
-                      ? const Icon(Icons.check, color: AppTheme.gold)
-                      : null,
-                  onTap: () {
-                    ref.read(selectedTranslationProvider.notifier).state = t;
-                    Navigator.pop(context);
-                  },
-                )),
-          ],
-        ),
       ),
     );
   }
@@ -158,104 +176,120 @@ class _ChapterView extends ConsumerWidget {
 class _VerseTile extends ConsumerWidget {
   final BibleVerse verse;
   final String book;
-  const _VerseTile({required this.verse, required this.book});
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _VerseTile({
+    required this.verse,
+    required this.book,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      onLongPress: () => _showVerseActions(context, ref),
-      onTap: () => context.push(
-          '/bible/verse?book=${Uri.encodeComponent(book)}&chapter=${verse.chapter}&verse=${verse.verse}&translation=${verse.translationCode}'),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: '${verse.verse} ',
-                style: const TextStyle(
-                    color: AppTheme.gold,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700),
-              ),
-              TextSpan(
-                text: verse.text,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyLarge
-                    ?.copyWith(height: 1.7),
-              ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            decoration: BoxDecoration(
+              color: isSelected ? AppTheme.gold.withOpacity(0.1) : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 24,
+                  child: Text(
+                    '${verse.verse}',
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      color: AppTheme.gold,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    verse.text,
+                    style: const TextStyle(
+                      fontFamily: 'Lora',
+                      fontSize: 16,
+                      color: AppTheme.textPrimary,
+                      height: 1.7,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
+        if (isSelected) _buildVerseActionToolbar(context, ref),
+      ],
+    );
+  }
+
+  Widget _buildVerseActionToolbar(BuildContext context, WidgetRef ref) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(28, 4, 8, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.navySurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.gold.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _toolbarButton(
+            icon: Icons.bookmark_outline,
+            label: 'Bookmark',
+            onTap: () => _bookmark(context, ref),
+          ),
+          _toolbarButton(
+            icon: Icons.create_outlined,
+            label: 'Highlight',
+            onTap: () => _showHighlightPicker(context, ref),
+          ),
+          _toolbarButton(
+            icon: Icons.share_outlined,
+            label: 'Share',
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: '${verse.reference} — ${verse.text}'));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Verse text copied to clipboard!')),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 
-  void _showVerseActions(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.navySurface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+  Widget _toolbarButton({required IconData icon, required String label, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                '${verse.reference}  —  ${verse.text}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontStyle: FontStyle.italic, color: Colors.grey),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+            Icon(icon, color: AppTheme.gold, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
               ),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.bookmark_border, color: AppTheme.gold),
-              title: const Text('Bookmark'),
-              onTap: () async {
-                Navigator.pop(context);
-                await _bookmark(context, ref);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.highlight, color: Colors.yellow),
-              title: const Text('Highlight'),
-              onTap: () {
-                Navigator.pop(context);
-                _showHighlightPicker(context, ref);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.note_add_outlined, color: Colors.blue),
-              title: const Text('Add Note'),
-              onTap: () {
-                Navigator.pop(context);
-                _showNoteDialog(context, ref);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.auto_awesome, color: Colors.green),
-              title: const Text('Explain with AI'),
-              onTap: () {
-                Navigator.pop(context);
-                context.push(
-                    '/ai/explain-verse?ref=${Uri.encodeComponent(verse.reference)}&text=${Uri.encodeComponent(verse.text)}');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.copy, color: Colors.grey),
-              title: const Text('Copy'),
-              onTap: () {
-                Clipboard.setData(
-                    ClipboardData(text: '${verse.reference} — ${verse.text}'));
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Verse copied')));
-              },
             ),
           ],
         ),
@@ -265,10 +299,8 @@ class _VerseTile extends ConsumerWidget {
 
   Future<void> _bookmark(BuildContext context, WidgetRef ref) async {
     try {
-      // We need book ID — get from books list
       final books = await ref.read(bibleRepositoryProvider).getBooks();
-      final bookObj = books.firstWhere((b) => b.name == book,
-          orElse: () => books.first);
+      final bookObj = books.firstWhere((b) => b.name == book, orElse: () => books.first);
       await ref.read(bibleRepositoryProvider).createBookmark(
             bookId: bookObj.id,
             chapter: verse.chapter,
@@ -276,8 +308,9 @@ class _VerseTile extends ConsumerWidget {
           );
       ref.invalidate(bookmarksProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Bookmarked!')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Verse Bookmarked!')),
+        );
       }
     } catch (_) {}
   }
@@ -295,79 +328,34 @@ class _VerseTile extends ConsumerWidget {
             'green': Colors.green,
             'blue': Colors.blue,
             'pink': Colors.pink,
-            'orange': Colors.orange,
-          }
-              .entries
-              .map((e) => GestureDetector(
-                    onTap: () async {
-                      Navigator.pop(context);
-                      try {
-                        final books =
-                            await ref.read(bibleRepositoryProvider).getBooks();
-                        final bookObj = books.firstWhere((b) => b.name == book,
-                            orElse: () => books.first);
-                        await ref
-                            .read(bibleRepositoryProvider)
-                            .createHighlight(
-                              bookId: bookObj.id,
-                              chapter: verse.chapter,
-                              verse: verse.verse,
-                              color: e.key,
-                            );
-                        ref.invalidate(highlightsProvider);
-                      } catch (_) {}
-                    },
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                          color: e.value, shape: BoxShape.circle),
-                    ),
-                  ))
-              .toList(),
-        ),
-      ),
-    );
-  }
-
-  void _showNoteDialog(BuildContext context, WidgetRef ref) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppTheme.navySurface,
-        title: Text('Note on ${verse.reference}'),
-        content: TextField(
-          controller: controller,
-          maxLines: 4,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: 'Write your note...'),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              if (controller.text.isNotEmpty) {
-                try {
-                  final books =
-                      await ref.read(bibleRepositoryProvider).getBooks();
-                  final bookObj = books.firstWhere((b) => b.name == book,
-                      orElse: () => books.first);
-                  await ref.read(bibleRepositoryProvider).createNote(
-                        bookId: bookObj.id,
-                        chapter: verse.chapter,
-                        verse: verse.verse,
-                        content: controller.text,
+            'purple': Colors.purple,
+          }.entries.map((e) => GestureDetector(
+                onTap: () async {
+                  Navigator.pop(context);
+                  try {
+                    final books = await ref.read(bibleRepositoryProvider).getBooks();
+                    final bookObj = books.firstWhere((b) => b.name == book, orElse: () => books.first);
+                    await ref.read(bibleRepositoryProvider).createHighlight(
+                          bookId: bookObj.id,
+                          chapter: verse.chapter,
+                          verse: verse.verse,
+                          color: e.key,
+                        );
+                    ref.invalidate(highlightsProvider);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Verse highlighted in ${e.key}!')),
                       );
-                  ref.invalidate(verseNotesProvider);
-                } catch (_) {}
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
+                    }
+                  } catch (_) {}
+                },
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(color: e.value, shape: BoxShape.circle),
+                ),
+              )).toList(),
+        ),
       ),
     );
   }
@@ -381,41 +369,33 @@ class _ChapterNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppTheme.navySurface,
-        border: Border(top: BorderSide(color: AppTheme.navyOutline, width: 0.5)),
+        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.08))),
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           if (chapter.hasPrevious)
-            Expanded(
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.gold,
-                    side: const BorderSide(color: AppTheme.navyOutline)),
-                icon: const Icon(Icons.chevron_left, size: 18),
-                label: Text('Ch ${chapter.chapter - 1}'),
-                onPressed: () => context.pushReplacement(
-                    '/bible/chapter?book=${Uri.encodeComponent(chapter.book)}&chapter=${chapter.chapter - 1}&translation=${chapter.translation}'),
+            TextButton.icon(
+              icon: const Icon(Icons.chevron_left, color: AppTheme.gold),
+              label: Text('Chapter ${chapter.chapter - 1}', style: const TextStyle(color: AppTheme.textPrimary)),
+              onPressed: () => context.pushReplacement(
+                '/bible/chapter?book=${Uri.encodeComponent(chapter.book)}&chapter=${chapter.chapter - 1}&translation=${chapter.translation}',
               ),
             )
           else
-            const Expanded(child: SizedBox()),
-          const SizedBox(width: 12),
+            const SizedBox(),
           if (chapter.hasNext)
-            Expanded(
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.gold,
-                    side: const BorderSide(color: AppTheme.navyOutline)),
-                label: Text('Ch ${chapter.chapter + 1}'),
-                icon: const Icon(Icons.chevron_right, size: 18),
-                onPressed: () => context.pushReplacement(
-                    '/bible/chapter?book=${Uri.encodeComponent(chapter.book)}&chapter=${chapter.chapter + 1}&translation=${chapter.translation}'),
+            TextButton.icon(
+              label: Text('Chapter ${chapter.chapter + 1}', style: const TextStyle(color: AppTheme.textPrimary)),
+              icon: const Icon(Icons.chevron_right, color: AppTheme.gold),
+              onPressed: () => context.pushReplacement(
+                '/bible/chapter?book=${Uri.encodeComponent(chapter.book)}&chapter=${chapter.chapter + 1}&translation=${chapter.translation}',
               ),
             )
           else
-            const Expanded(child: SizedBox()),
+            const SizedBox(),
         ],
       ),
     );

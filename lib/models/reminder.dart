@@ -108,6 +108,25 @@ class Reminder {
       return null;
     }
   }
+
+  /// Returns a human-readable time string, e.g. "9:30 AM" or empty string
+  String get formattedTime {
+    if (time == null || time!.isEmpty) return '';
+    try {
+      final parts = time!.split(':');
+      if (parts.length < 2) return time!;
+      final hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+      final period = hour >= 12 ? 'PM' : 'AM';
+      final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+      return '${displayHour}:${minute.toString().padLeft(2, '0')} $period';
+    } catch (_) {
+      return time!;
+    }
+  }
+
+  /// A reminder is active if it is not completed and not snoozed
+  bool get isActive => !isCompleted && !isSnoozed;
 }
 
 class ReminderHistory {

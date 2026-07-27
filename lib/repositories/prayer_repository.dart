@@ -73,6 +73,9 @@ class PrayerRepository {
     });
   }
 
+  /// Alias for logPrayer - records that a prayer was prayed
+  Future<void> recordPrayer(int id, {String note = ''}) => logPrayer(id, note: note);
+
   Future<PrayerStats> getStats() async {
     final res = await _dio.get('/api/prayer/stats/');
     return PrayerStats.fromJson(readDataMap(res.data));

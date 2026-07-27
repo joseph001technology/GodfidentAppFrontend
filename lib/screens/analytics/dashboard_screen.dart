@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../../models/analytics.dart';
 import '../../providers/remaining_providers.dart';
 import '../../widgets/common/app_widgets.dart';
+import '../../shared/widgets/premium_card.dart' as sh;
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -16,56 +17,59 @@ class DashboardScreen extends ConsumerWidget {
     final heatmapAsync = ref.watch(heatmapProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Analytics'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              ref.invalidate(dashboardProvider);
-              ref.invalidate(weeklyReportProvider);
-              ref.invalidate(heatmapProvider);
-            },
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            backgroundColor: AppTheme.navy,
+            elevation: 0,
+            pinned: true,
+            expandedHeight: 100,
+            flexibleSpace: const FlexibleSpaceBar(
+              title: Text('Analytics', style: TextStyle(fontFamily: 'Lora', fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh, color: AppTheme.textPrimary),
+                onPressed: () {
+                  ref.invalidate(dashboardProvider);
+                  ref.invalidate(weeklyReportProvider);
+                  ref.invalidate(heatmapProvider);
+                },
+              ),
+            ],
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                const sh.SectionHeader(title: 'OVERVIEW', uppercase: true),
+                const SizedBox(height: 8),
+                dashAsync.when(
+                  loading: () => const LoadingShimmer(height: 200),
+                  error: (e, _) => ErrorView(message: e.toString()),
+                  data: (dash) => _DashOverview(dash: dash),
+                ),
+                const SizedBox(height: 20),
+                const sh.SectionHeader(title: 'THIS WEEK', uppercase: true),
+                const SizedBox(height: 8),
+                weeklyAsync.when(
+                  loading: () => const LoadingShimmer(height: 180),
+                  error: (_, __) => const SizedBox(),
+                  data: (weekly) => _WeeklyChart(weekly: weekly),
+                ),
+                const SizedBox(height: 20),
+                const sh.SectionHeader(title: 'READING ACTIVITY', uppercase: true),
+                const SizedBox(height: 8),
+                heatmapAsync.when(
+                  loading: () => const LoadingShimmer(height: 120),
+                  error: (_, __) => const SizedBox(),
+                  data: (heatmap) => _HeatmapGrid(heatmap: heatmap),
+                ),
+                const SizedBox(height: 40),
+              ]),
+            ),
           ),
         ],
-      ),
-      body: RefreshIndicator(
-        color: AppTheme.gold,
-        onRefresh: () async {
-          ref.invalidate(dashboardProvider);
-          ref.invalidate(weeklyReportProvider);
-          ref.invalidate(heatmapProvider);
-        },
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // Dashboard overview cards
-            dashAsync.when(
-              loading: () => const LoadingShimmer(height: 200),
-              error: (e, _) => ErrorView(message: e.toString()),
-              data: (dash) => _DashOverview(dash: dash),
-            ),
-            const SizedBox(height: 20),
-
-            // Weekly bar chart
-            const SectionHeader(title: 'THIS WEEK'),
-            weeklyAsync.when(
-              loading: () => const LoadingShimmer(height: 180),
-              error: (_, __) => const SizedBox(),
-              data: (weekly) => _WeeklyChart(weekly: weekly),
-            ),
-            const SizedBox(height: 20),
-
-            // Heatmap
-            const SectionHeader(title: 'READING HEATMAP (365 DAYS)'),
-            heatmapAsync.when(
-              loading: () => const LoadingShimmer(height: 120),
-              error: (_, __) => const SizedBox(),
-              data: (heatmap) => _HeatmapGrid(heatmap: heatmap),
-            ),
-            const SizedBox(height: 40),
-          ],
-        ),
       ),
     );
   }
@@ -112,28 +116,20 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.navySurface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.navyOutline, width: 0.5),
-        ),
-        child: Row(children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(value,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(color: color)),
-                Text(label,
-                    style: Theme.of(context).textTheme.labelSmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-              ],
-            ),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft, end: Alignment.bottomRight,
+            colors: [color.withValues(alpha: 0.1), AppTheme.navySurface],
           ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: 8),
+          Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: color, fontWeight: FontWeight.bold)),
+          Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
         ]),
       ),
     );
@@ -158,40 +154,38 @@ class _WeeklyChart extends StatelessWidget {
           ],
         )).toList();
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 20, 12, 8),
-        child: SizedBox(
-          height: 160,
-          child: BarChart(
-            BarChartData(
-              barGroups: bars,
-              gridData: const FlGridData(show: false),
-              borderData: FlBorderData(show: false),
-              titlesData: FlTitlesData(
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (v, _) {
-                      final idx = v.toInt();
-                      if (idx < 0 || idx >= weekly.days.length) return const SizedBox();
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          weekly.days[idx].dayName.substring(0, 3),
-                          style: TextStyle(
-                            color: weekly.days[idx].isToday ? AppTheme.gold : Colors.grey,
-                            fontSize: 10,
-                          ),
+    return sh.PremiumCard(
+      padding: const EdgeInsets.fromLTRB(12, 20, 12, 8),
+      child: SizedBox(
+        height: 160,
+        child: BarChart(
+          BarChartData(
+            barGroups: bars,
+            gridData: const FlGridData(show: false),
+            borderData: FlBorderData(show: false),
+            titlesData: FlTitlesData(
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  getTitlesWidget: (v, _) {
+                    final idx = v.toInt();
+                    if (idx < 0 || idx >= weekly.days.length) return const SizedBox();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        weekly.days[idx].dayName.substring(0, 3),
+                        style: TextStyle(
+                          color: weekly.days[idx].isToday ? AppTheme.gold : Colors.grey,
+                          fontSize: 10,
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
-                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
+              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             ),
           ),
         ),

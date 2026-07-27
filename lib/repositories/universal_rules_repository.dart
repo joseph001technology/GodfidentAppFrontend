@@ -78,6 +78,7 @@ class LocalUniversalRulesRepository implements UniversalRulesRepository {
       category: category,
       colorTag: colorTag,
       isPinned: isPinned,
+      createdAt: DateTime.now(),
     );
     _rules[rule.id] = rule;
     // TODO: Save to local storage

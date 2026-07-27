@@ -12,22 +12,22 @@ import '../screens/bible/verse_detail_screen.dart';
 import '../screens/bible/search_screen.dart';
 import '../screens/devotionals/devotional_list_screen.dart';
 import '../screens/devotionals/devotional_detail_screen.dart';
-// ignore: unnecessary_import
 import '../screens/devotionals/saved_devotionals_screen.dart';
 import '../screens/reading_plans/plans_screen.dart';
 import '../screens/reading_plans/my_plans_screen.dart';
 import '../screens/reading_plans/plan_day_screen.dart';
+import '../screens/prayer/prayer_list_screen.dart';
 import '../screens/prayer/prayer_form_screen.dart';
 import '../screens/prayer/prayer_detail_screen.dart';
 import '../screens/prayer/prayer_stats_screen.dart';
 import '../screens/ai/ai_home_screen.dart';
 import '../screens/ai/chat_screen.dart';
 import '../screens/ai/explain_verse_screen.dart';
-// ignore: unnecessary_import
 import '../screens/ai/topic_study_screen.dart';
-// ignore: unnecessary_import
 import '../screens/ai/character_study_screen.dart';
 import '../screens/analytics/dashboard_screen.dart';
+import '../screens/progress/progress_screen.dart';
+import '../screens/search/global_search_screen.dart';
 import '../screens/notes/notes_screen.dart';
 import '../screens/notes/note_editor_screen.dart';
 import '../screens/rules/universal_rules_screen.dart';
@@ -36,7 +36,6 @@ import '../screens/reminders/reminders_screen.dart';
 import '../screens/reminders/reminder_editor_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
 import '../screens/focus/focus_screen.dart';
-import '../screens/progress/progress_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/settings/profile_screen.dart';
 import '../screens/settings/change_password_screen.dart';
@@ -71,25 +70,33 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/bible',
             builder: (_, __) => const BibleScreen(),
             routes: [
-              GoRoute(path: 'chapter', builder: (_, state) => ChapterScreen(
-                book: state.uri.queryParameters['book']!,
-                chapter: int.parse(state.uri.queryParameters['chapter']!),
-                translation: state.uri.queryParameters['translation'] ?? 'KJV',
-              )),
-              GoRoute(path: 'verse', builder: (_, state) => VerseDetailScreen(
-                book: state.uri.queryParameters['book']!,
-                chapter: int.parse(state.uri.queryParameters['chapter']!),
-                verse: int.parse(state.uri.queryParameters['verse']!),
-                translation: state.uri.queryParameters['translation'] ?? 'KJV',
-              )),
+              GoRoute(
+                path: 'chapter',
+                builder: (_, state) => ChapterScreen(
+                  book: state.uri.queryParameters['book']!,
+                  chapter: int.parse(state.uri.queryParameters['chapter']!),
+                  translation: state.uri.queryParameters['translation'] ?? 'KJV',
+                ),
+              ),
+              GoRoute(
+                path: 'verse',
+                builder: (_, state) => VerseDetailScreen(
+                  book: state.uri.queryParameters['book']!,
+                  chapter: int.parse(state.uri.queryParameters['chapter']!),
+                  verse: int.parse(state.uri.queryParameters['verse']!),
+                  translation: state.uri.queryParameters['translation'] ?? 'KJV',
+                ),
+              ),
               GoRoute(path: 'search', builder: (_, __) => const SearchScreen()),
             ],
           ),
           GoRoute(path: '/focus', builder: (_, __) => const FocusScreen()),
           GoRoute(path: '/progress', builder: (_, __) => const ProgressScreen()),
+
+          // Prayer routes
           GoRoute(
-            path: '/settings',
-            builder: (_, __) => const SettingsScreen(),
+            path: '/prayer',
+            builder: (_, __) => const PrayerListScreen(),
             routes: [
               GoRoute(path: 'new', builder: (_, __) => const PrayerFormScreen()),
               GoRoute(
@@ -105,6 +112,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(path: 'stats', builder: (_, __) => const PrayerStatsScreen()),
             ],
           ),
+
           // Notes routes
           GoRoute(
             path: '/notes',
@@ -124,6 +132,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
+
           // Rules routes
           GoRoute(
             path: '/rules',
@@ -141,6 +150,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
+
           // Reminders routes
           GoRoute(
             path: '/reminders',
@@ -158,12 +168,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
+
           // Analytics routes
           GoRoute(
             path: '/analytics',
             builder: (_, __) => const DashboardScreen(),
           ),
-          // Profile routes
+
+          // Profile & Settings routes
           GoRoute(
             path: '/profile',
             builder: (_, __) => const ProfileScreen(),
@@ -172,7 +184,18 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(path: 'change-password', builder: (_, __) => const ChangePasswordScreen()),
             ],
           ),
-          // Legacy routes (kept for backward compatibility)
+          GoRoute(
+            path: '/settings',
+            builder: (_, __) => const SettingsScreen(),
+          ),
+
+          // Global Search route
+          GoRoute(
+            path: '/global-search',
+            builder: (_, __) => const GlobalSearchScreen(),
+          ),
+
+          // AI routes
           GoRoute(
             path: '/ai',
             builder: (_, __) => const AiHomeScreen(),
@@ -186,7 +209,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(path: 'character-study', builder: (_, __) => const CharacterStudyScreen()),
             ],
           ),
-          // More/Dashboard routes (for other features)
+
+          // More routes
           GoRoute(
             path: '/more',
             builder: (_, __) => const DevotionalListScreen(),
@@ -204,8 +228,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (_, state) => PlanDayScreen(planId: int.parse(state.pathParameters['id']!)),
               ),
               GoRoute(path: 'notifications', builder: (_, __) => const NotificationsScreen()),
-              GoRoute(path: 'rules', builder: (_, __) => const UniversalRulesScreen()),
-              GoRoute(path: 'reminders', builder: (_, __) => const RemindersScreen()),
               GoRoute(path: 'achievements', builder: (_, __) => const AchievementsScreen()),
             ],
           ),

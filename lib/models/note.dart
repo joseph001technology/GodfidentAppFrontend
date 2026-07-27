@@ -134,4 +134,7 @@ class Note {
         updatedAt: updatedAt,
         color: color ?? this.color,
       );
+
+  /// Returns the first topic name for display purposes, or empty string
+  String get topicName => topicNames.isNotEmpty ? topicNames.first : '';
 }

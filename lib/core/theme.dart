@@ -29,6 +29,20 @@ class AppTheme {
   static const Color softBlue = Color(0xFF60A5FA);
   static const Color warmGray = Color(0xFF9CA3AF);
 
+  // Premium shadow
+  static BoxDecoration glassDecoration({
+    double blur = 10,
+    Color background = const Color(0x1AFFFFFF),
+    BorderRadius borderRadius = const BorderRadius.all(Radius.circular(20)),
+    Color? borderColor,
+  }) {
+    return BoxDecoration(
+      color: background,
+      borderRadius: borderRadius,
+      border: borderColor != null ? Border.all(color: borderColor) : null,
+    );
+  }
+
   static ThemeData dark() {
     final base = ThemeData(
       useMaterial3: true,
