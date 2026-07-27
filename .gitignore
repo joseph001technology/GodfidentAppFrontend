@@ -2,7 +2,10 @@
 *.class
 *.log
 *.pyc
+*.pyo
 *.swp
+*.bak
+*~
 .DS_Store
 .atom/
 .buildlog/
@@ -12,9 +15,9 @@
 
 # IntelliJ / Android Studio
 *.iml
+*.ipr
+*.iws
 .idea/
-.gradle/
-local.properties
 
 # VS Code
 .vscode/
@@ -23,17 +26,14 @@ local.properties
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
+.flutter-versions
 .packages
 .pub/
 .pub-cache/
 build/
+.metadata
 
-# Flutter generated
-.flutter-versions
-.flutter-plugins
-.flutter-plugins-dependencies
-
-# Dart
+# Dart docs
 doc/api/
 .dartdoc/
 
@@ -48,23 +48,34 @@ coverage/
 # Firebase
 google-services.json
 GoogleService-Info.plist
+firebase_options.dart
 
 # Android
-/android/app/debug
-/android/app/profile
-/android/app/release
+android/.gradle/
+android/local.properties
+android/gradle-wrapper.jar
+android/app/debug
+android/app/profile
+android/app/release
+android/key.properties
+*.jks
+*.keystore
 
 # iOS
 ios/Flutter/.last_build_id
 ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec
+ios/Flutter/App.framework
+ios/Flutter/ephemeral/
 ios/Pods/
 ios/.symlinks/
 ios/Runner.xcworkspace/
+*.ipa
 
 # macOS
 macos/Pods/
 macos/Flutter/ephemeral/
+macos/Runner.xcworkspace/
 
 # Linux
 linux/flutter/ephemeral/
@@ -87,11 +98,6 @@ fastlane/test_output
 # Obfuscation and symbols
 app.*.symbols
 *.symbols
-
-# Keystore files (IMPORTANT)
-*.jks
-*.keystore
-key.properties
 
 # Private credentials
 service-account.json
