@@ -67,6 +67,8 @@ ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec
 ios/Flutter/App.framework
 ios/Flutter/ephemeral/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
 ios/Pods/
 ios/.symlinks/
 ios/Runner.xcworkspace/
@@ -88,6 +90,8 @@ web/.dart_tool/
 
 # Generated plugin registrants
 **/GeneratedPluginRegistrant.*
+**/generated_plugin_registrant.*
+**/generated_plugins.cmake
 
 # Fastlane
 fastlane/report.xml

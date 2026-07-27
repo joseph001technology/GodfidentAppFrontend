@@ -188,7 +188,32 @@ class BibleRepository {
     return VerseNote.fromJson(res.data);
   }
 
-  Future<void> deleteNote(int id) async {
-    await _dio.delete('/api/bible/notes/$id/');
+  Future<BibleVerse> getVerseOfTheDay() async {
+    final res = await _dio.get('/api/bible/verse-of-the-day/');
+    final data = res.data['data'] ?? res.data;
+    return BibleVerse.fromJson(data);
+  }
+
+  Future<Map<String, dynamic>> getReadingProgress() async {
+    final res = await _dio.get('/api/bible/reading-progress/');
+    final data = res.data['data'] ?? res.data;
+    return {
+      'location': '${data['book_name'] ?? 'Genesis'} ${data['chapter'] ?? 1}',
+      'percent': (data['percent'] ?? 0.0) / 100.0,
+    };
+  }
+
+  Future<void> saveReadingProgress({required String book, required int chapter}) async {
+    await _dio.post('/api/bible/save-progress/', data: {
+      'book': book,
+      'chapter': chapter,
+    });
+  }
+
+  Future<void> logReading({required String book, required int chapter}) async {
+    await _dio.post('/api/analytics/log-reading/', data: {
+      'book_name': book,
+      'chapter': chapter,
+    });
   }
 }

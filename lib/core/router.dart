@@ -30,17 +30,20 @@ import '../screens/notes/notes_screen.dart';
 import '../screens/notes/note_editor_screen.dart';
 import '../screens/rules/universal_rules_screen.dart';
 import '../screens/rules/rule_editor_screen.dart';
+import '../screens/rules/rules_screen.dart';
 import '../screens/reminders/reminders_screen.dart';
 import '../screens/reminders/reminder_editor_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
+import '../screens/focus/focus_screen.dart';
+import '../screens/progress/progress_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/settings/profile_screen.dart';
 import '../screens/settings/change_password_screen.dart';
+import '../screens/achievements/achievements_screen.dart';
 import '../widgets/common/shell_scaffold.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
-
   return GoRouter(
     initialLocation: '/home',
     redirect: (context, state) {
@@ -49,19 +52,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           state.matchedLocation.startsWith('/register') ||
           state.matchedLocation.startsWith('/forgot') ||
           state.matchedLocation.startsWith('/verify');
-
       if (!isAuthed && !isAuthRoute) return '/login';
       if (isAuthed && isAuthRoute) return '/home';
       return null;
     },
     routes: [
-      // Auth routes
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
       GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordScreen()),
       GoRoute(path: '/verify-email', builder: (_, __) => const VerifyEmailScreen()),
 
-      // Shell with bottom nav
       ShellRoute(
         builder: (context, state, child) => ShellScaffold(child: child),
         routes: [
@@ -70,29 +70,25 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/bible',
             builder: (_, __) => const BibleScreen(),
             routes: [
-              GoRoute(
-                path: 'chapter',
-                builder: (_, state) => ChapterScreen(
-                  book: state.uri.queryParameters['book']!,
-                  chapter: int.parse(state.uri.queryParameters['chapter']!),
-                  translation: state.uri.queryParameters['translation'] ?? 'KJV',
-                ),
-              ),
-              GoRoute(
-                path: 'verse',
-                builder: (_, state) => VerseDetailScreen(
-                  book: state.uri.queryParameters['book']!,
-                  chapter: int.parse(state.uri.queryParameters['chapter']!),
-                  verse: int.parse(state.uri.queryParameters['verse']!),
-                  translation: state.uri.queryParameters['translation'] ?? 'KJV',
-                ),
-              ),
+              GoRoute(path: 'chapter', builder: (_, state) => ChapterScreen(
+                book: state.uri.queryParameters['book']!,
+                chapter: int.parse(state.uri.queryParameters['chapter']!),
+                translation: state.uri.queryParameters['translation'] ?? 'KJV',
+              )),
+              GoRoute(path: 'verse', builder: (_, state) => VerseDetailScreen(
+                book: state.uri.queryParameters['book']!,
+                chapter: int.parse(state.uri.queryParameters['chapter']!),
+                verse: int.parse(state.uri.queryParameters['verse']!),
+                translation: state.uri.queryParameters['translation'] ?? 'KJV',
+              )),
               GoRoute(path: 'search', builder: (_, __) => const SearchScreen()),
             ],
           ),
+          GoRoute(path: '/focus', builder: (_, __) => const FocusScreen()),
+          GoRoute(path: '/progress', builder: (_, __) => const ProgressScreen()),
           GoRoute(
-            path: '/prayer',
-            builder: (_, __) => const PrayerListScreen(),
+            path: '/settings',
+            builder: (_, __) => const SettingsScreen(),
             routes: [
               GoRoute(path: 'new', builder: (_, __) => const PrayerFormScreen()),
               GoRoute(
@@ -209,6 +205,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(path: 'notifications', builder: (_, __) => const NotificationsScreen()),
               GoRoute(path: 'rules', builder: (_, __) => const UniversalRulesScreen()),
               GoRoute(path: 'reminders', builder: (_, __) => const RemindersScreen()),
+              GoRoute(path: 'achievements', builder: (_, __) => const AchievementsScreen()),
             ],
           ),
         ],

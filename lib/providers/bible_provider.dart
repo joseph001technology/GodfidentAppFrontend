@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/bible.dart';
 import '../repositories/bible_repository.dart';
+import '../repositories/reading_plan_repository.dart';
 
 final bibleRepositoryProvider = Provider((_) => BibleRepository());
+final readingPlanRepositoryProvider = Provider((_) => ReadingPlanRepository());
 
 final translationsProvider = FutureProvider<List<BibleTranslation>>((ref) {
   return ref.read(bibleRepositoryProvider).getTranslations();
@@ -80,6 +82,22 @@ final searchResultsProvider = FutureProvider<List<BibleVerse>>((ref) {
   final translation = ref.watch(selectedTranslationProvider);
   if (q.isEmpty) return Future.value([]);
   return ref.read(bibleRepositoryProvider).search(q: q, translation: translation);
+});
+
+// Verse of the Day
+final verseOfTheDayProvider = FutureProvider<BibleVerse>((ref) async {
+  final res = await ref.read(bibleRepositoryProvider).getVerseOfTheDay();
+  return res;
+});
+
+// Reading Progress
+final readingProgressProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  try {
+    final progress = await ref.read(bibleRepositoryProvider).getReadingProgress();
+    return progress;
+  } catch (_) {
+    return {'location': 'Genesis 1', 'percent': 0.0};
+  }
 });
 
 // Bookmarks

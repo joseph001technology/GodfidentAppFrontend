@@ -46,6 +46,8 @@ class ReadingStats {
       );
 
   int get currentStreak => streak['current_streak'] ?? 0;
+
+  String? get lastReadLocation => null;
 }
 
 class PrayerDashStats {
