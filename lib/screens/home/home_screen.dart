@@ -227,4 +227,83 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
+
+  Widget _buildProgressRing(AsyncValue<dynamic> dashboardAsync) {
+    final progress = dashboardAsync.valueOrNull != null ? 0.5 : 0.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: "TODAY'S PROGRESS"),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(color: AppTheme.navySurface, borderRadius: BorderRadius.circular(20)),
+          child: Row(children: [
+            ProgressRing(
+              progress: progress.clamp(0.0, 1.0),
+              size: 72,
+              strokeWidth: 7,
+              child: Text('${(progress * 100).toInt()}%', style: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.gold)),
+            ),
+            const SizedBox(width: 18),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Keep it up!', style: const TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+              const SizedBox(height: 6),
+              Text('Prayer · Bible · Focus', style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textSecondary)),
+            ])),
+          ]),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRemindersSection(AsyncValue<dynamic> remindersAsync) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          const SectionHeader(title: 'REMINDERS'),
+          const Spacer(),
+          TextButton(
+            onPressed: () => context.push('/reminders'),
+            child: const Text('Edit', style: TextStyle(fontSize: 12, color: AppTheme.gold)),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        remindersAsync.when(
+          loading: () => const LoadingShimmer(height: 120),
+          error: (_, __) => Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: AppTheme.navySurface, borderRadius: BorderRadius.circular(16)),
+            child: const Text('Could not load reminders.', style: TextStyle(color: AppTheme.textMuted)),
+          ),
+          data: (reminders) {
+            final list = reminders.cast<dynamic>().take(3).toList();
+            if (list.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: AppTheme.navySurface, borderRadius: BorderRadius.circular(16)),
+                child: const Text('No reminders yet.', style: TextStyle(color: AppTheme.textMuted)),
+              );
+            }
+            return Column(children: list.map((r) {
+              final reminder = r as dynamic;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(color: AppTheme.navySurface, borderRadius: BorderRadius.circular(14)),
+                child: Row(children: [
+                  const Icon(Icons.alarm_outlined, color: AppTheme.accentTeal, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(reminder.title ?? 'Reminder', style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textPrimary))),
+                  Text(reminder.date ?? '', style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted)),
+                ]),
+              );
+            }).toList());
+          },
+        ),
+      ],
+    );
+  }
+
   }
