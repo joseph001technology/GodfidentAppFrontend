@@ -232,10 +232,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             // Logout Button
             ElevatedButton.icon(
-              onPressed: () async {
-                await ref.read(authStateProvider.notifier).logout();
-                if (context.mounted) context.go('/login');
-              },
+              onPressed: _handleLogout,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444).withOpacity(0.15),
                 foregroundColor: const Color(0xFFEF4444),
@@ -249,6 +246,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _handleLogout() async {
+    await ref.read(authActionProvider).logout();
+    if (context.mounted) context.go('/login');
   }
 
   Widget _buildUserCard(String name, String handle) {

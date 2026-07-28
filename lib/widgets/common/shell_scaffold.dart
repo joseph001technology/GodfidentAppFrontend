@@ -14,9 +14,10 @@ class _ShellScaffoldState extends State<ShellScaffold> {
   int _locationToIndex(String location) {
     if (location.startsWith('/home')) return 0;
     if (location.startsWith('/bible')) return 1;
-    if (location.startsWith('/focus')) return 2;
-    if (location.startsWith('/progress') || location.startsWith('/analytics')) return 3;
-    if (location.startsWith('/profile') || location.startsWith('/settings')) return 4;
+    if (location.startsWith('/prayer')) return 2;
+    if (location.startsWith('/notes')) return 3;
+    if (location.startsWith('/analytics') || location.startsWith('/progress')) return 4;
+    if (location.startsWith('/profile') || location.startsWith('/settings')) return 5;
     return 0;
   }
 
@@ -29,12 +30,15 @@ class _ShellScaffoldState extends State<ShellScaffold> {
         context.go('/bible');
         break;
       case 2:
-        context.go('/focus');
+        context.go('/prayer');
         break;
       case 3:
-        context.go('/progress');
+        context.go('/notes');
         break;
       case 4:
+        context.go('/analytics');
+        break;
+      case 5:
         context.go('/profile');
         break;
     }
@@ -91,9 +95,10 @@ class _ShellScaffoldState extends State<ShellScaffold> {
             items: const [
               BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
               BottomNavigationBarItem(icon: Icon(Icons.menu_book_outlined), activeIcon: Icon(Icons.menu_book), label: 'Bible'),
-              BottomNavigationBarItem(icon: Icon(Icons.track_changes_outlined), activeIcon: Icon(Icons.track_changes), label: 'Focus'),
-              BottomNavigationBarItem(icon: Icon(Icons.show_chart_outlined), activeIcon: Icon(Icons.show_chart), label: 'Progress'),
-              BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), activeIcon: Icon(Icons.settings), label: 'Settings'),
+              BottomNavigationBarItem(icon: Icon(Icons.volunteer_activism_outlined), activeIcon: Icon(Icons.volunteer_activism), label: 'Prayer'),
+              BottomNavigationBarItem(icon: Icon(Icons.edit_note_outlined), activeIcon: Icon(Icons.edit_note), label: 'Notes'),
+              BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined), activeIcon: Icon(Icons.analytics), label: 'Analytics'),
+              BottomNavigationBarItem(icon: Icon(Icons.person_outlined), activeIcon: Icon(Icons.person), label: 'Profile'),
             ],
           ),
         ),

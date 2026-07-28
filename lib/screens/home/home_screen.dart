@@ -5,11 +5,15 @@ import '../../core/theme.dart';
 import '../../core/widgets/progress_ring.dart' hide SectionHeader;
 import '../../core/widgets/verse_card.dart';
 import '../../models/analytics.dart';
+import '../../models/note.dart';
 import '../../models/reminder.dart';
+import '../../models/rule.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/bible_provider.dart';
+import '../../providers/notes_provider.dart';
 import '../../providers/remaining_providers.dart';
+import '../../providers/rules_provider.dart';
 import '../../widgets/common/app_widgets.dart';
 import '../../shared/widgets/premium_card.dart' as sh;
 
@@ -55,6 +59,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final remindersAsync = ref.watch(remindersProvider);
     final dashboardAsync = ref.watch(dashboardProvider);
     final encouragementAsync = ref.watch(dailyEncouragementProvider);
+    final notesAsync = ref.watch(notesProvider);
+    final todayRulesAsync = ref.watch(todayRulesProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.navy,
@@ -71,13 +77,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            SliverToBoxAdapter(child: _buildHeroHeader(userAsync, unreadAsync)),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildHeroHeader(userAsync, unreadAsync),
                     versesAsync.when(
                       loading: () => const LoadingShimmer(height: 180, borderRadius: 20),
                       error: (_, __) => const VerseCard(
@@ -105,6 +111,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     _buildDailyInspiration(),
                     const SizedBox(height: 20),
                     _buildContinueReading(readingProgressAsync),
+                    const SizedBox(height: 20),
+                    _buildRecentNotes(notesAsync),
+                    const SizedBox(height: 20),
+                    _buildUniversalRulesPreview(todayRulesAsync),
                     const SizedBox(height: 20),
                     _buildDailyInspirationQuote(encouragementAsync),
                     const SizedBox(height: 20),
@@ -1220,5 +1230,279 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ],
     );
+  }
+  Widget _buildRecentNotes(AsyncValue<List<Note>> notesAsync) {
+    return sh.PremiumCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Recent Notes', style: TextStyle(fontFamily: 'Lora', fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            GestureDetector(onTap: () => context.push('/notes'), child: const Text('View All →', style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.gold, fontWeight: FontWeight.w600))),
+          ]),
+          const SizedBox(height: 14),
+          notesAsync.when(loading: () => const LoadingShimmer(height: 80), error: (_, __) => _buildDefaultRecentNotes(), data: (notes) {
+            final recent = notes.take(3).toList();
+            if (recent.isEmpty) return _buildDefaultRecentNotes();
+            return Column(children: recent.map((n) {
+              final topic = n.topicName.isNotEmpty ? n.topicName : 'General';
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(14)),
+                child: Row(children: [
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: AppTheme.softBlue.withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Text(topic, style: const TextStyle(fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.softBlue))),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(n.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary))),
+                  if (n.isPinned) const Icon(Icons.push_pin, color: AppTheme.gold, size: 14),
+                ]),
+              );
+            }).toList());
+          }),
+        ],
+      ),
+    );
+  }
+
+}
+  Widget _buildDefaultRecentNotes() {
+    final notes = [
+      {'title': 'Walking in Divine Grace', 'topic': 'Grace', 'pinned': true},
+      {'title': 'Kingdom Leadership Principles', 'topic': 'Leadership', 'pinned': false},
+      {'title': 'Faith in Times of Trial', 'topic': 'Faith', 'pinned': false},
+    ];
+    return Column(children: notes.map((n) {
+      final isPinned = n['pinned'] as bool;
+      return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(14)),
+        child: Row(children: [
+          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: AppTheme.softBlue.withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Text(n['topic'] as String, style: const TextStyle(fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.softBlue))),
+          const SizedBox(width: 10),
+          Expanded(child: Text(n['title'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary))),
+          if (isPinned) const Icon(Icons.push_pin, color: AppTheme.gold, size: 14),
+        ]),
+      );
+    }).toList());
+  }
+
+  Widget _buildUniversalRulesPreview(AsyncValue<List<Rule>> rulesAsync) {
+    return sh.PremiumCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Universal Rules', style: TextStyle(fontFamily: 'Lora', fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            GestureDetector(onTap: () => context.push('/rules'), child: const Text('View All →', style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.gold, fontWeight: FontWeight.w600))),
+          ]),
+          const SizedBox(height: 6),
+          Text('Live by your God-given rules today', style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted)),
+          const SizedBox(height: 14),
+          rulesAsync.when(
+            loading: () => const LoadingShimmer(height: 80),
+            error: (_, __) => _buildDefaultRulesList(),
+            data: (rules) {
+              final todayRules = rules.where((r) => r.isActive && !r.isCompleted).take(3).toList();
+              if (todayRules.isEmpty) return _buildDefaultRulesList();
+              return Column(children: todayRules.map((r) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(14)),
+                    child: Row(children: [
+                      Container(width: 22, height: 22, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppTheme.gold, width: 1.5)), child: r.isCompleted ? Icon(Icons.check, size: 14, color: AppTheme.gold) : null),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(r.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary, decoration: r.isCompleted ? TextDecoration.lineThrough : null))),
+                      if (r.isPinned) Icon(Icons.push_pin, color: AppTheme.gold.withOpacity(0.8), size: 14),
+                    ]),
+                  ),
+                );
+              }).toList());
+            },
+          ),
+        ],
+      ),
+    );
+  Widget _buildTodayDevotionSection(AsyncValue<Dashboard> dashboardAsync) {
+    return sh.PremiumCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Today's Devotion",
+                style: TextStyle(fontFamily: 'Lora', fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+              ),
+              Text(
+                '${(_devotionProgress * 100).toInt()}%',
+                style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textMuted),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _buildDevotionCheckbox(
+                  icon: Icons.volunteer_activism,
+                  label: 'Daily Prayer',
+                  sublabel: _dailyPrayerCompleted ? 'Done! +1 streak' : 'Tap to pray',
+                  isCompleted: _dailyPrayerCompleted,
+                  onTap: () => setState(() => _dailyPrayerCompleted = !_dailyPrayerCompleted),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildDevotionCheckbox(
+                  icon: Icons.menu_book,
+                  label: 'Read Bible',
+                  sublabel: _readBibleCompleted ? 'Done! +1 streak' : 'Tap to read',
+                  isCompleted: _readBibleCompleted,
+                  onTap: () => setState(() => _readBibleCompleted = !_readBibleCompleted),
+                ),
+  Widget _buildDevotionCheckbox({
+    required IconData icon,
+    required String label,
+    required String sublabel,
+    required bool isCompleted,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDefaultRulesList() {
+  }
+
+  Widget _buildDefaultRulesList() {
+    final rules = [
+      {'title': 'Start the day with prayer', 'pinned': true, 'done': false},
+      {'title': 'Read at least one chapter', 'pinned': false, 'done': true},
+      {'title': 'Speak life, not criticism', 'pinned': false, 'done': false},
+    ];
+    return Column(children: rules.map((r) {
+      final isPinned = r['pinned'] as bool;
+      final isDone = r['done'] as bool;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(14)),
+          child: Row(children: [
+            Container(width: 22, height: 22, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppTheme.gold, width: 1.5)), child: isDone ? Icon(Icons.check, size: 14, color: AppTheme.gold) : null),
+            const SizedBox(width: 12),
+            Expanded(child: Text(r['title'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary, decoration: isDone ? TextDecoration.lineThrough : null))),
+            if (isPinned) Icon(Icons.push_pin, color: AppTheme.gold, size: 14),
+          ]),
+        ),
+      );
+    }).toList());
+  }
+}
+  Widget _buildTodayProgressSection(AsyncValue<Dashboard> dashboardAsync) {
+    final progress = _devotionProgress;
+    final prayerStreak = dashboardAsync.when(data: (d) => d.prayer.currentStreak, loading: () => 7, error: (_, __) => 7);
+    final bibleStreak = dashboardAsync.when(data: (d) => d.reading.currentStreak, loading: () => 14, error: (_, __) => 14);
+    final focusScore = dashboardAsync.when(data: (d) => d.focus.focusScore, loading: () => 82, error: (_, __) => 82);
+
+    return sh.PremiumCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text('${(progress * 100).toInt()}%', style: const TextStyle(fontFamily: 'Inter', fontSize: 32, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text("Today's Progress", style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+            Text(progress >= 1.0 ? 'Completed! Praise God!' : 'Start your devotion', style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted)),
+          ])),
+        ]),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: Row(children: [
+            const Icon(Icons.local_fire_department, color: AppTheme.gold, size: 16),
+            const SizedBox(width: 4),
+            Text('$prayerStreak d', style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.gold)),
+            const SizedBox(width: 4),
+            Expanded(child: Text('Prayer Streak', style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted), overflow: TextOverflow.ellipsis)),
+          ])),
+          Expanded(child: Row(children: [
+            const Icon(Icons.menu_book, color: AppTheme.emerald, size: 16),
+            const SizedBox(width: 4),
+            Text('$bibleStreak d', style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+            const SizedBox(width: 4),
+            Expanded(child: Text('Bible Streak', style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted), overflow: TextOverflow.ellipsis)),
+          ])),
+          Expanded(child: Row(children: [
+            const Icon(Icons.track_changes, color: AppTheme.accentPurple, size: 16),
+            const SizedBox(width: 4),
+            Text('$focusScore%', style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.accentPurple)),
+            const SizedBox(width: 4),
+            Expanded(child: Text('Focus Score', style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted), overflow: TextOverflow.ellipsis)),
+          ])),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _buildDefaultRulesList() {
+    final rules = [
+      {'title': 'Start the day with prayer', 'pinned': true, 'done': false},
+      {'title': 'Read at least one chapter', 'pinned': false, 'done': true},
+      {'title': 'Speak life, not criticism', 'pinned': false, 'done': false},
+    ];
+    return Column(children: rules.map((r) {
+      final isPinned = r['pinned'] as bool;
+      final isDone = r['done'] as bool;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(14)),
+          child: Row(children: [
+            Container(width: 22, height: 22, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppTheme.gold, width: 1.5)), child: isDone ? Icon(Icons.check, size: 14, color: AppTheme.gold) : null),
+            const SizedBox(width: 12),
+            Expanded(child: Text(r['title'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary, decoration: isDone ? TextDecoration.lineThrough : null))),
+            if (isPinned) Icon(Icons.push_pin, color: AppTheme.gold, size: 14),
+          ]),
+        ),
+      );
+    }).toList());
+  }
+}
+  Widget _buildDefaultRulesList() {
+    final rules = [
+      {'title': 'Start the day with prayer', 'pinned': true, 'done': false},
+      {'title': 'Read at least one chapter', 'pinned': false, 'done': true},
+      {'title': 'Speak life, not criticism', 'pinned': false, 'done': false},
+    ];
+    return Column(children: rules.map((r) {
+      final isPinned = r['pinned'] as bool;
+      final isDone = r['done'] as bool;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(14)),
+          child: Row(children: [
+            Container(width: 22, height: 22, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppTheme.gold, width: 1.5)), child: isDone ? Icon(Icons.check, size: 14, color: AppTheme.gold) : null),
+            const SizedBox(width: 12),
+            Expanded(child: Text(r['title'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary, decoration: isDone ? TextDecoration.lineThrough : null))),
+            if (isPinned) Icon(Icons.push_pin, color: AppTheme.gold, size: 14),
+          ]),
+        ),
+      );
+    }).toList());
   }
 }
