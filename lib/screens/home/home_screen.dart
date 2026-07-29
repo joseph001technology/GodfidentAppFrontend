@@ -15,6 +15,7 @@ import '../../providers/notes_provider.dart';
 import '../../providers/remaining_providers.dart';
 import '../../providers/rules_provider.dart';
 import '../../widgets/common/app_widgets.dart';
+import '../../widgets/common/prayer_timer_widget.dart';
 import '../../shared/widgets/premium_card.dart' as sh;
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -96,6 +97,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
+                    _buildPrayerTimerSection(),
+                    const SizedBox(height: 20),
                     _buildMoodTracker(),
                     const SizedBox(height: 20),
                     _buildTodayDevotionSection(dashboardAsync),
@@ -169,38 +172,58 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ],
               ),
-              Stack(
+              Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications_outlined, color: AppTheme.textPrimary, size: 26),
-                    onPressed: () => context.push('/more/notifications'),
-                  ),
-                  unreadAsync.when(
-                    data: (count) => count > 0
-                        ? Positioned(
-                            right: 6,
-                            top: 6,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: AppTheme.gold,
-                                shape: BoxShape.circle,
-                              ),
-                              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                              child: Text(
-                                '$count',
-                                style: const TextStyle(
-                                  color: AppTheme.navy,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
+                  Stack(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.notifications_outlined, color: AppTheme.textPrimary, size: 26),
+                        onPressed: () => context.push('/more/notifications'),
+                      ),
+                      unreadAsync.when(
+                        data: (count) => count > 0
+                            ? Positioned(
+                                right: 6,
+                                top: 6,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.gold,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                                  child: Text(
+                                    '$count',
+                                    style: const TextStyle(
+                                      color: AppTheme.navy,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
+                              )
+                            : const SizedBox.shrink(),
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                  // Small add button next to notifications
+                  Container(
+                    width: 32,
+                    height: 32,
+                    margin: const EdgeInsets.only(right: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.gold.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.add, color: AppTheme.gold, size: 18),
+                      padding: EdgeInsets.zero,
+                      onPressed: () => context.push('/prayer/new'),
+                      tooltip: 'Quick Add Prayer',
+                    ),
                   ),
                 ],
               ),
@@ -382,12 +405,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildTodayDevotionSection(AsyncValue<Dashboard> dashboardAsync) {
-    final streak = dashboardAsync.when(
-      data: (d) => d.reading.currentStreak,
-      loading: () => 0,
-      error: (_, __) => 0,
-    );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1352,5 +1369,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       );
     }).toList());
+  }
+
+  Widget _buildPrayerTimerSection() {
+    return PrayerTimerWidget(showCompact: true, initialSeconds: 300);
   }
 }

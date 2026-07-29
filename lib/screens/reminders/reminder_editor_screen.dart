@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/reminders_provider.dart';
 import '../../core/theme.dart';
+import '../../services/notification_service.dart';
 
 class ReminderEditorScreen extends ConsumerStatefulWidget {
   final String? reminderId;
@@ -45,10 +46,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
   Future<void> _saveReminder() async {
     if (titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a reminder title'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Please enter a reminder title'), backgroundColor: Colors.red),
       );
       return;
     }
@@ -70,12 +68,34 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
       await ref.read(remindersProvider.notifier).create(data);
     }
 
+    // Schedule local notification
+    if (isEnabled) {
+      final notificationId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final title = titleController.text.trim();
+      final body = descriptionController.text.trim().isNotEmpty
+          ? descriptionController.text.trim()
+          : 'Time for your spiritual reminder - $title';
+      final scheduledDate = DateTime(
+        selectedDate.year, selectedDate.month, selectedDate.day,
+        selectedTime.hour, selectedTime.minute,
+      );
+
+      try {
+        if (selectedRepeat == 'daily') {
+          await NotificationService().scheduleDailyReminder(id: notificationId, title: title, body: body);
+        } else if (selectedRepeat == 'weekly') {
+          await NotificationService().scheduleWeeklyReminder(id: notificationId, title: title, body: body);
+        } else {
+          await NotificationService().scheduleOneTimeReminder(id: notificationId, title: title, body: body, scheduledDate: scheduledDate);
+        }
+      } catch (_) {
+        // Notification scheduling silently fails if permissions not granted
+      }
+    }
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Reminder saved'),
-          backgroundColor: AppTheme.emerald,
-        ),
+        const SnackBar(content: Text('Reminder saved'), backgroundColor: AppTheme.emerald),
       );
       Navigator.of(context).pop();
     }

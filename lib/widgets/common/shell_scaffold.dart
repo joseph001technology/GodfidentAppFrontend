@@ -103,23 +103,9 @@ class _ShellScaffoldState extends State<ShellScaffold> {
           ),
         ),
       ),
-      floatingActionButton: _buildFab(context),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-    );
+        );
   }
 
-  Widget _buildFab(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: FloatingActionButton(
-        onPressed: () => _showFabMenu(context),
-        backgroundColor: AppTheme.gold,
-        elevation: 8,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        child: const Icon(Icons.add, color: AppTheme.navy, size: 28),
-      ),
-    );
-  }
 }
 
 class _FabMenu extends StatelessWidget {

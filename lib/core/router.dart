@@ -28,6 +28,7 @@ import '../screens/progress/progress_screen.dart';
 import '../screens/search/global_search_screen.dart';
 import '../screens/notes/notes_screen.dart';
 import '../screens/notes/note_editor_screen.dart';
+import '../screens/notes/note_detail_screen.dart';
 import '../screens/rules/universal_rules_screen.dart';
 import '../screens/rules/rule_editor_screen.dart';
 import '../screens/reminders/reminders_screen.dart';
@@ -124,9 +125,17 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
               GoRoute(
                 path: ':id',
-                builder: (_, state) => NoteEditorScreen(
-                  noteId: state.pathParameters['id'],
+                builder: (_, state) => NoteDetailScreen(
+                  noteId: int.parse(state.pathParameters['id']!),
                 ),
+                routes: [
+                  GoRoute(
+                    path: 'edit',
+                    builder: (_, state) => NoteEditorScreen(
+                      noteId: state.pathParameters['id'],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

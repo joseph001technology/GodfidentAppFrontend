@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../../models/prayer.dart';
 import '../../providers/remaining_providers.dart';
 import '../../widgets/common/app_widgets.dart';
+import '../../widgets/common/prayer_timer_widget.dart';
 
 class PrayerListScreen extends ConsumerStatefulWidget {
   const PrayerListScreen({super.key});
@@ -63,58 +64,8 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Prayer Timer Quick Banner
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF14243A), Color(0xFF1E1E3A)],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.emerald.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.timer_outlined, color: AppTheme.emerald, size: 28),
-                    ),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Prayer Timer',
-                            style: TextStyle(fontFamily: 'Lora', fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Enter focused silent prayer',
-                            style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted),
-                          ),
-                        ],
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => _showPrayerTimerDialog(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                      child: const Text('Start (5m)', style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              ),
+              // Prayer Timer Quick Banner (functional)
+              PrayerTimerWidget(showCompact: true, initialSeconds: 300),
 
               const SizedBox(height: 20),
 
@@ -328,30 +279,6 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
           ),
         );
       }).toList(),
-    );
-  }
-
-  void _showPrayerTimerDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.navySurface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Prayer Session Active', style: TextStyle(fontFamily: 'Lora', color: AppTheme.textPrimary)),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.volunteer_activism, size: 54, color: AppTheme.emerald),
-            SizedBox(height: 16),
-            Text('5:00', style: TextStyle(fontFamily: 'Inter', fontSize: 42, fontWeight: FontWeight.bold, color: AppTheme.gold)),
-            SizedBox(height: 8),
-            Text('Be still and know that I am God.\n— Psalm 46:10', textAlign: TextAlign.center, style: TextStyle(fontFamily: 'Lora', fontStyle: FontStyle.italic, color: AppTheme.textMuted)),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('End Session', style: TextStyle(color: AppTheme.gold))),
-        ],
-      ),
     );
   }
 }
