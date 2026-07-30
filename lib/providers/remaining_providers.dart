@@ -92,6 +92,23 @@ final prayerStatsProvider = FutureProvider<PrayerStats>((ref) {
   return ref.read(prayerRepositoryProvider).getStats();
 });
 
+// ── Prayer Sessions / Logs / Timer Logs / Journal ──────────────────
+final prayerSessionsProvider = FutureProvider<List<PrayerSession>>((ref) {
+  return ref.read(prayerRepositoryProvider).getSessions();
+});
+
+final prayerLogsProvider = FutureProvider<List<PrayerLog>>((ref) {
+  return ref.read(prayerRepositoryProvider).getLogs();
+});
+
+final prayerTimerLogsProvider = FutureProvider<List<PrayerTimerLog>>((ref) {
+  return ref.read(prayerRepositoryProvider).getTimerLogs();
+});
+
+final prayerJournalsProvider = FutureProvider<List<PrayerJournal>>((ref) {
+  return ref.read(prayerRepositoryProvider).getJournals();
+});
+
 final prayerCategoriesProvider = FutureProvider<List<PrayerCategory>>((ref) {
   return ref.read(prayerRepositoryProvider).getCategories();
 });
@@ -277,4 +294,19 @@ final monthlyReportProvider = FutureProvider<MonthlyReport>((ref) {
   return ref
       .read(analyticsRepositoryProvider)
       .getMonthlyReport(year: selected.year, month: selected.month);
+});
+
+/// Detailed focus analytics (total sessions, focus minutes/hours, blocked attempts).
+final focusAnalyticsProvider = FutureProvider<Map<String, dynamic>>((ref) {
+  return ref.read(analyticsRepositoryProvider).getFocusAnalytics();
+});
+
+/// Detailed prayer analytics (logs, sessions, minutes, streak breakdown).
+final prayerAnalyticsProvider = FutureProvider<Map<String, dynamic>>((ref) {
+  return ref.read(analyticsRepositoryProvider).getPrayerAnalytics();
+});
+
+/// App usage analytics (screen time, launches).
+final usageAnalyticsProvider = FutureProvider<Map<String, dynamic>>((ref) {
+  return ref.read(analyticsRepositoryProvider).getUsageAnalytics();
 });

@@ -40,4 +40,31 @@ class AnalyticsRepository {
       'translation': translation,
     });
   }
+
+  /// GET /api/analytics/focus/ — detailed focus-mode analytics.
+  Future<Map<String, dynamic>> getFocusAnalytics() async {
+    final res = await _dio.get('/api/analytics/focus/');
+    return readDataMap(res.data);
+  }
+
+  /// GET /api/analytics/prayer/ — detailed prayer analytics.
+  Future<Map<String, dynamic>> getPrayerAnalytics() async {
+    final res = await _dio.get('/api/analytics/prayer/');
+    return readDataMap(res.data);
+  }
+
+  /// GET /api/analytics/usage/ — app usage analytics.
+  Future<Map<String, dynamic>> getUsageAnalytics() async {
+    final res = await _dio.get('/api/analytics/usage/');
+    return readDataMap(res.data);
+  }
+
+  /// POST /api/analytics/log-usage/ — log app usage.
+  Future<void> logUsage({int screenTimeSeconds = 0, String mostVisitedPage = '', int sessionCount = 1}) async {
+    await _dio.post('/api/analytics/log-usage/', data: {
+      'screen_time_seconds': screenTimeSeconds,
+      'most_visited_page': mostVisitedPage,
+      'session_count': sessionCount,
+    });
+  }
 }

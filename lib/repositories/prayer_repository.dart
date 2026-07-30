@@ -80,4 +80,84 @@ class PrayerRepository {
     final res = await _dio.get('/api/prayer/stats/');
     return PrayerStats.fromJson(readDataMap(res.data));
   }
+
+  // ── Prayer Sessions (/api/prayer/sessions/) ─────────────────────
+  Future<List<PrayerSession>> getSessions() async {
+    final res = await _dio.get('/api/prayer/sessions/');
+    return (readList(res.data)).map((j) => PrayerSession.fromJson(j)).toList();
+  }
+
+  Future<PrayerSession> createSession({String title = '', String notes = ''}) async {
+    final res = await _dio.post('/api/prayer/sessions/', data: {
+      if (title.isNotEmpty) 'title': title,
+      if (notes.isNotEmpty) 'notes': notes,
+    });
+    return PrayerSession.fromJson(readMap(res.data));
+  }
+
+  Future<PrayerSession> endSession(int id, {required int durationSeconds}) async {
+    final res = await _dio.post('/api/prayer/sessions/$id/end/', data: {
+      'duration_seconds': durationSeconds,
+    });
+    return PrayerSession.fromJson(readDataMap(res.data));
+  }
+
+  Future<void> deleteSession(int id) async {
+    await _dio.delete('/api/prayer/sessions/$id/');
+  }
+
+  // ── Prayer Logs (/api/prayer/logs/) ─────────────────────────────
+  Future<List<PrayerLog>> getLogs() async {
+    final res = await _dio.get('/api/prayer/logs/');
+    return (readList(res.data)).map((j) => PrayerLog.fromJson(j)).toList();
+  }
+
+  Future<PrayerLog> createLog({required int prayerId, String note = ''}) async {
+    final res = await _dio.post('/api/prayer/logs/', data: {
+      'prayer': prayerId,
+      if (note.isNotEmpty) 'note': note,
+    });
+    return PrayerLog.fromJson(readMap(res.data));
+  }
+
+  Future<void> deleteLog(int id) async {
+    await _dio.delete('/api/prayer/logs/$id/');
+  }
+
+  // ── Prayer Timer Logs (/api/prayer/timer-logs/) ─────────────────
+  Future<List<PrayerTimerLog>> getTimerLogs() async {
+    final res = await _dio.get('/api/prayer/timer-logs/');
+    return (readList(res.data)).map((j) => PrayerTimerLog.fromJson(j)).toList();
+  }
+
+  Future<PrayerTimerLog> createTimerLog({required int durationSeconds}) async {
+    final res = await _dio.post('/api/prayer/timer-logs/', data: {
+      'duration_seconds': durationSeconds,
+    });
+    return PrayerTimerLog.fromJson(readMap(res.data));
+  }
+
+  Future<void> deleteTimerLog(int id) async {
+    await _dio.delete('/api/prayer/timer-logs/$id/');
+  }
+
+  // ── Prayer Journal (/api/prayer/journals/) ──────────────────────
+  Future<List<PrayerJournal>> getJournals() async {
+    final res = await _dio.get('/api/prayer/journals/');
+    return (readList(res.data)).map((j) => PrayerJournal.fromJson(j)).toList();
+  }
+
+  Future<PrayerJournal> createJournal(Map<String, dynamic> data) async {
+    final res = await _dio.post('/api/prayer/journals/', data: data);
+    return PrayerJournal.fromJson(readMap(res.data));
+  }
+
+  Future<PrayerJournal> updateJournal(int id, Map<String, dynamic> data) async {
+    final res = await _dio.patch('/api/prayer/journals/$id/', data: data);
+    return PrayerJournal.fromJson(readMap(res.data));
+  }
+
+  Future<void> deleteJournal(int id) async {
+    await _dio.delete('/api/prayer/journals/$id/');
+  }
 }

@@ -67,3 +67,9 @@ final reminderCategoriesProvider = FutureProvider<List<ReminderCategory>>((ref) 
 final calendarRemindersProvider = FutureProvider.family<List<Reminder>, DateTime>((ref, date) {
   return ref.read(remindersRepositoryProvider).getCalendar(year: date.year, month: date.month);
 });
+
+/// History for a single reminder (family keyed by reminder id).
+final reminderHistoryProvider =
+    FutureProvider.family<List<ReminderHistory>, int>((ref, id) {
+  return ref.read(remindersRepositoryProvider).getHistory(id);
+});

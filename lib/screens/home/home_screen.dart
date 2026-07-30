@@ -5,11 +5,13 @@ import '../../core/theme.dart';
 import '../../core/widgets/progress_ring.dart' hide SectionHeader;
 import '../../core/widgets/verse_card.dart';
 import '../../models/analytics.dart';
+import '../../models/achievement.dart';
 import '../../models/note.dart';
 import '../../models/reminder.dart';
 import '../../models/rule.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/achievements_provider.dart';
 import '../../providers/bible_provider.dart';
 import '../../providers/notes_provider.dart';
 import '../../providers/remaining_providers.dart';
@@ -26,8 +28,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _selectedMood;
-  bool _dailyPrayerCompleted = false;
-  bool _readBibleCompleted = false;
 
   String get _greeting {
     final h = DateTime.now().hour;
@@ -44,11 +44,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return 'Let the evening bring you closer to God.';
   }
 
-  double get _devotionProgress {
-    int done = 0;
-    if (_dailyPrayerCompleted) done++;
-    if (_readBibleCompleted) done++;
-    return done / 2.0;
+  /// True when the given ISO date string refers to today.
+  bool _isToday(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return false;
+    try {
+      final d = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      return d.year == now.year && d.month == now.month && d.day == now.day;
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
@@ -63,6 +68,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final notesAsync = ref.watch(notesProvider);
     final todayRulesAsync = ref.watch(todayRulesProvider);
 
+    // Today's devotion check-in state, derived from real streak endpoints:
+    //  - prayed today  ← PrayerStreak.last_prayer_date == today
+    //  - read bible today ← ReadingStreak.last_read_date == today
+    // Persisting a check-in happens server-side when the user completes a
+    // prayer session (updates the prayer streak) or logs a reading (updates
+    // the reading streak), so no local toggle state is fabricated here.
+    final prayerStreakAsync = ref.watch(prayerStreakProvider);
+    final readingStreakAsync = ref.watch(readingStreakProvider);
+    final prayedToday = prayerStreakAsync.when(
+      data: (s) => _isToday(s.lastPrayerDate),
+      loading: () => false,
+      error: (_, __) => false,
+    );
+    final readBibleToday = readingStreakAsync.when(
+      data: (s) => _isToday(s.lastReadDate),
+      loading: () => false,
+      error: (_, __) => false,
+    );
+
     return Scaffold(
       backgroundColor: AppTheme.navy,
       body: RefreshIndicator(
@@ -74,6 +98,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ref.invalidate(dashboardProvider);
           ref.invalidate(dailyEncouragementProvider);
           ref.invalidate(currentUserProvider);
+          ref.invalidate(prayerStreakProvider);
+          ref.invalidate(readingStreakProvider);
+          ref.invalidate(notesProvider);
+          ref.invalidate(todayRulesProvider);
         },
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -101,9 +129,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const SizedBox(height: 20),
                     _buildMoodTracker(),
                     const SizedBox(height: 20),
-                    _buildTodayDevotionSection(dashboardAsync),
+                    _buildTodayDevotionSection(dashboardAsync, prayedToday, readBibleToday),
                     const SizedBox(height: 20),
-                    _buildTodayProgressSection(dashboardAsync),
+                    _buildTodayProgressSection(dashboardAsync, prayedToday, readBibleToday),
                     const SizedBox(height: 20),
                     _buildQuickActions(),
                     const SizedBox(height: 20),
@@ -404,7 +432,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildTodayDevotionSection(AsyncValue<Dashboard> dashboardAsync) {
+  Widget _buildTodayDevotionSection(AsyncValue<Dashboard> dashboardAsync, bool prayedToday, bool readBibleToday) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -440,10 +468,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             Expanded(
               child: GestureDetector(
-                onTap: () {
-                  setState(() => _dailyPrayerCompleted = !_dailyPrayerCompleted);
-                  context.push('/prayer');
-                },
+                onTap: () => context.push('/prayer'),
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -454,7 +479,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: _dailyPrayerCompleted
+                      color: prayedToday
                           ? AppTheme.emerald
                           : Colors.white.withOpacity(0.08),
                     ),
@@ -469,13 +494,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: _dailyPrayerCompleted ? AppTheme.emerald : Colors.white.withOpacity(0.1),
+                              color: prayedToday ? AppTheme.emerald : Colors.white.withOpacity(0.1),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               Icons.check,
                               size: 14,
-                              color: _dailyPrayerCompleted ? Colors.white : Colors.transparent,
+                              color: prayedToday ? Colors.white : Colors.transparent,
                             ),
                           ),
                         ],
@@ -492,11 +517,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _dailyPrayerCompleted ? 'Done! +1 streak' : 'Tap to pray',
+                        prayedToday ? 'Done! Praise God' : 'Tap to pray',
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 12,
-                          color: _dailyPrayerCompleted ? AppTheme.emerald : AppTheme.textMuted,
+                          color: prayedToday ? AppTheme.emerald : AppTheme.textMuted,
                         ),
                       ),
                     ],
@@ -507,10 +532,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: GestureDetector(
-                onTap: () {
-                  setState(() => _readBibleCompleted = !_readBibleCompleted);
-                  context.push('/bible');
-                },
+                onTap: () => context.push('/bible'),
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -521,7 +543,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: _readBibleCompleted
+                      color: readBibleToday
                           ? AppTheme.gold
                           : Colors.white.withOpacity(0.08),
                     ),
@@ -536,13 +558,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: _readBibleCompleted ? AppTheme.gold : Colors.white.withOpacity(0.1),
+                              color: readBibleToday ? AppTheme.gold : Colors.white.withOpacity(0.1),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               Icons.check,
                               size: 14,
-                              color: _readBibleCompleted ? AppTheme.navy : Colors.transparent,
+                              color: readBibleToday ? AppTheme.navy : Colors.transparent,
                             ),
                           ),
                         ],
@@ -559,11 +581,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _readBibleCompleted ? 'Done! +1 streak' : 'Tap to read',
+                        readBibleToday ? 'Done! Praise God' : 'Tap to read',
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 12,
-                          color: _readBibleCompleted ? AppTheme.gold : AppTheme.textMuted,
+                          color: readBibleToday ? AppTheme.gold : AppTheme.textMuted,
                         ),
                       ),
                     ],
@@ -577,14 +599,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildTodayProgressSection(AsyncValue<Dashboard> dashboardAsync) {
-    final prog = _devotionProgress;
+  Widget _buildTodayProgressSection(AsyncValue<Dashboard> dashboardAsync, bool prayedToday, bool readBibleToday) {
+    int done = 0;
+    if (prayedToday) done++;
+    if (readBibleToday) done++;
+    final prog = done / 2.0;
     final pct = (prog * 100).toInt();
 
-    final streak7 = dashboardAsync.when(
-      data: (d) => d.reading.currentStreak,
-      loading: () => 7,
-      error: (_, __) => 7,
+    // Prayer streak (🔥) and Bible/reading streak (📖) come from their
+    // dedicated streak endpoints; focus consistency (🎯) comes from the
+    // focus analytics endpoint (this-week minutes vs a 210-min weekly target).
+    final prayerStreakAsync = ref.watch(prayerStreakProvider);
+    final readingStreakAsync = ref.watch(readingStreakProvider);
+    final focusAsync = ref.watch(focusAnalyticsProvider);
+
+    final prayerStreak = prayerStreakAsync.when(data: (s) => s.currentStreak, loading: () => 0, error: (_, __) => 0);
+    final bibleStreak = readingStreakAsync.when(data: (s) => s.currentStreak, loading: () => 0, error: (_, __) => 0);
+    final focusPct = focusAsync.when(
+      data: (d) {
+        const weeklyTargetMinutes = 210.0;
+        final mins = d['this_week_minutes'] ?? 0;
+        final m = mins is int ? mins.toDouble() : (mins as num?)?.toDouble() ?? 0.0;
+        return ((m / weeklyTargetMinutes).clamp(0.0, 1.0) * 100).toInt();
+      },
+      loading: () => 0,
+      error: (_, __) => 0,
     );
 
     return sh.PremiumCard(
@@ -638,13 +677,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Row(
                   children: [
                     const Text('🔥 ', style: TextStyle(fontSize: 14)),
-                    Text('${streak7}d', style: const TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.gold)),
+                    Text('${prayerStreak}d', style: const TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.gold)),
                     const SizedBox(width: 12),
                     const Text('📖 ', style: TextStyle(fontSize: 14)),
-                    const Text('14d', style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.softBlue)),
+                    Text('${bibleStreak}d', style: const TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.softBlue)),
                     const SizedBox(width: 12),
                     const Text('🎯 ', style: TextStyle(fontSize: 14)),
-                    const Text('82%', style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                    Text('$focusPct%', style: const TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                   ],
                 ),
               ],
@@ -749,9 +788,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 14),
           remindersAsync.when(
             loading: () => const LoadingShimmer(height: 80),
-            error: (_, __) => _buildDefaultRemindersList(),
+            error: (_, __) => _buildEmptyState('No reminders yet', 'Tap Edit to add one'),
             data: (reminders) {
-              if (reminders.isEmpty) return _buildDefaultRemindersList();
+              if (reminders.isEmpty) return _buildEmptyState('No reminders yet', 'Tap Edit to add one');
               return Column(
                 children: reminders.take(3).map((r) {
                   return Padding(
@@ -783,7 +822,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                           Switch(
                             value: r.isActive,
-                            onChanged: (val) {},
+                            onChanged: (val) {
+                              // Toggle via the reminders API: completing marks it
+                            // done (inactive), otherwise it stays active.
+                            if (val) {
+                              // Re-activate is not a direct endpoint; refresh list.
+                              ref.invalidate(remindersProvider);
+                            } else {
+                              ref.read(remindersProvider.notifier).complete(r.id);
+                            }
+                            },
                           ),
                         ],
                       ),
@@ -798,54 +846,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildDefaultRemindersList() {
-    final list = [
-      {'title': 'Morning Prayer', 'time': '6:00 AM · Start your day with God', 'icon': Icons.wb_sunny_outlined, 'enabled': true},
-      {'title': 'Read Scripture', 'time': '7:00 AM · Daily Bible reading', 'icon': Icons.menu_book, 'enabled': true},
-      {'title': 'Midday Prayer', 'time': '12:00 PM · Pause and pray', 'icon': Icons.wb_twilight, 'enabled': false},
-    ];
-
-    return Column(
-      children: list.map((item) {
-        final isEnabled = item['enabled'] as bool;
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppTheme.navyVariant,
-            borderRadius: BorderRadius.circular(14),
+  /// Reusable empty-state placeholder for sections with no API data yet.
+  Widget _buildEmptyState(String title, String subtitle) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        children: [
+          const Icon(Icons.inbox_outlined, color: AppTheme.textMuted, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                Text(subtitle, style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted)),
+              ],
+            ),
           ),
-          child: Row(
-            children: [
-              Icon(item['icon'] as IconData, color: AppTheme.gold, size: 22),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item['title'] as String,
-                      style: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
-                    ),
-                    Text(
-                      item['time'] as String,
-                      style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: isEnabled,
-                onChanged: (v) {},
-              ),
-            ],
-          ),
-        );
-      }).toList(),
+        ],
+      ),
     );
   }
 
   Widget _buildWorshipMusicSection() {
+    // TODO(backend): The backend currently exposes no music endpoint, so this
+    // remains a curated static list. Phase 5 will replace StaticMusicRepository
+    // with a real source (Spotify/YouTube integration or backend curation) —
+    // confirm the intended source before wiring. See lib/services/music_repository.dart.
     final tracks = [
       {'title': 'Way Maker', 'artist': 'Sinach · 4:32', 'badge': 'Spotify', 'badgeColor': const Color(0xFF1DB954)},
       {'title': 'Goodness of God', 'artist': 'Bethel Music · 5:14', 'badge': 'Spotify', 'badgeColor': const Color(0xFF1DB954)},
@@ -1260,9 +1287,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             GestureDetector(onTap: () => context.push('/notes'), child: const Text('View All →', style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.gold, fontWeight: FontWeight.w600))),
           ]),
           const SizedBox(height: 14),
-          notesAsync.when(loading: () => const LoadingShimmer(height: 80), error: (_, __) => _buildDefaultRecentNotes(), data: (notes) {
+          notesAsync.when(loading: () => const LoadingShimmer(height: 80), error: (_, __) => _buildEmptyState('No notes yet', 'Tap View All to write one'), data: (notes) {
             final recent = notes.take(3).toList();
-            if (recent.isEmpty) return _buildDefaultRecentNotes();
+            if (recent.isEmpty) return _buildEmptyState('No notes yet', 'Tap View All to write one');
             return Column(children: recent.map((n) {
               final topic = n.topicName.isNotEmpty ? n.topicName : 'General';
               return Container(
@@ -1283,27 +1310,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildDefaultRecentNotes() {
-    final notes = [
-      {'title': 'Walking in Divine Grace', 'topic': 'Grace', 'pinned': true},
-      {'title': 'Kingdom Leadership Principles', 'topic': 'Leadership', 'pinned': false},
-      {'title': 'Faith in Times of Trial', 'topic': 'Faith', 'pinned': false},
-    ];
-    return Column(children: notes.map((n) {
-      final isPinned = n['pinned'] as bool;
-      return Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(14)),
-        child: Row(children: [
-          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: AppTheme.softBlue.withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Text(n['topic'] as String, style: const TextStyle(fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.softBlue))),
-          const SizedBox(width: 10),
-          Expanded(child: Text(n['title'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary))),
-          if (isPinned) const Icon(Icons.push_pin, color: AppTheme.gold, size: 14),
-        ]),
-      );
-    }).toList());
-  }
 
   Widget _buildUniversalRulesPreview(AsyncValue<List<Rule>> rulesAsync) {
     return sh.PremiumCard(
@@ -1320,10 +1326,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 14),
           rulesAsync.when(
             loading: () => const LoadingShimmer(height: 80),
-            error: (_, __) => _buildDefaultRulesList(),
+            error: (_, __) => _buildEmptyState('No rules yet', 'Tap View All to add one'),
             data: (rules) {
               final todayRules = rules.where((r) => !r.isCompleted).take(3).toList();
-              if (todayRules.isEmpty) return _buildDefaultRulesList();
+              if (todayRules.isEmpty) return _buildEmptyState('All done!', 'Your rules are completed — praise God');
               return Column(children: todayRules.map((r) {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
@@ -1344,31 +1350,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildDefaultRulesList() {
-    final rules = [
-      {'title': 'Start the day with prayer', 'pinned': true, 'done': false},
-      {'title': 'Read at least one chapter', 'pinned': false, 'done': true},
-      {'title': 'Speak life, not criticism', 'pinned': false, 'done': false},
-    ];
-    return Column(children: rules.map((r) {
-      final isPinned = r['pinned'] as bool;
-      final isDone = r['done'] as bool;
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(14)),
-          child: Row(children: [
-            Container(width: 22, height: 22, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppTheme.gold, width: 1.5)), child: isDone ? Icon(Icons.check, size: 14, color: AppTheme.gold) : null),
-            const SizedBox(width: 12),
-            Expanded(child: Text(r['title'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary, decoration: isDone ? TextDecoration.lineThrough : null))),
-            if (isPinned) Icon(Icons.push_pin, color: AppTheme.gold, size: 14),
-          ]),
-        ),
-      );
-    }).toList());
   }
 
   Widget _buildPrayerTimerSection() {

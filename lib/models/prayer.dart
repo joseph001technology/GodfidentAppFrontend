@@ -95,3 +95,142 @@ class PrayerStats {
         timesPrayed: j['times_prayed'] ?? 0,
       );
 }
+
+/// A prayer session with timer tracking (from /api/prayer/sessions/).
+class PrayerSession {
+  final int id;
+  final String title;
+  final int durationMinutes;
+  final int durationSeconds;
+  final String notes;
+  final bool isCompleted;
+  final String startedAt;
+  final String? endedAt;
+  final String createdAt;
+
+  const PrayerSession({
+    required this.id,
+    this.title = '',
+    this.durationMinutes = 0,
+    this.durationSeconds = 0,
+    this.notes = '',
+    this.isCompleted = false,
+    required this.startedAt,
+    this.endedAt,
+    required this.createdAt,
+  });
+
+  factory PrayerSession.fromJson(Map<String, dynamic> j) => PrayerSession(
+        id: j['id'] ?? 0,
+        title: j['title'] ?? '',
+        durationMinutes: j['duration_minutes'] ?? 0,
+        durationSeconds: j['duration_seconds'] ?? 0,
+        notes: j['notes'] ?? '',
+        isCompleted: j['is_completed'] ?? false,
+        startedAt: j['started_at'] ?? '',
+        endedAt: j['ended_at'],
+        createdAt: j['created_at'] ?? '',
+      );
+
+  Map<String, dynamic> toJson() => {
+        if (title.isNotEmpty) 'title': title,
+        if (notes.isNotEmpty) 'notes': notes,
+      };
+}
+
+/// A prayer log entry (from /api/prayer/logs/).
+class PrayerLog {
+  final int id;
+  final int prayer;
+  final String prayerTitle;
+  final String note;
+  final String prayedAt;
+
+  const PrayerLog({
+    required this.id,
+    required this.prayer,
+    this.prayerTitle = '',
+    this.note = '',
+    required this.prayedAt,
+  });
+
+  factory PrayerLog.fromJson(Map<String, dynamic> j) => PrayerLog(
+        id: j['id'] ?? 0,
+        prayer: j['prayer'] ?? 0,
+        prayerTitle: j['prayer_title'] ?? '',
+        note: j['note'] ?? '',
+        prayedAt: j['prayed_at'] ?? '',
+      );
+
+  Map<String, dynamic> toJson() => {
+        'prayer': prayer,
+        if (note.isNotEmpty) 'note': note,
+      };
+}
+
+/// A prayer timer log (from /api/prayer/timer-logs/).
+class PrayerTimerLog {
+  final int id;
+  final int durationSeconds;
+  final String startedAt;
+
+  const PrayerTimerLog({
+    required this.id,
+    required this.durationSeconds,
+    required this.startedAt,
+  });
+
+  factory PrayerTimerLog.fromJson(Map<String, dynamic> j) => PrayerTimerLog(
+        id: j['id'] ?? 0,
+        durationSeconds: j['duration_seconds'] ?? 0,
+        startedAt: j['started_at'] ?? '',
+      );
+
+  String get formattedDuration {
+    final m = durationSeconds ~/ 60;
+    final s = durationSeconds % 60;
+    return '${m}m ${s}s';
+  }
+}
+
+/// A personal prayer journal entry (from /api/prayer/journals/).
+class PrayerJournal {
+  final int id;
+  final String title;
+  final String content;
+  final String scripture;
+  final String mood;
+  final bool isPrivate;
+  final String createdAt;
+  final String updatedAt;
+
+  const PrayerJournal({
+    required this.id,
+    required this.title,
+    required this.content,
+    this.scripture = '',
+    this.mood = '',
+    this.isPrivate = true,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory PrayerJournal.fromJson(Map<String, dynamic> j) => PrayerJournal(
+        id: j['id'] ?? 0,
+        title: j['title'] ?? '',
+        content: j['content'] ?? '',
+        scripture: j['scripture'] ?? '',
+        mood: j['mood'] ?? '',
+        isPrivate: j['is_private'] ?? true,
+        createdAt: j['created_at'] ?? '',
+        updatedAt: j['updated_at'] ?? '',
+      );
+
+  Map<String, dynamic> toJson() => {
+        'title': title,
+        'content': content,
+        if (scripture.isNotEmpty) 'scripture': scripture,
+        if (mood.isNotEmpty) 'mood': mood,
+        'is_private': isPrivate,
+      };
+}

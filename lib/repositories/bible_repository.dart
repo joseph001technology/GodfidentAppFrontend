@@ -1,6 +1,7 @@
 import '../core/dio_client.dart';
 import '../core/api_response.dart';
 import '../models/bible.dart';
+import '../models/bible_extras.dart';
 
 class BibleRepository {
   final _dio = DioClient.instance;
@@ -215,5 +216,86 @@ class BibleRepository {
       'book_name': book,
       'chapter': chapter,
     });
+  }
+
+  // ── Favorite Verses (/api/bible/favorites/) ─────────────────────
+  Future<List<FavoriteVerse>> getFavoriteVerses() async {
+    final res = await _dio.get('/api/bible/favorites/');
+    return (readList(res.data)).map((j) => FavoriteVerse.fromJson(j)).toList();
+  }
+
+  Future<FavoriteVerse> addFavoriteVerse({
+    required int bookId,
+    required int chapter,
+    required int verse,
+    String note = '',
+  }) async {
+    final res = await _dio.post('/api/bible/favorites/', data: {
+      'book': bookId,
+      'chapter': chapter,
+      'verse': verse,
+      if (note.isNotEmpty) 'note': note,
+    });
+    return FavoriteVerse.fromJson(readMap(res.data));
+  }
+
+  Future<void> removeFavoriteVerse(int id) async {
+    await _dio.delete('/api/bible/favorites/$id/');
+  }
+
+  // ── Verse Collections (/api/bible/collections/) ─────────────────
+  Future<List<VerseCollection>> getVerseCollections() async {
+    final res = await _dio.get('/api/bible/collections/');
+    return (readList(res.data)).map((j) => VerseCollection.fromJson(j)).toList();
+  }
+
+  Future<VerseCollection> createVerseCollection(Map<String, dynamic> data) async {
+    final res = await _dio.post('/api/bible/collections/', data: data);
+    return VerseCollection.fromJson(readMap(res.data));
+  }
+
+  Future<VerseCollection> updateVerseCollection(int id, Map<String, dynamic> data) async {
+    final res = await _dio.patch('/api/bible/collections/$id/', data: data);
+    return VerseCollection.fromJson(readMap(res.data));
+  }
+
+  Future<void> deleteVerseCollection(int id) async {
+    await _dio.delete('/api/bible/collections/$id/');
+  }
+
+  // ── Reading Goals (/api/bible/reading-goals/) ───────────────────
+  Future<List<BibleReadingGoal>> getReadingGoals() async {
+    final res = await _dio.get('/api/bible/reading-goals/');
+    return (readList(res.data)).map((j) => BibleReadingGoal.fromJson(j)).toList();
+  }
+
+  Future<BibleReadingGoal> createReadingGoal(Map<String, dynamic> data) async {
+    final res = await _dio.post('/api/bible/reading-goals/', data: data);
+    return BibleReadingGoal.fromJson(readMap(res.data));
+  }
+
+  Future<BibleReadingGoal> updateReadingGoal(int id, Map<String, dynamic> data) async {
+    final res = await _dio.patch('/api/bible/reading-goals/$id/', data: data);
+    return BibleReadingGoal.fromJson(readMap(res.data));
+  }
+
+  Future<void> deleteReadingGoal(int id) async {
+    await _dio.delete('/api/bible/reading-goals/$id/');
+  }
+
+  // ── Global Search (/api/search/) ────────────────────────────────
+  Future<Map<String, List<Map<String, dynamic>>>> globalSearch(String q) async {
+    final res = await _dio.get('/api/search/', queryParameters: {'q': q});
+    final data = readDataMap(res.data);
+    final out = <String, List<Map<String, dynamic>>>{};
+    for (final entry in data.entries) {
+      final list = entry.value;
+      if (list is List) {
+        out[entry.key] = list
+            .map((e) => e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e as Map))
+            .toList();
+      }
+    }
+    return out;
   }
 }
