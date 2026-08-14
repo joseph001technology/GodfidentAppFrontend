@@ -9,6 +9,11 @@ final noteFoldersProvider = FutureProvider<List<NoteFolder>>((ref) {
   return ref.read(notesRepositoryProvider).getFolders();
 });
 
+// ── Topics ───────────────────────────────────────────────────────
+final notesTopicsProvider = FutureProvider<List<NoteTopic>>((ref) {
+  return ref.read(notesRepositoryProvider).getTopics();
+});
+
 // ── Notes List ───────────────────────────────────────────────────
 final notesProvider = StateNotifierProvider<NotesNotifier, AsyncValue<List<Note>>>((ref) {
   return NotesNotifier(ref.read(notesRepositoryProvider));
@@ -17,6 +22,7 @@ final notesProvider = StateNotifierProvider<NotesNotifier, AsyncValue<List<Note>
 class NotesNotifier extends StateNotifier<AsyncValue<List<Note>>> {
   final NotesRepository _repo;
   int? _folderId;
+  int? _topicId;
   bool _archived = false;
   String _search = '';
 
@@ -24,13 +30,19 @@ class NotesNotifier extends StateNotifier<AsyncValue<List<Note>>> {
     load();
   }
 
-  Future<void> load({int? folderId, bool? archived, String? search}) async {
+  Future<void> load({int? folderId, int? topicId, bool? archived, String? search}) async {
     if (folderId != null) _folderId = folderId;
+    if (topicId != null) _topicId = topicId;
     if (archived != null) _archived = archived;
     if (search != null) _search = search;
     state = const AsyncValue.loading();
     try {
-      final list = await _repo.getNotes(folderId: _folderId, archived: _archived, search: _search.isNotEmpty ? _search : null);
+      final list = await _repo.getNotes(
+        folderId: _folderId,
+        topicId: _topicId,
+        archived: _archived,
+        search: _search.isNotEmpty ? _search : null,
+      );
       state = AsyncValue.data(list);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -38,7 +50,17 @@ class NotesNotifier extends StateNotifier<AsyncValue<List<Note>>> {
   }
 
   Future<void> refresh() => load();
-  Future<void> setFolder(int? folderId) => load(folderId: folderId);
+
+  Future<void> setFolder(int? folderId) {
+    _folderId = folderId;
+    return load();
+  }
+
+  Future<void> setTopic(int? topicId) {
+    _topicId = topicId;
+    return load();
+  }
+
   void setSearch(String search) => load(search: search);
 
   Future<void> create(Map<String, dynamic> data) async {
@@ -76,7 +98,3 @@ class NotesNotifier extends StateNotifier<AsyncValue<List<Note>>> {
     await refresh();
   }
 }
-
-final notesTopicsProvider = FutureProvider<List<NoteTopic>>((ref) {
-  return ref.read(notesRepositoryProvider).getTopics();
-});

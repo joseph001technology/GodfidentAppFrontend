@@ -17,11 +17,10 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
   String _selectedCategory = 'All';
   String _searchQuery = '';
 
-  final List<String> _categories = ['All', 'Faith', 'Mindset', 'Health', 'Work', 'Relationships'];
-
   @override
   Widget build(BuildContext context) {
     final rulesAsync = ref.watch(rulesProvider);
+    final categoriesAsync = ref.watch(ruleCategoriesProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.navy,
@@ -33,12 +32,7 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
             Text('📜 ', style: TextStyle(fontSize: 20)),
             Text(
               'Universal Rules',
-              style: TextStyle(
-                fontFamily: 'Lora',
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
-              ),
+              style: TextStyle(fontFamily: 'Lora', fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
             ),
           ],
         ),
@@ -50,7 +44,10 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(rulesProvider),
+        onRefresh: () async {
+          ref.invalidate(rulesProvider);
+          ref.invalidate(ruleCategoriesProvider);
+        },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
@@ -68,36 +65,22 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
                     colors: [Color(0xFF2D1B69), Color(0xFF14142A)],
                   ),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppTheme.accentPurple.withOpacity(0.3)),
+                  border: Border.all(color: AppTheme.accentPurple.withValues(alpha: 0.3)),
                 ),
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'PERMANENT DISCIPLINE',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.gold,
-                        letterSpacing: 1.2,
-                      ),
+                      style: TextStyle(fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.gold, letterSpacing: 1.2),
                     ),
                     SizedBox(height: 6),
                     Text(
                       '"He who heeds instruction is on the path to life."',
-                      style: TextStyle(
-                        fontFamily: 'Lora',
-                        fontSize: 15,
-                        fontStyle: FontStyle.italic,
-                        color: AppTheme.textPrimary,
-                      ),
+                      style: TextStyle(fontFamily: 'Lora', fontSize: 15, fontStyle: FontStyle.italic, color: AppTheme.textPrimary),
                     ),
                     SizedBox(height: 4),
-                    Text(
-                      '— Proverbs 10:17',
-                      style: TextStyle(fontFamily: 'Lora', fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.gold),
-                    ),
+                    Text('— Proverbs 10:17', style: TextStyle(fontFamily: 'Lora', fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.gold)),
                   ],
                 ),
               ),
@@ -112,52 +95,49 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
                   prefixIcon: const Icon(Icons.search, color: AppTheme.textMuted),
                   fillColor: AppTheme.navySurface,
                   filled: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
-                  ),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
                 ),
               ),
 
               const SizedBox(height: 16),
 
-              // Category Pills
-              SizedBox(
-                height: 38,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _categories.length,
-                  itemBuilder: (context, i) {
-                    final cat = _categories[i];
-                    final isSelected = _selectedCategory == cat;
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedCategory = cat),
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.gold : AppTheme.navySurface,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isSelected ? AppTheme.gold : Colors.white.withOpacity(0.08),
+              // Category pills — pulled from GET /api/rules/categories/,
+              // the categories you've actually created in-app.
+              categoriesAsync.when(
+                loading: () => const SizedBox(height: 38),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (categories) => SizedBox(
+                  height: 38,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: categories.length + 1,
+                    itemBuilder: (context, i) {
+                      final label = i == 0 ? 'All' : categories[i - 1].name;
+                      final isSelected = _selectedCategory == label;
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedCategory = label),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppTheme.gold : AppTheme.navySurface,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: isSelected ? AppTheme.gold : Colors.white.withValues(alpha: 0.08)),
+                          ),
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isSelected ? AppTheme.navy : AppTheme.textPrimary,
+                            ),
                           ),
                         ),
-                        child: Text(
-                          cat,
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected ? AppTheme.navy : AppTheme.textPrimary,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
 
@@ -168,19 +148,23 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
                 loading: () => const LoadingShimmer(height: 200),
                 error: (e, _) => ErrorView(message: e.toString()),
                 data: (rules) {
-                  var filtered = rules.where((r) {
-                    final matchesCat = _selectedCategory == 'All' || (r.categoryName ?? '').toLowerCase() == _selectedCategory.toLowerCase();
-                    final matchesQuery = _searchQuery.isEmpty || r.title.toLowerCase().contains(_searchQuery) || (r.description ?? '').toLowerCase().contains(_searchQuery);
+                  final filtered = rules.where((r) {
+                    final matchesCat = _selectedCategory == 'All' || (r.categoryName ?? '') == _selectedCategory;
+                    final matchesQuery = _searchQuery.isEmpty ||
+                        r.title.toLowerCase().contains(_searchQuery) ||
+                        (r.description ?? '').toLowerCase().contains(_searchQuery);
                     return matchesCat && matchesQuery;
                   }).toList();
 
                   if (filtered.isEmpty) {
-                    return _buildDefaultRules(context);
+                    return EmptyView(
+                      title: rules.isEmpty ? 'No rules yet' : 'No matching rules',
+                      subtitle: rules.isEmpty ? 'Tap + to add your first rule' : 'Try a different search or category',
+                      icon: Icons.rule,
+                    );
                   }
 
-                  return Column(
-                    children: filtered.map((r) => _buildRuleItem(context, ref, r)).toList(),
-                  );
+                  return Column(children: filtered.map((r) => _buildRuleItem(context, ref, r)).toList());
                 },
               ),
             ],
@@ -197,26 +181,23 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
       decoration: BoxDecoration(
         color: AppTheme.navySurface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: rule.isCompleted ? AppTheme.emerald.withOpacity(0.4) : Colors.white.withOpacity(0.08),
-        ),
+        border: Border.all(color: rule.isCompletedToday ? AppTheme.emerald.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           GestureDetector(
-            onTap: () => ref.read(rulesProvider.notifier).toggleComplete(rule.id, !rule.isCompleted),
+            onTap: () async {
+              await ref.read(rulesProvider.notifier).toggleToday(rule.id);
+              ref.invalidate(todayRulesProvider);
+            },
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: rule.isCompleted ? AppTheme.emerald : Colors.white.withOpacity(0.1),
+                color: rule.isCompletedToday ? AppTheme.emerald : Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                Icons.check,
-                size: 16,
-                color: rule.isCompleted ? Colors.white : Colors.transparent,
-              ),
+              child: Icon(Icons.check, size: 16, color: rule.isCompletedToday ? Colors.white : Colors.transparent),
             ),
           ),
           const SizedBox(width: 14),
@@ -230,31 +211,27 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
                     fontFamily: 'Lora',
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: rule.isCompleted ? AppTheme.textMuted : AppTheme.textPrimary,
-                    decoration: rule.isCompleted ? TextDecoration.lineThrough : null,
+                    color: rule.isCompletedToday ? AppTheme.textMuted : AppTheme.textPrimary,
+                    decoration: rule.isCompletedToday ? TextDecoration.lineThrough : null,
                   ),
                 ),
                 if (rule.description != null && rule.description!.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(
-                    rule.description!,
-                    style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted),
-                  ),
+                  Text(rule.description!, style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted)),
                 ],
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppTheme.gold.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(8),
+                    if (rule.categoryName != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: AppTheme.gold.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                        child: Text(rule.categoryName!, style: const TextStyle(fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.gold)),
                       ),
-                      child: Text(
-                        rule.categoryName ?? 'Spiritual',
-                        style: const TextStyle(fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.gold),
-                      ),
-                    ),
+                    if (rule.currentStreak > 0) ...[
+                      const SizedBox(width: 8),
+                      Text('🔥 ${rule.currentStreak}d', style: const TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.gold)),
+                    ],
                     if (rule.isPinned) ...[
                       const SizedBox(width: 8),
                       const Icon(Icons.push_pin, color: AppTheme.gold, size: 12),
@@ -273,69 +250,6 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
     );
   }
 
-  Widget _buildDefaultRules(BuildContext context) {
-    final defaultRules = [
-      {'title': 'No Social Media Before Prayer', 'desc': 'Protect morning attention for God.', 'cat': 'Mindset', 'done': true},
-      {'title': 'Read 1 Chapter of Scripture Daily', 'desc': 'Consistent intake of God’s Word.', 'cat': 'Faith', 'done': false},
-      {'title': 'Express Gratitude 3x Daily', 'desc': 'Focus on God’s goodness in all circumstances.', 'cat': 'Faith', 'done': true},
-      {'title': 'Nightly Screen Timeout at 10 PM', 'desc': 'Ensure proper sleep and peaceful rest.', 'cat': 'Health', 'done': false},
-    ];
-
-    return Column(
-      children: defaultRules.map((r) {
-        final isDone = r['done'] as bool;
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.navySurface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: isDone ? AppTheme.emerald.withOpacity(0.4) : Colors.white.withOpacity(0.08)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: isDone ? AppTheme.emerald : Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(Icons.check, size: 16, color: isDone ? Colors.white : Colors.transparent),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      r['title'] as String,
-                      style: TextStyle(
-                        fontFamily: 'Lora',
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isDone ? AppTheme.textMuted : AppTheme.textPrimary,
-                        decoration: isDone ? TextDecoration.lineThrough : null,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(r['desc'] as String, style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted)),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: AppTheme.gold.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
-                      child: Text(r['cat'] as String, style: const TextStyle(fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.gold)),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-
   void _showRuleActions(BuildContext context, WidgetRef ref, Rule rule) {
     showModalBottomSheet(
       context: context,
@@ -351,7 +265,17 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
               title: const Text('Edit Rule'),
               onTap: () {
                 Navigator.pop(context);
-                context.push('/rules/${rule.id}');
+                // Assumed route — confirm this matches your router.dart
+                // (Notes uses the equivalent '/notes/{id}/edit' pattern).
+                context.push('/rules/${rule.id}/edit');
+              },
+            ),
+            ListTile(
+              leading: Icon(rule.isFavorite ? Icons.favorite : Icons.favorite_border, color: AppTheme.accentPink),
+              title: Text(rule.isFavorite ? 'Remove Favorite' : 'Mark Favorite'),
+              onTap: () {
+                ref.read(rulesProvider.notifier).toggleFavorite(rule.id);
+                Navigator.pop(context);
               },
             ),
             ListTile(
@@ -359,6 +283,7 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
               title: const Text('Delete Rule', style: TextStyle(color: Colors.red)),
               onTap: () {
                 ref.read(rulesProvider.notifier).delete(rule.id);
+                ref.invalidate(todayRulesProvider);
                 Navigator.pop(context);
               },
             ),

@@ -1328,7 +1328,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             loading: () => const LoadingShimmer(height: 80),
             error: (_, __) => _buildEmptyState('No rules yet', 'Tap View All to add one'),
             data: (rules) {
-              final todayRules = rules.where((r) => !r.isCompleted).take(3).toList();
+              final todayRules = rules.where((r) => !r.isCompletedToday).take(3).toList();
               if (todayRules.isEmpty) return _buildEmptyState('All done!', 'Your rules are completed — praise God');
               return Column(children: todayRules.map((r) {
                 return Padding(
@@ -1337,9 +1337,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(14)),
                     child: Row(children: [
-                      Container(width: 22, height: 22, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppTheme.gold, width: 1.5)), child: r.isCompleted ? Icon(Icons.check, size: 14, color: AppTheme.gold) : null),
+                      Container(width: 22, height: 22, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppTheme.gold, width: 1.5)), child: r.isCompletedToday ? Icon(Icons.check, size: 14, color: AppTheme.gold) : null),
                       const SizedBox(width: 12),
-                      Expanded(child: Text(r.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary, decoration: r.isCompleted ? TextDecoration.lineThrough : null))),
+                      Expanded(child: Text(r.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary, decoration: r.isCompletedToday ? TextDecoration.lineThrough : null))),
                       if (r.isPinned) Icon(Icons.push_pin, color: AppTheme.gold.withOpacity(0.8), size: 14),
                     ]),
                   ),

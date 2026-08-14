@@ -4,12 +4,17 @@ import '../repositories/rules_repository.dart';
 
 final rulesRepositoryProvider = Provider((_) => RulesRepository());
 
-// ── Today's Rules ────────────────────────────────────────────────
+// ── Today's Rules (used by the Home screen preview) ───────────────
 final todayRulesProvider = FutureProvider<List<Rule>>((ref) {
   return ref.read(rulesRepositoryProvider).getToday();
 });
 
-// ── All Rules ────────────────────────────────────────────────────
+// ── Rule Categories ────────────────────────────────────────────────
+final ruleCategoriesProvider = FutureProvider<List<RuleCategory>>((ref) {
+  return ref.read(rulesRepositoryProvider).getCategories();
+});
+
+// ── All Rules ───────────────────────────────────────────────────────
 final rulesProvider = StateNotifierProvider<RulesNotifier, AsyncValue<List<Rule>>>((ref) {
   return RulesNotifier(ref.read(rulesRepositoryProvider));
 });
@@ -22,11 +27,11 @@ class RulesNotifier extends StateNotifier<AsyncValue<List<Rule>>> {
     load();
   }
 
-  Future<void> load({int? category}) async {
-    if (category != null) _categoryId = category;
+  Future<void> load({int? categoryId}) async {
+    if (categoryId != null) _categoryId = categoryId;
     state = const AsyncValue.loading();
     try {
-      final list = await _repo.getList(category: _categoryId);
+      final list = await _repo.getList(categoryId: _categoryId);
       state = AsyncValue.data(list);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -34,6 +39,12 @@ class RulesNotifier extends StateNotifier<AsyncValue<List<Rule>>> {
   }
 
   Future<void> refresh() => load();
+
+  /// Pass null to clear back to "All categories".
+  Future<void> setCategory(int? categoryId) {
+    _categoryId = categoryId;
+    return load();
+  }
 
   Future<void> create(Map<String, dynamic> data) async {
     await _repo.create(data);
@@ -50,8 +61,10 @@ class RulesNotifier extends StateNotifier<AsyncValue<List<Rule>>> {
     await refresh();
   }
 
-  Future<void> toggleComplete(int id, bool completed) async {
-    await _repo.update(id, {'is_completed': completed});
+  /// Toggles today's completion via POST .../toggle_today/ — there is no
+  /// writable `is_completed` field to PATCH.
+  Future<void> toggleToday(int id) async {
+    await _repo.toggleToday(id);
     await refresh();
   }
 
@@ -64,8 +77,9 @@ class RulesNotifier extends StateNotifier<AsyncValue<List<Rule>>> {
     await _repo.toggleFavorite(id);
     await refresh();
   }
-}
 
-final ruleCategoriesProvider = FutureProvider<List<RuleCategory>>((ref) {
-  return ref.read(rulesRepositoryProvider).getCategories();
-});
+  Future<void> reorder(List<int> orderedIds) async {
+    await _repo.reorderRules(orderedIds);
+    await refresh();
+  }
+}

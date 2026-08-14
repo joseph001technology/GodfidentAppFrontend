@@ -1,112 +1,144 @@
+/// Matches devotionals... no — matches `notes` app: TopicSerializer fields
+/// (id, name, color, created_at). Used both for the standalone
+/// GET /api/notes/topics/ list and embedded as `topics_list` on each Note.
+class NoteTopic {
+  final int id;
+  final String name;
+  final String? color;
+
+  const NoteTopic({required this.id, required this.name, this.color});
+
+  factory NoteTopic.fromJson(Map<String, dynamic> j) => NoteTopic(
+        id: j['id'] ?? 0,
+        name: j['name'] ?? '',
+        color: j['color'],
+      );
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        if (color != null) 'color': color,
+      };
+}
+
+/// Matches `notes` app FolderSerializer: id, name, color, icon, parent,
+/// order, note_count, created_at, updated_at. `parent` is the parent
+/// folder's integer id (or null) — the old model had a separate,
+/// nonexistent `parent_id` string field; backend never sends that.
 class NoteFolder {
   final int id;
   final String name;
-  final String? parent;
-  final int? parentId;
+  final String color;
+  final String? icon;
+  final int? parent;
+  final int order;
   final int noteCount;
-  final List<NoteFolder> children;
 
   const NoteFolder({
     required this.id,
     required this.name,
+    this.color = '#6C5CE7',
+    this.icon,
     this.parent,
-    this.parentId,
+    this.order = 0,
     this.noteCount = 0,
-    this.children = const [],
   });
 
   factory NoteFolder.fromJson(Map<String, dynamic> j) => NoteFolder(
         id: j['id'] ?? 0,
         name: j['name'] ?? '',
+        color: j['color'] ?? '#6C5CE7',
+        icon: j['icon'],
         parent: j['parent'],
-        parentId: j['parent_id'],
+        order: j['order'] ?? 0,
         noteCount: j['note_count'] ?? 0,
-        children: (j['children'] as List? ?? [])
-            .map((c) => NoteFolder.fromJson(c))
-            .toList(),
       );
 
   Map<String, dynamic> toJson() => {
         'name': name,
-        if (parentId != null) 'parent': parentId,
+        'color': color,
+        if (icon != null) 'icon': icon,
+        if (parent != null) 'parent': parent,
+        'order': order,
       };
 }
 
-class NoteTopic {
-  final int id;
-  final String name;
-  final String? description;
-
-  const NoteTopic({required this.id, required this.name, this.description});
-
-  factory NoteTopic.fromJson(Map<String, dynamic> j) => NoteTopic(
-        id: j['id'] ?? 0,
-        name: j['name'] ?? '',
-        description: j['description'],
-      );
-
-  Map<String, dynamic> toJson() => {'name': name, if (description != null) 'description': description};
-}
-
+/// Matches `notes` app NoteListSerializer / NoteDetailSerializer.
+///
+/// Dropped vs. the old model: `content_type`, `color` — neither field
+/// exists on the backend Note model at all.
+///
+/// Fixed: `topics_list` (not `topic_names`) is what the backend actually
+/// sends, and it's a list of objects `{id, name, color, created_at}`, not
+/// a list of plain strings.
 class Note {
   final int id;
   final String title;
   final String content;
-  final String contentType; // 'text' or 'rich_text'
   final bool isPinned;
   final bool isFavorite;
   final bool isArchived;
-  final List<int> topics;
-  final List<String> topicNames;
   final int? folder;
   final String? folderName;
+  final List<int> topicIds; // only populated on detail (retrieve) responses
+  final List<NoteTopic> topicsList; // populated on both list + detail
+  final List<Map<String, dynamic>> bibleReferences;
+  final int version;
   final String createdAt;
   final String updatedAt;
-  final String? color;
+  final String? archivedAt;
 
   const Note({
     required this.id,
     required this.title,
-    required this.content,
-    this.contentType = 'text',
+    this.content = '',
     this.isPinned = false,
     this.isFavorite = false,
     this.isArchived = false,
-    this.topics = const [],
-    this.topicNames = const [],
     this.folder,
     this.folderName,
+    this.topicIds = const [],
+    this.topicsList = const [],
+    this.bibleReferences = const [],
+    this.version = 1,
     required this.createdAt,
     required this.updatedAt,
-    this.color,
+    this.archivedAt,
   });
 
   factory Note.fromJson(Map<String, dynamic> j) => Note(
         id: j['id'] ?? 0,
         title: j['title'] ?? '',
         content: j['content'] ?? '',
-        contentType: j['content_type'] ?? 'text',
         isPinned: j['is_pinned'] ?? false,
         isFavorite: j['is_favorite'] ?? false,
         isArchived: j['is_archived'] ?? false,
-        topics: (j['topics'] as List? ?? []).map((e) => e is int ? e : int.tryParse('$e') ?? 0).toList(),
-        topicNames: (j['topic_names'] as List? ?? []).map((e) => '$e').toList(),
         folder: j['folder'],
         folderName: j['folder_name'],
+        topicIds: (j['topics'] as List? ?? [])
+            .map((e) => e is int ? e : int.tryParse('$e') ?? 0)
+            .toList(),
+        topicsList: (j['topics_list'] as List? ?? [])
+            .map((t) => NoteTopic.fromJson(Map<String, dynamic>.from(t as Map)))
+            .toList(),
+        bibleReferences: (j['bible_references'] as List? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(),
+        version: j['version'] ?? 1,
         createdAt: j['created_at'] ?? '',
         updatedAt: j['updated_at'] ?? '',
-        color: j['color'],
+        archivedAt: j['archived_at'],
       );
 
-  Map<String, dynamic> toJson() => {
+  /// Payload for POST /api/notes/ or PATCH /api/notes/{id}/.
+  /// The M2M write field is `topic_ids` (NoteDetailSerializer.topic_ids),
+  /// separate from the read-only `topics`/`topics_list` fields.
+  Map<String, dynamic> toJson({List<int>? topicIds}) => {
         'title': title,
         'content': content,
-        'content_type': contentType,
         'is_pinned': isPinned,
         'is_favorite': isFavorite,
         if (folder != null) 'folder': folder,
-        if (color != null) 'color': color,
-        if (topics.isNotEmpty) 'topics': topics,
+        if (topicIds != null) 'topic_ids': topicIds,
       };
 
   Note copyWith({
@@ -116,25 +148,26 @@ class Note {
     bool? isFavorite,
     bool? isArchived,
     int? folder,
-    String? color,
   }) =>
       Note(
         id: id,
         title: title ?? this.title,
         content: content ?? this.content,
-        contentType: contentType,
         isPinned: isPinned ?? this.isPinned,
         isFavorite: isFavorite ?? this.isFavorite,
         isArchived: isArchived ?? this.isArchived,
-        topics: topics,
-        topicNames: topicNames,
         folder: folder ?? this.folder,
         folderName: folderName,
+        topicIds: topicIds,
+        topicsList: topicsList,
+        bibleReferences: bibleReferences,
+        version: version,
         createdAt: createdAt,
         updatedAt: updatedAt,
-        color: color ?? this.color,
+        archivedAt: archivedAt,
       );
 
-  /// Returns the first topic name for display purposes, or empty string
-  String get topicName => topicNames.isNotEmpty ? topicNames.first : '';
+  /// First topic's name, for compact single-tag card display.
+  String get topicName => topicsList.isNotEmpty ? topicsList.first.name : '';
+  List<String> get topicNames => topicsList.map((t) => t.name).toList();
 }
