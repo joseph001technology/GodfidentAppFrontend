@@ -75,7 +75,7 @@ class _NotificationTile extends ConsumerWidget {
       case 'prayer_reminder': return Colors.pink;
       case 'streak': return Colors.orange;
       case 'plan_complete': return Colors.green;
-      default: return Colors.grey;
+      default: return AppTheme.textMuted;
     }
   }
 

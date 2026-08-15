@@ -30,7 +30,7 @@ import '../screens/notes/notes_rules_screen.dart';
 import '../screens/notes/note_editor_screen.dart';
 import '../screens/notes/note_detail_screen.dart';
 import '../screens/rules/rule_editor_screen.dart';
-import '../screens/notifications/notification_settings_screen.dart';
+import '../screens/notifications/notification_settings_screen.dart' as legacyNotificationSettingsScreen;
 import '../screens/reminders/reminders_screen.dart';
 import '../screens/reminders/reminder_editor_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
@@ -38,6 +38,7 @@ import '../screens/focus/focus_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/settings/profile_screen.dart';
 import '../screens/settings/change_password_screen.dart';
+import '../screens/settings/notification_settings_screen.dart';
 import '../screens/achievements/achievements_screen.dart';
 import '../widgets/common/shell_scaffold.dart';
 
@@ -208,6 +209,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/settings',
             builder: (_, __) => const SettingsScreen(),
+          ),
+          GoRoute(
+            path: '/settings/notifications',
+            builder: (_, __) => const NotificationSettingsScreen(),
           ),
 
           // Global Search route

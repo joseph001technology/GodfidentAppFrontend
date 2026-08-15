@@ -61,7 +61,7 @@ class VerseCard extends StatelessWidget {
               style: const TextStyle(
                 fontFamily: 'Lora',
                 fontSize: 17,
-                color: Colors.white,
+                color: AppTheme.textOnDark, // was Colors.white — card stays a dark navy gradient on purpose
                 height: 1.6,
                 fontStyle: FontStyle.italic,
               ),

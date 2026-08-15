@@ -52,14 +52,20 @@ class _ShellScaffoldState extends State<ShellScaffold> {
       bottomNavigationBar: Container(
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         decoration: BoxDecoration(
-          color: AppTheme.navySurface.withOpacity(0.95),
+          color: AppTheme.navySurface.withOpacity(0.97),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withOpacity(0.08)),
+          // was Colors.white.withOpacity(0.08) — invisible on a light card,
+          // needs an actual border color now
+          border: Border.all(color: AppTheme.navyOutline),
           boxShadow: [
+            // was Colors.black.withOpacity(0.4), blurRadius 20 — far too
+            // heavy for a floating bar over ivory; softened to a low-alpha
+            // ink shadow so it still reads as "floating" without looking
+            // like a dark mode leftover
             BoxShadow(
-              color: Colors.black.withOpacity(0.4),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
+              color: AppTheme.inkNavy.withOpacity(0.14),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -106,6 +112,12 @@ class _ShellScaffoldState extends State<ShellScaffold> {
   }
 }
 
+// REMINDER: _FabMenu and _QuickActionButton below are never actually
+// invoked anywhere in this file (no showModalBottomSheet(builder: (_) =>
+// _FabMenu()) call exists) — looks like dead code left over from an
+// earlier FAB-based nav design. Left untouched/unstyled since it's
+// unreachable either way; flagged for deletion once you confirm nothing
+// else in the project builds it.
 class _FabMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -119,7 +131,7 @@ class _FabMenu extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: AppTheme.navyOutline,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -206,7 +218,7 @@ class _QuickActionButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: color.withOpacity(0.12),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: color.withOpacity(0.25)),
+            border: Border.all(color: color.withOpacity(0.3)),
           ),
           child: Row(
             children: [

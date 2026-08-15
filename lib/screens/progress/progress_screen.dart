@@ -211,7 +211,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                     fontFamily: 'Inter',
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: isSelected ? AppTheme.navy : AppTheme.textMuted,
+                    color: isSelected ? AppTheme.inkNavy : AppTheme.textMuted,
                   ),
                 ),
               ),
@@ -232,7 +232,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
       decoration: BoxDecoration(
         color: AppTheme.navySurface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: AppTheme.navyOutline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,7 +379,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
           child: LinearProgressIndicator(
             value: pct,
             minHeight: 6,
-            backgroundColor: Colors.white.withOpacity(0.08),
+            backgroundColor: AppTheme.navyOutline,
             valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
         ),
@@ -483,7 +483,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
       decoration: BoxDecoration(
         color: AppTheme.navySurface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: AppTheme.navyOutline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -682,9 +682,9 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
         height: 30,
         margin: const EdgeInsets.all(2),
         decoration: BoxDecoration(
-          color: count > 0 ? _heatColor(count, maxCount) : Colors.white.withOpacity(0.04),
+          color: count > 0 ? _heatColor(count, maxCount) : AppTheme.navyOutline,
           borderRadius: BorderRadius.circular(6),
-          border: count > 0 ? null : Border.all(color: Colors.white.withOpacity(0.05)),
+          border: count > 0 ? null : Border.all(color: AppTheme.navyOutline),
         ),
         alignment: Alignment.center,
         child: Text(
@@ -692,7 +692,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
           style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 10,
-            color: count > 0 ? AppTheme.navy : AppTheme.textMuted,
+            color: count > 0 ? AppTheme.inkNavy : AppTheme.textMuted,
             fontWeight: count > 0 ? FontWeight.bold : FontWeight.normal,
           ),
         ),
@@ -726,7 +726,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
   }
 
   Color _heatColor(int count, int maxCount) {
-    if (count <= 0) return Colors.white.withOpacity(0.04);
+    if (count <= 0) return AppTheme.navyOutline;
     final ratio = (count / maxCount).clamp(0.0, 1.0);
     if (ratio > 0.75) return const Color(0xFFF59E0B);
     if (ratio > 0.5) return const Color(0xFFFBBF24);

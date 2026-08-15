@@ -151,7 +151,7 @@ class _PlanCard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(child: Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(2)))),
+                decoration: BoxDecoration(color: AppTheme.textMuted, borderRadius: BorderRadius.circular(2)))),
               const SizedBox(height: 16),
               Text(plan.name, style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 8),

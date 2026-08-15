@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/reminders_provider.dart';
 import '../../core/theme.dart';
+import '../../models/reminder.dart';
+import '../../providers/reminders_provider.dart';
 import '../../services/notification_service.dart';
 
 class ReminderEditorScreen extends ConsumerStatefulWidget {
@@ -71,32 +72,31 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
 
     // Schedule local notification or alarm
     if (isEnabled) {
-      final notificationId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       final title = titleController.text.trim();
       final body = descriptionController.text.trim().isNotEmpty
           ? descriptionController.text.trim()
           : 'Time for your spiritual reminder - $title';
       final scheduledDate = DateTime(
-        selectedDate.year, selectedDate.month, selectedDate.day,
-        selectedTime.hour, selectedTime.minute,
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+        selectedTime.hour,
+        selectedTime.minute,
       );
 
       try {
-        if (isAlarmWithRingtone) {
-          await NotificationService().scheduleAlarm(
-            id: notificationId,
-            title: title,
-            body: body,
-            scheduledDate: scheduledDate,
-            isDaily: selectedRepeat == 'daily',
-          );
-        } else if (selectedRepeat == 'daily') {
-          await NotificationService().scheduleDailyReminder(id: notificationId, title: title, body: body);
-        } else if (selectedRepeat == 'weekly') {
-          await NotificationService().scheduleWeeklyReminder(id: notificationId, title: title, body: body);
-        } else {
-          await NotificationService().scheduleOneTimeReminder(id: notificationId, title: title, body: body, scheduledDate: scheduledDate);
-        }
+        final reminder = Reminder(
+          id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          title: title,
+          description: body,
+          date: '${scheduledDate.year}-${scheduledDate.month.toString().padLeft(2, '0')}-${scheduledDate.day.toString().padLeft(2, '0')}',
+          time: '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}:00',
+          repeat: selectedRepeat,
+          isEnabled: true,
+          isAlarm: isAlarmWithRingtone,
+          createdAt: DateTime.now().toIso8601String(),
+        );
+        await NotificationService().scheduleReminder(reminder);
       } catch (_) {
         // Notification/alarm scheduling silently fails if permissions not granted
       }

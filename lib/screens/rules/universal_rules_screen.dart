@@ -59,11 +59,9 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF2D1B69), Color(0xFF14142A)],
-                  ),
+                  // was a dark [#2D1B69, #14142A] gradient — flattened,
+                  // same reasoning as the other "motivational banner" cards
+                  color: AppTheme.navySurface,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: AppTheme.accentPurple.withValues(alpha: 0.3)),
                 ),
@@ -95,8 +93,8 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
                   prefixIcon: const Icon(Icons.search, color: AppTheme.textMuted),
                   fillColor: AppTheme.navySurface,
                   filled: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: AppTheme.navyOutline)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: AppTheme.navyOutline)),
                 ),
               ),
 
@@ -123,7 +121,7 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
                           decoration: BoxDecoration(
                             color: isSelected ? AppTheme.gold : AppTheme.navySurface,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: isSelected ? AppTheme.gold : Colors.white.withValues(alpha: 0.08)),
+                            border: Border.all(color: isSelected ? AppTheme.gold : AppTheme.navyOutline),
                           ),
                           child: Text(
                             label,
@@ -131,7 +129,7 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
                               fontFamily: 'Inter',
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: isSelected ? AppTheme.navy : AppTheme.textPrimary,
+                              color: isSelected ? AppTheme.inkNavy : AppTheme.textPrimary,
                             ),
                           ),
                         ),
@@ -181,7 +179,7 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
       decoration: BoxDecoration(
         color: AppTheme.navySurface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: rule.isCompletedToday ? AppTheme.emerald.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: rule.isCompletedToday ? AppTheme.emerald.withValues(alpha: 0.4) : AppTheme.navyOutline),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,7 +192,7 @@ class _UniversalRulesScreenState extends ConsumerState<UniversalRulesScreen> {
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: rule.isCompletedToday ? AppTheme.emerald : Colors.white.withValues(alpha: 0.1),
+                color: rule.isCompletedToday ? AppTheme.emerald : AppTheme.navyOutline,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(Icons.check, size: 16, color: rule.isCompletedToday ? Colors.white : Colors.transparent),

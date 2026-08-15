@@ -278,6 +278,11 @@ class _PrayerTimerWidgetState extends State<PrayerTimerWidget>
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
                     value: _progress.clamp(0.0, 1.0), minHeight: 4,
+                    // NOTE: reverted here — my earlier blanket "invisible
+                    // white border" fix wrongly applied to this file. This
+                    // card stays dark on purpose (calm/immersive timer,
+                    // same reasoning as the verse-of-day card), so a
+                    // translucent white overlay is correct, not a bug.
                     backgroundColor: Colors.white.withOpacity(0.1),
                     valueColor: AlwaysStoppedAnimation<Color>(_isCompleted ? AppTheme.gold : AppTheme.emerald),
                   ),
@@ -289,7 +294,7 @@ class _PrayerTimerWidgetState extends State<PrayerTimerWidget>
         const SizedBox(height: 20),
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(16)), // reverted, see note above
           child: Row(children: [
             const Icon(Icons.format_quote, color: AppTheme.gold, size: 20),
             const SizedBox(width: 10),

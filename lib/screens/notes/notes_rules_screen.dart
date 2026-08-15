@@ -226,7 +226,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
         decoration: BoxDecoration(
           color: AppTheme.navySurface,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          border: Border.all(color: AppTheme.navyOutline),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,11 +299,9 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF2D1B69), Color(0xFF14142A)],
-                ),
+                // was a dark [#2D1B69, #14142A] gradient — flattened,
+                // same reasoning as the other "motivational banner" cards
+                color: AppTheme.navySurface,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppTheme.accentPurple.withValues(alpha: 0.3)),
               ),
@@ -411,7 +409,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
         border: Border.all(
           color: rule.isCompletedToday
               ? AppTheme.emerald.withValues(alpha: 0.4)
-              : Colors.white.withValues(alpha: 0.08),
+              : AppTheme.navyOutline,
         ),
       ),
       child: Row(
@@ -427,7 +425,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
               decoration: BoxDecoration(
                 color: rule.isCompletedToday
                     ? AppTheme.emerald
-                    : Colors.white.withValues(alpha: 0.1),
+                    : AppTheme.navyOutline,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(Icons.check,
@@ -560,11 +558,11 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
         filled: true,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          borderSide: BorderSide(color: AppTheme.navyOutline),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          borderSide: BorderSide(color: AppTheme.navyOutline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -583,7 +581,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
         color: isSelected ? AppTheme.gold : AppTheme.navySurface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isSelected ? AppTheme.gold : Colors.white.withValues(alpha: 0.08),
+          color: isSelected ? AppTheme.gold : AppTheme.navyOutline,
         ),
       ),
       child: Text(
@@ -592,7 +590,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
           fontFamily: 'Inter',
           fontSize: 12,
           fontWeight: FontWeight.bold,
-          color: isSelected ? AppTheme.navy : AppTheme.textPrimary,
+          color: isSelected ? AppTheme.inkNavy : AppTheme.textPrimary,
         ),
       ),
     );

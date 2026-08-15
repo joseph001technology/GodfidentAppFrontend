@@ -115,7 +115,7 @@ class NoteDetailScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: AppTheme.navySurface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                  border: Border.all(color: AppTheme.navyOutline),
                 ),
                 child: Text(note.content, style: const TextStyle(fontFamily: 'Inter', fontSize: 15, color: AppTheme.textPrimary, height: 1.8)),
               ),

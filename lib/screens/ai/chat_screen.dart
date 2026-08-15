@@ -271,7 +271,7 @@ class _InputBar extends StatelessWidget {
                   ? const Padding(
                       padding: EdgeInsets.all(10),
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.send_rounded, color: Color(0xFF1A1A2E), size: 20),
+                  : const Icon(Icons.send_rounded, color: AppTheme.inkNavy, size: 20), // was Color(0xFF1A1A2E) — dark icon on a gold send button
             ),
           ),
         ],

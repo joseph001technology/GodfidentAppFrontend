@@ -51,7 +51,7 @@ class PrayerStatsScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: AppTheme.navySurface,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                border: Border.all(color: AppTheme.navyOutline),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,7 +96,7 @@ class PrayerStatsScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: AppTheme.navySurface,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                border: Border.all(color: AppTheme.navyOutline),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

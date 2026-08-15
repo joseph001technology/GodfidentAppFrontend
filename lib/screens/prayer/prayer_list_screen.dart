@@ -86,7 +86,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
                         decoration: BoxDecoration(
                           color: isSelected ? AppTheme.gold : AppTheme.navySurface,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: isSelected ? AppTheme.gold : Colors.white.withOpacity(0.08)),
+                          border: Border.all(color: isSelected ? AppTheme.gold : AppTheme.navyOutline),
                         ),
                         child: Text(
                           cat,
@@ -94,7 +94,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
                             fontFamily: 'Inter',
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: isSelected ? AppTheme.navy : AppTheme.textPrimary,
+                            color: isSelected ? AppTheme.inkNavy : AppTheme.textPrimary,
                           ),
                         ),
                       ),
@@ -146,7 +146,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
           color: AppTheme.navySurface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: prayer.isAnswered ? AppTheme.emerald.withOpacity(0.4) : Colors.white.withOpacity(0.08),
+            color: prayer.isAnswered ? AppTheme.emerald.withOpacity(0.4) : AppTheme.navyOutline,
           ),
         ),
         child: Column(
@@ -250,7 +250,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
           decoration: BoxDecoration(
             color: AppTheme.navySurface,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: isAnswered ? AppTheme.emerald.withOpacity(0.4) : Colors.white.withOpacity(0.08)),
+            border: Border.all(color: isAnswered ? AppTheme.emerald.withOpacity(0.4) : AppTheme.navyOutline),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

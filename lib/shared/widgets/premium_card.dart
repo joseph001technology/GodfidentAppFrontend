@@ -1,9 +1,12 @@
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
 
-/// Premium gradient card with glow effect
+/// Card with an optional gradient/background and a soft shadow.
+/// (Previously "gradient card with glow effect" — true glow doesn't read
+/// on an ivory background, so this is now a flat-but-elevated card:
+/// solid/gradient fill, a thin outline, and a soft low-alpha shadow
+/// instead of a colored glow.)
 class PremiumCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -30,6 +33,11 @@ class PremiumCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A gradient card (e.g. the verse-of-day hero) is dark/navy by design
+    // even in the light theme — so its border and default shadow need to
+    // stay dark-appropriate rather than using the page's light outline.
+    final isDarkFill = gradient != null;
+
     final card = Container(
       margin: margin,
       padding: padding,
@@ -39,12 +47,15 @@ class PremiumCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: boxShadow ?? [
           BoxShadow(
-            color: (gradient?.colors.first ?? AppTheme.navySurface).withValues(alpha: 0.2),
+            color: AppTheme.inkNavy.withValues(alpha: isDarkFill ? 0.18 : 0.08),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
         ],
-        border: border ?? Border.all(color: AppTheme.navyOutline.withValues(alpha: 0.3)),
+        border: border ??
+            (isDarkFill
+                ? null
+                : Border.all(color: AppTheme.navyOutline)),
       ),
       child: child,
     );
@@ -56,7 +67,15 @@ class PremiumCard extends StatelessWidget {
   }
 }
 
-/// Glassmorphic card with backdrop filter
+/// Frosted card with backdrop blur.
+/// Retuned for light mode: on the old near-black background, a translucent
+/// white layer read as "glass". Over an ivory page, the same translucent
+/// white just looked like a grey smear, so this is now a higher-opacity
+/// frosted white (like iOS light-mode control sheets) with a visible
+/// hairline border, which keeps the "glass" read without going muddy.
+/// Worth re-checking in context wherever it's used — if it's sitting
+/// directly on the flat page background rather than over scrolling
+/// content, a plain PremiumCard may honestly look better; see reminder list.
 class GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -78,9 +97,9 @@ class GlassCard extends StatelessWidget {
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: Colors.white.withValues(alpha: 0.65),
             borderRadius: BorderRadius.circular(borderRadius),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            border: Border.all(color: AppTheme.navyOutline),
           ),
           child: child,
         ),
@@ -89,7 +108,7 @@ class GlassCard extends StatelessWidget {
   }
 }
 
-/// Premium section header with decorative bar
+/// Section header with a decorative accent bar.
 class SectionHeader extends StatelessWidget {
   final String title;
   final Widget? trailing;
@@ -125,7 +144,7 @@ class SectionHeader extends StatelessWidget {
               fontFamily: 'Inter',
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: accentColor ?? AppTheme.gold,
+              color: accentColor ?? AppTheme.goldDark,
               letterSpacing: 1.0,
             ),
           ),
@@ -137,7 +156,7 @@ class SectionHeader extends StatelessWidget {
   }
 }
 
-/// Animated stat pill badge
+/// Small pill badge, e.g. for stats.
 class StatPill extends StatelessWidget {
   final String icon;
   final String value;
@@ -154,13 +173,14 @@ class StatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = color ?? AppTheme.goldDark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: (color ?? AppTheme.gold).withValues(alpha: 0.1),
+        color: c.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: (color ?? AppTheme.gold).withValues(alpha: 0.2),
+          color: c.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -172,7 +192,7 @@ class StatPill extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              color: color ?? AppTheme.gold,
+              color: c,
               fontSize: 13,
               fontWeight: FontWeight.w700,
               fontFamily: 'Inter',
@@ -182,7 +202,7 @@ class StatPill extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: (color ?? AppTheme.gold).withValues(alpha: 0.7),
+              color: c.withValues(alpha: 0.75),
               fontSize: 11,
               fontWeight: FontWeight.w500,
               fontFamily: 'Inter',

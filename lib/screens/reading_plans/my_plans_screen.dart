@@ -164,7 +164,7 @@ class _UserPlanCard extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(Icons.pause_outlined, color: Colors.grey),
+                  icon: const Icon(Icons.pause_outlined, color: AppTheme.textMuted),
                   onPressed: () => ref.read(myPlansProvider.notifier).pause(userPlan.id),
                   tooltip: 'Pause',
                 ),
@@ -201,7 +201,7 @@ class _StatusChip extends StatelessWidget {
       case 'active': return Colors.green;
       case 'paused': return Colors.orange;
       case 'completed': return Colors.blue;
-      default: return Colors.grey;
+      default: return AppTheme.textMuted;
     }
   }
 

@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../models/reminder.dart';
 import '../../providers/reminders_provider.dart';
-import '../../widgets/common/app_widgets.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/common/app_widgets.dart';
 
 class RemindersScreen extends ConsumerWidget {
   const RemindersScreen({super.key});
@@ -67,15 +67,12 @@ class RemindersScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Banner
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF1E1E3A), Color(0xFF14142A)],
-                  ),
+                  // was a dark [#1E1E3A, #14142A] gradient — flattened,
+                  // same reasoning as the other "motivational banner" cards
+                  color: AppTheme.navySurface,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: AppTheme.gold.withOpacity(0.3)),
                 ),
@@ -90,18 +87,20 @@ class RemindersScreen extends ConsumerWidget {
                           Text(
                             'Daily Spiritual Rhythm',
                             style: TextStyle(
-                                fontFamily: 'Lora',
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary),
+                              fontFamily: 'Lora',
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimary,
+                            ),
                           ),
                           SizedBox(height: 2),
                           Text(
                             'Set reminders to pause, pray, and meditate.',
                             style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 12,
-                                color: AppTheme.textMuted),
+                              fontFamily: 'Inter',
+                              fontSize: 12,
+                              color: AppTheme.textMuted,
+                            ),
                           ),
                         ],
                       ),
@@ -109,20 +108,17 @@ class RemindersScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-
               const SizedBox(height: 24),
-
               const Text(
                 'Active Timers & Notifications',
                 style: TextStyle(
-                    fontFamily: 'Lora',
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary),
+                  fontFamily: 'Lora',
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
               ),
-
               const SizedBox(height: 12),
-
               remindersAsync.when(
                 loading: () => const LoadingShimmer(height: 200),
                 error: (e, _) => ErrorView(message: e.toString()),
@@ -132,14 +128,15 @@ class RemindersScreen extends ConsumerWidget {
                       title: 'No reminders yet',
                       subtitle: 'Tap + to create your first spiritual reminder',
                       icon: Icons.alarm_add_outlined,
-                      onAction: () => context.push('/reminders/new'),
-                      actionLabel: 'Add Reminder',
+                      action: ElevatedButton.icon(
+                        onPressed: () => context.push('/reminders/new'),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add Reminder'),
+                      ),
                     );
                   }
                   return Column(
-                    children: reminders
-                        .map((r) => _ReminderCard(reminder: r))
-                        .toList(),
+                    children: reminders.map((r) => _ReminderCard(reminder: r)).toList(),
                   );
                 },
               ),
@@ -160,16 +157,13 @@ class _ReminderCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final r = reminder;
     final isEnabled = r.isEnabled;
-
-    // Icon based on recurrence type
-    final IconData typeIcon = r.isAlarm
+    final typeIcon = r.isAlarm
         ? Icons.alarm_outlined
-        : r.recurrence == 'daily'
+        : r.repeat == 'daily'
             ? Icons.repeat
-            : r.recurrence == 'weekly'
+            : r.repeat == 'weekly'
                 ? Icons.calendar_view_week_outlined
                 : Icons.notifications_none_outlined;
-
     final accentColor = isEnabled ? AppTheme.gold : AppTheme.textMuted;
 
     return Dismissible(
@@ -191,20 +185,16 @@ class _ReminderCard extends ConsumerWidget {
           context: context,
           builder: (_) => AlertDialog(
             backgroundColor: AppTheme.navySurface,
-            title: const Text('Delete Reminder',
-                style: TextStyle(color: AppTheme.textPrimary)),
-            content: Text('Delete "${r.title}"?',
-                style: const TextStyle(color: AppTheme.textMuted)),
+            title: const Text('Delete Reminder', style: TextStyle(color: AppTheme.textPrimary)),
+            content: Text('Delete "${r.title}"?', style: const TextStyle(color: AppTheme.textMuted)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel',
-                    style: TextStyle(color: AppTheme.textMuted)),
+                child: const Text('Cancel', style: TextStyle(color: AppTheme.textMuted)),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete',
-                    style: TextStyle(color: Colors.red)),
+                child: const Text('Delete', style: TextStyle(color: Colors.red)),
               ),
             ],
           ),
@@ -219,91 +209,93 @@ class _ReminderCard extends ConsumerWidget {
           ),
         );
       },
-      child: GestureDetector(
-        onTap: () => context.push('/reminders/${r.id}'),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.navySurface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: isEnabled
-                  ? AppTheme.gold.withOpacity(0.3)
-                  : Colors.white.withOpacity(0.06),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.navySurface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isEnabled ? AppTheme.gold.withOpacity(0.3) : AppTheme.navyOutline,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: accentColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(typeIcon, color: accentColor, size: 22),
             ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(typeIcon, color: accentColor, size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      r.title,
-                      style: TextStyle(
-                        fontFamily: 'Lora',
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: isEnabled
-                            ? AppTheme.textPrimary
-                            : AppTheme.textMuted,
-                      ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    r.title,
+                    style: TextStyle(
+                      fontFamily: 'Lora',
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: isEnabled ? AppTheme.textPrimary : AppTheme.textMuted,
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      r.formattedTime.isNotEmpty
-                          ? r.formattedTime
-                          : 'Daily',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        color: isEnabled
-                            ? AppTheme.textMuted
-                            : AppTheme.textMuted.withOpacity(0.5),
-                      ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    r.formattedTime.isNotEmpty ? r.formattedTime : 'Daily',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      color: isEnabled ? AppTheme.textMuted : AppTheme.textMuted.withOpacity(0.5),
                     ),
-                    if (r.isAlarm) ...[
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.accentPurple.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'Alarm',
-                          style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.accentPurple),
+                  ),
+                  if (r.isAlarm) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentPurple.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'Alarm',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.accentPurple,
                         ),
                       ),
-                    ],
+                    ),
                   ],
-                ),
+                ],
               ),
-              Switch(
-                value: isEnabled,
-                activeColor: AppTheme.gold,
-                onChanged: (_) {
-                  ref.read(remindersProvider.notifier).toggleEnabled(r.id);
-                },
-              ),
-            ],
-          ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.edit, color: AppTheme.gold),
+              onPressed: () => context.push('/reminders/${r.id}'),
+              tooltip: 'Edit reminder',
+            ),
+            Switch(
+              value: isEnabled,
+              activeColor: AppTheme.gold,
+              onChanged: (val) async {
+                try {
+                  await ref.read(remindersProvider.notifier).update(r.id, {'is_enabled': val});
+                } catch (e) {
+                  ref.invalidate(remindersProvider);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to update reminder: $e')),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
         ),
       ),
     );

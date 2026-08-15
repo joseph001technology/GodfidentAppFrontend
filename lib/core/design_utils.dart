@@ -7,43 +7,55 @@ class DesignUtils {
   // GRADIENTS
   // ──────────────────────────────────────────────
   
-  /// Soft gradient from navy to purple (contemplative)
+  // REMINDER: navyPurpleGradient, growthGradient, and calmGradient are
+  // UNUSED anywhere in the project (grepped — only warmGradient has a live
+  // caller, in progress_ring.dart and premium_components.dart). Left them
+  // defined (in case something outside this snapshot uses them) but
+  // updated to light-safe values on the assumption they'd be used the same
+  // way warmGradient is, as a card fill. Delete these three once confirmed
+  // unused for real.
+
+  /// Soft gradient, contemplative. Was navy-to-purple-black; now a pale
+  /// plum tint so it still reads as "contemplative" without going dark.
   static const LinearGradient navyPurpleGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFF0F0F1A),
-      Color(0xFF2D1B4E),
+      Color(0xFFE7E1F2),
+      Color(0xFFD3C7E8),
     ],
   );
 
-  /// Soft gradient with emerald accent (growth)
+  /// Soft gradient with emerald accent (growth). Was near-black-to-dark
+  /// green; now a pale sage tint.
   static const LinearGradient growthGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFF1A1A2E),
-      Color(0xFF0D4D32),
+      Color(0xFFE3EEE5),
+      Color(0xFFCBE0D0),
     ],
   );
 
-  /// Warm gradient from navy to gold (warmth, encouragement)
+  /// Warm gradient (warmth, encouragement). Was near-black-to-dark-amber;
+  /// now a pale gold tint. CONFIRMED LIVE — used by ContinueReadingCard.
   static const LinearGradient warmGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFF1A1A2E),
-      Color(0xFF4A3A1A),
+      Color(0xFFF3E7D0),
+      Color(0xFFE9D3A8),
     ],
   );
 
-  /// Cool gradient with blue accent (calm, peace)
+  /// Cool gradient with blue accent (calm, peace). Was near-black-to-dark
+  /// blue; now a pale sky tint.
   static const LinearGradient calmGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFF0F0F1A),
-      Color(0xFF1E3A5F),
+      Color(0xFFE1EBF3),
+      Color(0xFFC7DCEC),
     ],
   );
 
@@ -101,6 +113,11 @@ class DesignUtils {
   static const Curve smoothCurve = Curves.decelerate;
 }
 
+// REMINDER: GlassmorphicContainer has no callers anywhere in the project
+// (grepped) — likely dead code, same story as GlassCard in
+// shared/widgets/premium_card.dart. Retuned its default fill below in case
+// something outside this snapshot uses it, but flag for deletion once
+// confirmed unused.
 /// Glass morphism effect with blur and transparency
 class GlassmorphicContainer extends StatelessWidget {
   final Widget child;
@@ -117,7 +134,7 @@ class GlassmorphicContainer extends StatelessWidget {
     this.opacity = 0.1,
     this.borderRadius = const BorderRadius.all(Radius.circular(16)),
     this.border,
-    this.backgroundColor = const Color(0x1AFFFFFF),
+    this.backgroundColor = const Color(0x0D1B2A4C), // was translucent white — muddy on ivory; soft ink tint instead
   });
 
   @override

@@ -143,11 +143,10 @@ class NotificationSettingsScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1E1E3A), Color(0xFF14142A)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                // was a dark [#1E1E3A, #14142A] gradient — the text inside
+                // already used textPrimary/textMuted (light-mode tokens),
+                // so the card was meant to be light; flattened to match.
+                color: AppTheme.navySurface,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppTheme.gold.withOpacity(0.3)),
               ),
@@ -258,7 +257,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: AppTheme.navySurface,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                      border: Border.all(color: AppTheme.navyOutline),
                     ),
                     child: Column(
                       children: items.asMap().entries.map((entry) {
@@ -326,7 +325,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: AppTheme.navySurface,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                  border: Border.all(color: AppTheme.navyOutline),
                 ),
                 child: const Row(
                   children: [

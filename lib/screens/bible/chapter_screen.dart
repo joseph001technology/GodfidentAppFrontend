@@ -128,7 +128,9 @@ class _ChapterView extends ConsumerWidget {
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.chevron_left, color: AppTheme.gold),
+                // was AppTheme.gold — a gold icon directly on the ivory
+                // page background is low contrast; goldDark holds up
+                icon: const Icon(Icons.chevron_left, color: AppTheme.goldDark),
                 onPressed: chapter.hasPrevious
                     ? () => context.pushReplacement(
                           '/bible/chapter?book=${Uri.encodeComponent(chapter.book)}&chapter=${chapter.chapter - 1}&translation=$translation',
@@ -136,7 +138,7 @@ class _ChapterView extends ConsumerWidget {
                     : null,
               ),
               IconButton(
-                icon: const Icon(Icons.chevron_right, color: AppTheme.gold),
+                icon: const Icon(Icons.chevron_right, color: AppTheme.goldDark),
                 onPressed: chapter.hasNext
                     ? () => context.pushReplacement(
                           '/bible/chapter?book=${Uri.encodeComponent(chapter.book)}&chapter=${chapter.chapter + 1}&translation=$translation',
@@ -197,7 +199,7 @@ class _VerseTile extends ConsumerWidget {
             margin: const EdgeInsets.symmetric(vertical: 4),
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
             decoration: BoxDecoration(
-              color: isSelected ? AppTheme.gold.withOpacity(0.1) : Colors.transparent,
+              color: isSelected ? AppTheme.gold.withOpacity(0.12) : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -209,7 +211,7 @@ class _VerseTile extends ConsumerWidget {
                     '${verse.verse}',
                     style: const TextStyle(
                       fontFamily: 'Inter',
-                      color: AppTheme.gold,
+                      color: AppTheme.goldDark, // was gold — small text on ivory needs the darker variant
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
                     ),
@@ -243,7 +245,7 @@ class _VerseTile extends ConsumerWidget {
       decoration: BoxDecoration(
         color: AppTheme.navySurface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.gold.withOpacity(0.3)),
+        border: Border.all(color: AppTheme.gold.withOpacity(0.35)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -280,7 +282,9 @@ class _VerseTile extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Row(
           children: [
-            Icon(icon, color: AppTheme.gold, size: 16),
+            // was AppTheme.gold — this toolbar sits on a white card
+            // (navySurface), same low-contrast issue
+            Icon(icon, color: AppTheme.goldDark, size: 16),
             const SizedBox(width: 6),
             Text(
               label,
@@ -321,6 +325,9 @@ class _VerseTile extends ConsumerWidget {
       builder: (_) => AlertDialog(
         backgroundColor: AppTheme.navySurface,
         title: const Text('Choose Highlight Color'),
+        // NOTE: these swatches represent real highlighter-pen colors the
+        // user is choosing between, not theme decoration — left as the
+        // literal Material colors on purpose, unrelated to light/dark mode.
         content: Wrap(
           spacing: 12,
           children: {
@@ -371,14 +378,15 @@ class _ChapterNav extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: AppTheme.navySurface,
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.08))),
+        // was Colors.white.withOpacity(0.08) — invisible over a white bar
+        border: Border(top: BorderSide(color: AppTheme.navyOutline)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           if (chapter.hasPrevious)
             TextButton.icon(
-              icon: const Icon(Icons.chevron_left, color: AppTheme.gold),
+              icon: const Icon(Icons.chevron_left, color: AppTheme.goldDark),
               label: Text('Chapter ${chapter.chapter - 1}', style: const TextStyle(color: AppTheme.textPrimary)),
               onPressed: () => context.pushReplacement(
                 '/bible/chapter?book=${Uri.encodeComponent(chapter.book)}&chapter=${chapter.chapter - 1}&translation=${chapter.translation}',
@@ -389,7 +397,7 @@ class _ChapterNav extends StatelessWidget {
           if (chapter.hasNext)
             TextButton.icon(
               label: Text('Chapter ${chapter.chapter + 1}', style: const TextStyle(color: AppTheme.textPrimary)),
-              icon: const Icon(Icons.chevron_right, color: AppTheme.gold),
+              icon: const Icon(Icons.chevron_right, color: AppTheme.goldDark),
               onPressed: () => context.pushReplacement(
                 '/bible/chapter?book=${Uri.encodeComponent(chapter.book)}&chapter=${chapter.chapter + 1}&translation=${chapter.translation}',
               ),

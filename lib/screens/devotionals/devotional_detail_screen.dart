@@ -43,7 +43,7 @@ class DevotionalDetailScreen extends ConsumerWidget {
           icon: const Icon(Icons.volunteer_activism),
           label: const Text('Pray with AI'),
           backgroundColor: AppTheme.gold,
-          foregroundColor: const Color(0xFF1A1A2E),
+          foregroundColor: AppTheme.inkNavy, // was Color(0xFF1A1A2E) — dark text on a gold button
         ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),

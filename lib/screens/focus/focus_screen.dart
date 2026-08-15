@@ -154,7 +154,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
       decoration: BoxDecoration(
         color: AppTheme.navySurface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: AppTheme.navyOutline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,14 +307,14 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
             decoration: BoxDecoration(
               color: AppTheme.navySurface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.06)),
+              border: Border.all(color: AppTheme.navyOutline),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
+                    color: AppTheme.navyOutline,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(app['icon'] as IconData, color: AppTheme.gold, size: 22),
@@ -352,7 +352,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
                         child: LinearProgressIndicator(
                           value: pct,
                           minHeight: 4,
-                          backgroundColor: Colors.white.withOpacity(0.1),
+                          backgroundColor: AppTheme.navyOutline,
                           valueColor: AlwaysStoppedAnimation<Color>(isLimited ? const Color(0xFFEF4444) : AppTheme.emerald),
                         ),
                       ),
@@ -477,7 +477,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> {
           decoration: BoxDecoration(
             color: AppTheme.navySurface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: AppTheme.navyOutline),
           ),
           child: Row(
             children: [

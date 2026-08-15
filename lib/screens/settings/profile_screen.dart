@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../models/user.dart';
+import '../../providers/achievements_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/remaining_providers.dart';
 import '../../widgets/common/app_widgets.dart';
@@ -53,7 +54,6 @@ class ProfileScreen extends ConsumerWidget {
 
             const SizedBox(height: 20),
 
-            // Streak Stats Row
             Row(
               children: [
                 Expanded(
@@ -65,6 +65,7 @@ class ProfileScreen extends ConsumerWidget {
                       data: (s) => '${s.currentStreak}d 🔥',
                       loading: () => '—',
                       error: (_, __) => '0d',
+                      skipLoadingOnReload: false,
                     ),
                   ),
                 ),
@@ -78,6 +79,7 @@ class ProfileScreen extends ConsumerWidget {
                       data: (s) => '${s.currentStreak}d 📖',
                       loading: () => '—',
                       error: (_, __) => '0d',
+                      skipLoadingOnReload: false,
                     ),
                   ),
                 ),
@@ -94,11 +96,9 @@ class ProfileScreen extends ConsumerWidget {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF14142A), Color(0xFF1A1040)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  // was a dark [#14142A, #1A1040] gradient — flattened,
+                  // same reasoning as the other "motivational banner" cards
+                  color: AppTheme.navySurface,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: AppTheme.accentPurple.withOpacity(0.25)),
                 ),
@@ -269,13 +269,11 @@ class ProfileScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF14142A), Color(0xFF1E1E3A)],
-        ),
+        // was a dark [#14142A, #1E1E3A] gradient — flattened, same
+        // reasoning as the other "motivational banner" cards
+        color: AppTheme.navySurface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: AppTheme.navyOutline),
       ),
       child: Row(
         children: [
@@ -290,7 +288,7 @@ class ProfileScreen extends ConsumerWidget {
               ),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(Icons.person, color: AppTheme.navy, size: 36),
+            child: const Icon(Icons.person, color: AppTheme.inkNavy, size: 36),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -388,7 +386,7 @@ class ProfileScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: AppTheme.navySurface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: AppTheme.navyOutline),
       ),
       child: Column(
         children: tiles.asMap().entries.map((entry) {

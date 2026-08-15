@@ -6,6 +6,10 @@ import 'auth_event_service.dart';
 class DioClient {
   static Dio? _instance;
 
+  /// Optional callback invoked when auth is considered expired (401 + unable to refresh).
+  /// Set this from app-level code to perform logout/navigation/UI actions.
+  static void Function()? onAuthExpired;
+
   static Dio get instance {
     _instance ??= _create();
     return _instance!;
@@ -20,6 +24,16 @@ class DioClient {
     ));
 
     dio.interceptors.add(_JwtInterceptor(dio));
+    // Add a guard interceptor to ensure Authorization header is always set correctly
+    dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final token = await SecureStorage.getAccessToken();
+        if (token != null) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        handler.next(options);
+      },
+    ));
     return dio;
   }
 }
@@ -53,6 +67,9 @@ class _JwtInterceptor extends Interceptor {
         final refreshToken = await SecureStorage.getRefreshToken();
         if (refreshToken == null) {
           await SecureStorage.clearAll();
+          try {
+            DioClient.onAuthExpired?.call();
+          } catch (_) {}
           AuthEventService().notifyUnauthorized();
           handler.next(err);
           return;
@@ -75,6 +92,9 @@ class _JwtInterceptor extends Interceptor {
         handler.resolve(retried);
       } catch (_) {
         await SecureStorage.clearAll();
+        try {
+          DioClient.onAuthExpired?.call();
+        } catch (_) {}
         AuthEventService().notifyUnauthorized();
         handler.next(err);
       } finally {

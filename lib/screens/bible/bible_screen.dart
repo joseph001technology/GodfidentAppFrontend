@@ -58,17 +58,15 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Verse of the Day Banner
+            // Verse of the Day Banner — stays a dark navy gradient card on
+            // purpose (matches the prototype's verse card), so its text
+            // uses textOnDark/textOnDarkMuted, not the page's textPrimary.
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF1A1040), Color(0xFF2D1B69)],
-                ),
+                gradient: Gradients.verseOfDay, // was inline Color(0xFF1A1040)->Color(0xFF2D1B69)
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.gold.withOpacity(0.3)),
+                border: Border.all(color: AppTheme.gold.withOpacity(0.35)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,7 +97,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                             fontFamily: 'Lora',
                             fontSize: 15,
                             fontStyle: FontStyle.italic,
-                            color: AppTheme.textPrimary,
+                            color: AppTheme.textOnDark, // was textPrimary
                             height: 1.4,
                           ),
                         ),
@@ -125,7 +123,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                             fontFamily: 'Lora',
                             fontSize: 15,
                             fontStyle: FontStyle.italic,
-                            color: AppTheme.textPrimary,
+                            color: AppTheme.textOnDark, // was textPrimary
                           ),
                         ),
                         SizedBox(height: 6),
@@ -172,7 +170,11 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                               fontFamily: 'Inter',
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: _selectedTestament == 0 ? AppTheme.navy : AppTheme.textPrimary,
+                              // was AppTheme.navy — that token is now the
+                              // page background color (ivory), which would
+                              // be nearly invisible on a gold chip. Active
+                              // "text on gold" needs the dedicated ink token.
+                              color: _selectedTestament == 0 ? AppTheme.inkNavy : AppTheme.textPrimary,
                             ),
                           ),
                         ],
@@ -203,7 +205,8 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                               fontFamily: 'Inter',
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: _selectedTestament == 1 ? AppTheme.navy : AppTheme.textPrimary,
+                              // same fix as above
+                              color: _selectedTestament == 1 ? AppTheme.inkNavy : AppTheme.textPrimary,
                             ),
                           ),
                         ],
@@ -254,10 +257,12 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               },
               child: Container(
                 decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.gold.withOpacity(0.2) : AppTheme.navyVariant,
+                  color: isSelected ? AppTheme.gold.withOpacity(0.16) : AppTheme.navyVariant,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: isSelected ? AppTheme.gold : Colors.white.withOpacity(0.08),
+                    // was Colors.white.withOpacity(0.08) — invisible on a
+                    // light chip
+                    color: isSelected ? AppTheme.gold : AppTheme.navyOutline,
                     width: isSelected ? 1.5 : 1.0,
                   ),
                 ),
@@ -269,7 +274,9 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                     fontFamily: 'Inter',
                     fontSize: 12,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected ? AppTheme.gold : AppTheme.textPrimary,
+                    // was AppTheme.gold — gold-on-pale-gold-tint is low
+                    // contrast on a light card; goldDark reads clearly
+                    color: isSelected ? AppTheme.goldDark : AppTheme.textPrimary,
                   ),
                 ),
               ),
@@ -318,7 +325,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                       fontFamily: 'Inter',
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.gold,
+                      color: AppTheme.goldDark, // was gold — same low-contrast fix
                     ),
                   ),
                 ),
@@ -353,7 +360,9 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                       decoration: BoxDecoration(
                         color: AppTheme.navyVariant,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white.withOpacity(0.1)),
+                        // was Colors.white.withOpacity(0.1) — invisible on
+                        // a light chip
+                        border: Border.all(color: AppTheme.navyOutline),
                       ),
                       alignment: Alignment.center,
                       child: Text(
@@ -362,7 +371,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                           fontFamily: 'Inter',
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.gold,
+                          color: AppTheme.goldDark, // was gold
                         ),
                       ),
                     ),

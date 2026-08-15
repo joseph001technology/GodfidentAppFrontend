@@ -57,7 +57,7 @@ class ProgressRing extends StatelessWidget {
                   Text(
                     '${percentage.toStringAsFixed(0)}%',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.grey,
+                          color: AppTheme.textMuted,
                         ),
                   ),
                 ],
@@ -146,7 +146,7 @@ class StatCard extends StatelessWidget {
             Text(
               subtitle,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey,
+                    color: AppTheme.textMuted,
                   ),
               textAlign: TextAlign.center,
             ),
@@ -254,7 +254,7 @@ class StreakBadge extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey,
+                      color: AppTheme.textMuted,
                     ),
               ),
             ],
@@ -317,7 +317,7 @@ class ContinueReadingCard extends StatelessWidget {
             Text(
               subtitle,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey,
+                    color: AppTheme.textMuted,
                   ),
             ),
             const SizedBox(height: DesignUtils.spacingMd),
@@ -326,7 +326,7 @@ class ContinueReadingCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress,
                 minHeight: 6,
-                backgroundColor: Colors.grey.withValues(alpha: 0.2),
+                backgroundColor: AppTheme.textMuted.withValues(alpha: 0.2),
                 valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.gold),
               ),
             ),

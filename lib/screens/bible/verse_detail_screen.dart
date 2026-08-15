@@ -136,7 +136,7 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
             error: (_, __) => const Text('Could not load cross references.'),
             data: (refs) => refs.isEmpty
                 ? const Text('No cross references found.',
-                    style: TextStyle(color: Colors.grey))
+                    style: TextStyle(color: AppTheme.textMuted))
                 : Column(
                     children: refs
                         .map((cr) => ListTile(

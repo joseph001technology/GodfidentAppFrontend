@@ -11,6 +11,7 @@ import '../repositories/reading_plan_repository.dart';
 import '../repositories/ai_repository.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/analytics_repository.dart';
+import '../services/notification_service.dart';
 
 export 'notes_provider.dart';
 export 'reminders_provider.dart';
@@ -24,6 +25,9 @@ final planRepositoryProvider       = Provider((_) => ReadingPlanRepository());
 final aiRepositoryProvider         = Provider((_) => AiRepository());
 final notificationRepositoryProvider = Provider((_) => NotificationRepository());
 final analyticsRepositoryProvider  = Provider((_) => AnalyticsRepository());
+
+// ── Services ──────────────────────────────────────────────────────────────────
+final notificationServiceProvider = Provider((_) => NotificationService());
 
 // ── Devotionals ───────────────────────────────────────────────────────────────
 

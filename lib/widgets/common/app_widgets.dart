@@ -171,7 +171,7 @@ class MethodBadge extends StatelessWidget {
       case 'POST': return Colors.blue;
       case 'PATCH': return Colors.orange;
       case 'DELETE': return Colors.red;
-      default: return Colors.grey;
+      default: return AppTheme.textMuted;
     }
   }
 

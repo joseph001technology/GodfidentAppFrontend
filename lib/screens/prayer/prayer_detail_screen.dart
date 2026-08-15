@@ -78,7 +78,7 @@ class PrayerDetailScreen extends ConsumerWidget {
                       ? Colors.green.withValues(alpha: 0.15)
                       : AppTheme.navyVariant,
                   labelStyle: TextStyle(
-                    color: prayer.isAnswered ? Colors.green : Colors.grey,
+                    color: prayer.isAnswered ? Colors.green : AppTheme.textMuted,
                     fontSize: 11,
                   ),
                 ),

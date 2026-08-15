@@ -24,7 +24,7 @@ class RulesScreen extends ConsumerWidget {
                     itemBuilder: (_, i) =>Container(margin: const EdgeInsets.only(bottom: 6), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(color: AppTheme.navySurface, borderRadius: BorderRadius.circular(14)),
                       child: Row(children: [
-                        Checkbox(value: rules[i].isCompleted, onChanged: null, activeColor: AppTheme.gold),
+                        Checkbox(value: rules[i].isCompletedToday, onChanged: null, activeColor: AppTheme.gold),
                         Expanded(child: Text(rules[i].title, style: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppTheme.textPrimary))),
                       ]),
                     ),

@@ -175,7 +175,7 @@ class _WeeklyChart extends StatelessWidget {
                       child: Text(
                         weekly.days[idx].dayName.substring(0, 3),
                         style: TextStyle(
-                          color: weekly.days[idx].isToday ? AppTheme.gold : Colors.grey,
+                          color: weekly.days[idx].isToday ? AppTheme.gold : AppTheme.textMuted,
                           fontSize: 10,
                         ),
                       ),
@@ -245,7 +245,7 @@ class _HeatmapGrid extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Row(children: [
-              const Text('Less', style: TextStyle(color: Colors.grey, fontSize: 10)),
+              const Text('Less', style: TextStyle(color: AppTheme.textMuted, fontSize: 10)),
               const SizedBox(width: 6),
               ...[ 0, 1, 2, 3, 4].map((c) => Container(
                 width: 10, height: 10,
@@ -253,7 +253,7 @@ class _HeatmapGrid extends StatelessWidget {
                 decoration: BoxDecoration(color: _cellColor(c), borderRadius: BorderRadius.circular(2)),
               )),
               const SizedBox(width: 4),
-              const Text('More', style: TextStyle(color: Colors.grey, fontSize: 10)),
+              const Text('More', style: TextStyle(color: AppTheme.textMuted, fontSize: 10)),
             ]),
           ],
         ),

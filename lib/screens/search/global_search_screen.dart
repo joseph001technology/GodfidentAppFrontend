@@ -66,7 +66,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                 filled: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+                  borderSide: BorderSide(color: AppTheme.navyOutline),
                 ),
               ),
             ),
@@ -91,7 +91,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                         color: isSelected ? AppTheme.gold : AppTheme.navySurface,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isSelected ? AppTheme.gold : Colors.white.withOpacity(0.08),
+                          color: isSelected ? AppTheme.gold : AppTheme.navyOutline,
                         ),
                       ),
                       child: Text(
@@ -100,7 +100,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                           fontFamily: 'Inter',
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: isSelected ? AppTheme.navy : AppTheme.textPrimary,
+                          color: isSelected ? AppTheme.inkNavy : AppTheme.textPrimary,
                         ),
                       ),
                     ),
@@ -145,7 +145,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                 decoration: BoxDecoration(
                   color: AppTheme.navySurface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                  border: Border.all(color: AppTheme.navyOutline),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -199,7 +199,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
           decoration: BoxDecoration(
             color: AppTheme.navySurface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: AppTheme.navyOutline),
           ),
           child: ListTile(
             contentPadding: EdgeInsets.zero,
