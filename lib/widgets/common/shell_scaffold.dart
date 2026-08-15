@@ -15,9 +15,8 @@ class _ShellScaffoldState extends State<ShellScaffold> {
     if (location.startsWith('/home')) return 0;
     if (location.startsWith('/bible')) return 1;
     if (location.startsWith('/prayer')) return 2;
-    if (location.startsWith('/notes')) return 3;
-    if (location.startsWith('/analytics') || location.startsWith('/progress')) return 4;
-    if (location.startsWith('/profile') || location.startsWith('/settings')) return 5;
+    if (location.startsWith('/notes') || location.startsWith('/rules')) return 3;
+    if (location.startsWith('/profile') || location.startsWith('/settings')) return 4;
     return 0;
   }
 
@@ -36,23 +35,9 @@ class _ShellScaffoldState extends State<ShellScaffold> {
         context.go('/notes');
         break;
       case 4:
-        context.go('/analytics');
-        break;
-      case 5:
         context.go('/profile');
         break;
     }
-  }
-
-  void _showFabMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.navySurface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => _FabMenu(),
-    );
   }
 
   @override
@@ -93,19 +78,32 @@ class _ShellScaffoldState extends State<ShellScaffold> {
             unselectedLabelStyle: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w400),
             onTap: (i) => _onTap(context, i),
             items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
-              BottomNavigationBarItem(icon: Icon(Icons.menu_book_outlined), activeIcon: Icon(Icons.menu_book), label: 'Bible'),
-              BottomNavigationBarItem(icon: Icon(Icons.volunteer_activism_outlined), activeIcon: Icon(Icons.volunteer_activism), label: 'Prayer'),
-              BottomNavigationBarItem(icon: Icon(Icons.edit_note_outlined), activeIcon: Icon(Icons.edit_note), label: 'Notes'),
-              BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined), activeIcon: Icon(Icons.analytics), label: 'Analytics'),
-              BottomNavigationBarItem(icon: Icon(Icons.person_outlined), activeIcon: Icon(Icons.person), label: 'Profile'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.home_outlined),
+                  activeIcon: Icon(Icons.home),
+                  label: 'Home'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.menu_book_outlined),
+                  activeIcon: Icon(Icons.menu_book),
+                  label: 'Bible'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.volunteer_activism_outlined),
+                  activeIcon: Icon(Icons.volunteer_activism),
+                  label: 'Prayer'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.edit_note_outlined),
+                  activeIcon: Icon(Icons.edit_note),
+                  label: 'Notes'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outlined),
+                  activeIcon: Icon(Icons.person),
+                  label: 'Profile'),
             ],
           ),
         ),
       ),
-        );
+    );
   }
-
 }
 
 class _FabMenu extends StatelessWidget {

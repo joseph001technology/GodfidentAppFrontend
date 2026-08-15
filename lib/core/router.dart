@@ -26,11 +26,11 @@ import '../screens/ai/ai_screens.dart';
 import '../screens/analytics/dashboard_screen.dart';
 import '../screens/progress/progress_screen.dart';
 import '../screens/search/global_search_screen.dart';
-import '../screens/notes/notes_screen.dart';
+import '../screens/notes/notes_rules_screen.dart';
 import '../screens/notes/note_editor_screen.dart';
 import '../screens/notes/note_detail_screen.dart';
-import '../screens/rules/universal_rules_screen.dart';
 import '../screens/rules/rule_editor_screen.dart';
+import '../screens/notifications/notification_settings_screen.dart';
 import '../screens/reminders/reminders_screen.dart';
 import '../screens/reminders/reminder_editor_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
@@ -112,10 +112,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // Notes routes
+          // Notes + Rules combined tab screen
           GoRoute(
             path: '/notes',
-            builder: (_, __) => const NotesScreen(),
+            builder: (_, __) => const NotesRulesScreen(),
             routes: [
               GoRoute(
                 path: 'new',
@@ -140,10 +140,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // Rules routes
+          // Rules editor routes (accessed from Notes tab or deep links)
           GoRoute(
             path: '/rules',
-            builder: (_, __) => const UniversalRulesScreen(),
+            builder: (_, __) => const NotesRulesScreen(),
             routes: [
               GoRoute(
                 path: 'new',
@@ -151,11 +151,25 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
               GoRoute(
                 path: ':id',
+                routes: [
+                  GoRoute(
+                    path: 'edit',
+                    builder: (_, state) => RuleEditorScreen(
+                      ruleId: state.pathParameters['id'],
+                    ),
+                  ),
+                ],
                 builder: (_, state) => RuleEditorScreen(
                   ruleId: state.pathParameters['id'],
                 ),
               ),
             ],
+          ),
+
+          // Notification settings
+          GoRoute(
+            path: '/notification-settings',
+            builder: (_, __) => const NotificationSettingsScreen(),
           ),
 
           // Reminders routes

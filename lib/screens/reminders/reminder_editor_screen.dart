@@ -25,6 +25,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
   int? selectedCategoryId;
   String selectedRepeat = 'none';
   bool isEnabled = true;
+  bool isAlarmWithRingtone = true;
   Duration snoozeDuration = const Duration(minutes: 5);
 
   static const repeatOptions = ['none', 'daily', 'weekly', 'monthly'];
@@ -68,7 +69,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
       await ref.read(remindersProvider.notifier).create(data);
     }
 
-    // Schedule local notification
+    // Schedule local notification or alarm
     if (isEnabled) {
       final notificationId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       final title = titleController.text.trim();
@@ -81,7 +82,15 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
       );
 
       try {
-        if (selectedRepeat == 'daily') {
+        if (isAlarmWithRingtone) {
+          await NotificationService().scheduleAlarm(
+            id: notificationId,
+            title: title,
+            body: body,
+            scheduledDate: scheduledDate,
+            isDaily: selectedRepeat == 'daily',
+          );
+        } else if (selectedRepeat == 'daily') {
           await NotificationService().scheduleDailyReminder(id: notificationId, title: title, body: body);
         } else if (selectedRepeat == 'weekly') {
           await NotificationService().scheduleWeeklyReminder(id: notificationId, title: title, body: body);
@@ -89,13 +98,16 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
           await NotificationService().scheduleOneTimeReminder(id: notificationId, title: title, body: body, scheduledDate: scheduledDate);
         }
       } catch (_) {
-        // Notification scheduling silently fails if permissions not granted
+        // Notification/alarm scheduling silently fails if permissions not granted
       }
     }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reminder saved'), backgroundColor: AppTheme.emerald),
+        SnackBar(
+          content: Text(isAlarmWithRingtone ? 'Alarm scheduled with ringtone ⏰' : 'Reminder saved 🔔'),
+          backgroundColor: AppTheme.emerald,
+        ),
       );
       Navigator.of(context).pop();
     }
@@ -168,6 +180,8 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
             _buildSnoozeDurationSelector(),
             const SizedBox(height: 20),
             _buildEnabledToggle(),
+            const SizedBox(height: 16),
+            _buildAlarmToggle(),
             const SizedBox(height: 32),
             _buildSaveButton(),
           ],
@@ -448,6 +462,39 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
           value: isEnabled,
           onChanged: (value) => setState(() => isEnabled = value),
           activeTrackColor: AppTheme.emerald,
+          activeThumbColor: Colors.white,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAlarmToggle() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Alarm with Ringtone ⏰',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Text(
+              'Max volume alert with sound & vibration',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppTheme.warmGray,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+        Switch(
+          value: isAlarmWithRingtone,
+          onChanged: (value) => setState(() => isAlarmWithRingtone = value),
+          activeTrackColor: AppTheme.gold,
           activeThumbColor: Colors.white,
         ),
       ],

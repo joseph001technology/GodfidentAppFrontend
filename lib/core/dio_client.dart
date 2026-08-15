@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'constants.dart';
 import 'secure_storage.dart';
+import 'auth_event_service.dart';
 
 class DioClient {
   static Dio? _instance;
@@ -52,6 +53,7 @@ class _JwtInterceptor extends Interceptor {
         final refreshToken = await SecureStorage.getRefreshToken();
         if (refreshToken == null) {
           await SecureStorage.clearAll();
+          AuthEventService().notifyUnauthorized();
           handler.next(err);
           return;
         }
@@ -73,6 +75,7 @@ class _JwtInterceptor extends Interceptor {
         handler.resolve(retried);
       } catch (_) {
         await SecureStorage.clearAll();
+        AuthEventService().notifyUnauthorized();
         handler.next(err);
       } finally {
         _isRefreshing = false;

@@ -28,7 +28,13 @@ class RemindersNotifier extends StateNotifier<AsyncValue<List<Reminder>>> {
       final list = await _repo.getList(date: _date, category: _categoryId, completed: _completed);
       state = AsyncValue.data(list);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      // Fallback to offline data
+      try {
+        final local = await _repo.getLocalList();
+        state = AsyncValue.data(local);
+      } catch (e2, st2) {
+        state = AsyncValue.error(e2, st2);
+      }
     }
   }
 
@@ -57,6 +63,20 @@ class RemindersNotifier extends StateNotifier<AsyncValue<List<Reminder>>> {
   Future<void> snooze(int id, {int minutes = 5}) async {
     await _repo.snooze(id, minutes: minutes);
     await refresh();
+  }
+
+  Future<void> toggleEnabled(int id) async {
+    final current = state.value;
+    if (current == null) return;
+    final idx = current.indexWhere((r) => r.id == id);
+    if (idx == -1) return;
+    final reminder = current[idx];
+    final updated = reminder.copyWith(isEnabled: !reminder.isEnabled);
+    // Optimistically update state
+    final newList = List<Reminder>.from(current);
+    newList[idx] = updated;
+    state = AsyncValue.data(newList);
+    await _repo.update(id, {'is_enabled': updated.isEnabled});
   }
 }
 

@@ -4,22 +4,17 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/remaining_providers.dart';
 import '../../widgets/common/app_widgets.dart';
 
-class ProfileScreen extends ConsumerStatefulWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
-}
-
-class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  bool _darkMode = true;
-  bool _notifications = true;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(currentUserProvider);
+    final prayerStreakAsync = ref.watch(prayerStreakProvider);
+    final readingStreakAsync = ref.watch(readingStreakProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.navy,
@@ -28,102 +23,61 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // User Banner matching Screenshot 11
-            userAsync.when(
-              loading: () => const LoadingShimmer(height: 120),
-              error: (_, __) => _buildUserCard('Faithful Servant', '@godfident_user'),
-              data: (user) {
-                final name = (user?.firstName.isNotEmpty == true) ? '${user!.firstName} ${user.lastName}' : 'Faithful Servant';
-                final handle = user?.email.isNotEmpty == true ? '@${user!.email.split('@').first}' : '@godfident_user';
-                return _buildUserCard(name, handle);
-              },
-            ),
-
-            const SizedBox(height: 24),
-
-            // Features Grid
+            // Page Title
             const Text(
-              'Features',
+              'My Profile',
               style: TextStyle(
                 fontFamily: 'Lora',
-                fontSize: 20,
+                fontSize: 28,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.textPrimary,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+
+            // User Card
+            userAsync.when(
+              loading: () => const LoadingShimmer(height: 120),
+              error: (_, __) =>
+                  _buildUserCard(context, ref, 'Faithful Servant', '@godfident_user', null),
+              data: (user) {
+                final name = (user?.firstName.isNotEmpty == true)
+                    ? '${user!.firstName} ${user.lastName}'
+                    : 'Faithful Servant';
+                final handle = user?.email.isNotEmpty == true
+                    ? '@${user!.email.split('@').first}'
+                    : '@godfident_user';
+                return _buildUserCard(context, ref, name, handle, user);
+              },
+            ),
+
+            const SizedBox(height: 20),
+
+            // Streak Stats Row
             Row(
               children: [
                 Expanded(
-                  child: GestureDetector(
-                    onTap: () => context.push('/ai'),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.navySurface,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: Colors.white.withOpacity(0.06)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppTheme.accentPurple.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.smart_toy_outlined, color: AppTheme.accentPurple, size: 24),
-                          ),
-                          const SizedBox(height: 14),
-                          const Text(
-                            'AI Assistant',
-                            style: TextStyle(fontFamily: 'Lora', fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                          ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Get encouraged',
-                            style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
-                          ),
-                        ],
-                      ),
+                  child: _buildStatCard(
+                    label: 'Prayer Streak',
+                    icon: Icons.volunteer_activism,
+                    color: AppTheme.emerald,
+                    value: prayerStreakAsync.when(
+                      data: (s) => '${s.currentStreak}d 🔥',
+                      loading: () => '—',
+                      error: (_, __) => '0d',
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: GestureDetector(
-                    onTap: () => context.push('/prayer'),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.navySurface,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: Colors.white.withOpacity(0.06)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppTheme.softBlue.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.book_outlined, color: AppTheme.softBlue, size: 24),
-                          ),
-                          const SizedBox(height: 14),
-                          const Text(
-                            'Prayer Journal',
-                            style: TextStyle(fontFamily: 'Lora', fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                          ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Write & reflect',
-                            style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
-                          ),
-                        ],
-                      ),
+                  child: _buildStatCard(
+                    label: 'Bible Streak',
+                    icon: Icons.menu_book,
+                    color: AppTheme.softBlue,
+                    value: readingStreakAsync.when(
+                      data: (s) => '${s.currentStreak}d 📖',
+                      loading: () => '—',
+                      error: (_, __) => '0d',
                     ),
                   ),
                 ),
@@ -132,115 +86,172 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             const SizedBox(height: 24),
 
-            // Preferences
-            const Text(
-              'Preferences',
-              style: TextStyle(
-                fontFamily: 'Lora',
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
-              ),
-            ),
+            // Analytics — moved from bottom nav here
+            _sectionTitle('Analytics'),
             const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: AppTheme.navySurface,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white.withOpacity(0.06)),
-              ),
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    secondary: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.gold.withOpacity(0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.dark_mode_outlined, color: AppTheme.gold, size: 20),
-                    ),
-                    title: const Text(
-                      'Dark Mode',
-                      style: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
-                    ),
-                    value: _darkMode,
-                    activeColor: AppTheme.gold,
-                    onChanged: (v) => setState(() => _darkMode = v),
+            GestureDetector(
+              onTap: () => context.push('/analytics'),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF14142A), Color(0xFF1A1040)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  const Divider(height: 1, indent: 60),
-                  SwitchListTile(
-                    secondary: Container(
-                      padding: const EdgeInsets.all(8),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppTheme.accentPurple.withOpacity(0.25)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.gold.withOpacity(0.15),
-                        shape: BoxShape.circle,
+                        color: AppTheme.accentPurple.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Icon(Icons.notifications_outlined, color: AppTheme.gold, size: 20),
+                      child: const Icon(Icons.analytics_outlined,
+                          color: AppTheme.accentPurple, size: 26),
                     ),
-                    title: const Text(
-                      'Notifications',
-                      style: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Spiritual Dashboard',
+                            style: TextStyle(
+                                fontFamily: 'Lora',
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimary),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'View streaks, progress & weekly insights',
+                            style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                color: AppTheme.textMuted),
+                          ),
+                        ],
+                      ),
                     ),
-                    value: _notifications,
-                    activeColor: AppTheme.gold,
-                    onChanged: (v) => setState(() => _notifications = v),
-                  ),
-                ],
+                    const Icon(Icons.chevron_right,
+                        color: AppTheme.textMuted, size: 20),
+                  ],
+                ),
               ),
             ),
 
             const SizedBox(height: 24),
 
-            // About
-            const Text(
-              'About',
-              style: TextStyle(
-                fontFamily: 'Lora',
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
-              ),
-            ),
+            // Account section
+            _sectionTitle('Account'),
             const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: AppTheme.navySurface,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white.withOpacity(0.06)),
+            _settingsGroup([
+              _SettingsTile(
+                icon: Icons.lock_outlined,
+                label: 'Change Password',
+                color: AppTheme.gold,
+                onTap: () => context.push('/profile/change-password'),
               ),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.shield_outlined, color: AppTheme.textMuted, size: 20),
-                    title: const Text('Privacy Policy', style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppTheme.textPrimary)),
-                    trailing: const Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 18),
-                    onTap: () {},
-                  ),
-                  const Divider(height: 1, indent: 50),
-                  ListTile(
-                    leading: const Icon(Icons.description_outlined, color: AppTheme.textMuted, size: 20),
-                    title: const Text('Terms of Service', style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppTheme.textPrimary)),
-                    trailing: const Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 18),
-                    onTap: () {},
-                  ),
-                ],
+              _SettingsTile(
+                icon: Icons.notifications_outlined,
+                label: 'Notification Settings',
+                color: AppTheme.accentPurple,
+                onTap: () => context.push('/notification-settings'),
               ),
-            ),
+              _SettingsTile(
+                icon: Icons.settings_outlined,
+                label: 'App Settings',
+                color: AppTheme.textMuted,
+                onTap: () => context.push('/profile/settings'),
+              ),
+            ]),
+
+            const SizedBox(height: 24),
+
+            // Quick Links
+            _sectionTitle('Quick Links'),
+            const SizedBox(height: 12),
+            _settingsGroup([
+              _SettingsTile(
+                icon: Icons.alarm_outlined,
+                label: 'Reminders & Alarms',
+                color: AppTheme.gold,
+                onTap: () => context.push('/reminders'),
+              ),
+              _SettingsTile(
+                icon: Icons.emoji_events_outlined,
+                label: 'Achievements',
+                color: const Color(0xFFF59E0B),
+                onTap: () => context.push('/more/achievements'),
+              ),
+              _SettingsTile(
+                icon: Icons.self_improvement_outlined,
+                label: 'Focus Sessions',
+                color: AppTheme.emerald,
+                onTap: () => context.push('/focus'),
+              ),
+              _SettingsTile(
+                icon: Icons.smart_toy_outlined,
+                label: 'AI Spiritual Assistant',
+                color: AppTheme.accentPurple,
+                onTap: () => context.push('/ai'),
+              ),
+            ]),
+
+            const SizedBox(height: 24),
+
+            // About
+            _sectionTitle('About'),
+            const SizedBox(height: 12),
+            _settingsGroup([
+              _SettingsTile(
+                icon: Icons.shield_outlined,
+                label: 'Privacy Policy',
+                color: AppTheme.textMuted,
+                onTap: () {},
+              ),
+              _SettingsTile(
+                icon: Icons.description_outlined,
+                label: 'Terms of Service',
+                color: AppTheme.textMuted,
+                onTap: () {},
+              ),
+              _SettingsTile(
+                icon: Icons.info_outlined,
+                label: 'App Version 1.0.0',
+                color: AppTheme.textMuted,
+                onTap: () {},
+                trailing: const SizedBox.shrink(),
+              ),
+            ]),
 
             const SizedBox(height: 32),
 
-            // Logout Button
+            // Sign Out
             ElevatedButton.icon(
-              onPressed: _handleLogout,
+              onPressed: () async {
+                await ref.read(authActionProvider).logout();
+                if (context.mounted) context.go('/login');
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFEF4444).withOpacity(0.15),
                 foregroundColor: const Color(0xFFEF4444),
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape:
+                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
+                side: BorderSide(color: const Color(0xFFEF4444).withOpacity(0.3)),
               ),
               icon: const Icon(Icons.logout, size: 18),
-              label: const Text('Sign Out', style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold)),
+              label: const Text('Sign Out',
+                  style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -248,12 +259,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Future<void> _handleLogout() async {
-    await ref.read(authActionProvider).logout();
-    if (context.mounted) context.go('/login');
-  }
-
-  Widget _buildUserCard(String name, String handle) {
+  Widget _buildUserCard(
+    BuildContext context,
+    WidgetRef ref,
+    String name,
+    String handle,
+    User? user,
+  ) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -268,11 +280,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       child: Row(
         children: [
           Container(
-            width: 60,
-            height: 60,
+            width: 64,
+            height: 64,
             decoration: BoxDecoration(
-              color: AppTheme.gold,
-              borderRadius: BorderRadius.circular(18),
+              gradient: const LinearGradient(
+                colors: [AppTheme.gold, Color(0xFFE8B84B)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: const Icon(Icons.person, color: AppTheme.navy, size: 36),
           ),
@@ -283,22 +299,151 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(fontFamily: 'Lora', fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                  style: const TextStyle(
+                      fontFamily: 'Lora',
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   handle,
-                  style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.gold, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      color: AppTheme.gold,
+                      fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Member since January 2025',
-                  style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
+                Text(
+                  user?.email ?? '',
+                  style: const TextStyle(
+                      fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
                 ),
               ],
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, color: AppTheme.textMuted, size: 20),
+            onPressed: () => context.push('/profile/settings'),
+            tooltip: 'Edit profile',
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.navySurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: 'Lora',
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+                fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontFamily: 'Lora',
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        color: AppTheme.textPrimary,
+      ),
+    );
+  }
+
+  Widget _settingsGroup(List<_SettingsTile> tiles) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.navySurface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: Column(
+        children: tiles.asMap().entries.map((entry) {
+          return Column(
+            children: [
+              entry.value,
+              if (entry.key < tiles.length - 1)
+                const Divider(height: 1, indent: 52),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  final Widget? trailing;
+
+  const _SettingsTile({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: Container(
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: color, size: 18),
+      ),
+      title: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: AppTheme.textPrimary,
+        ),
+      ),
+      trailing: trailing ??
+          const Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 18),
     );
   }
 }
