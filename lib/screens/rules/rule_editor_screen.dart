@@ -138,12 +138,22 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
         actions: [
           Padding(
-            padding: const EdgeInsets.all(12),
-            child: ElevatedButton.icon(
-              onPressed: _loading ? null : _saveRule,
-              icon: const Icon(Icons.check, size: 18),
-              label: const Text('Save'),
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(
+              child: ElevatedButton.icon(
+                onPressed: _loading ? null : _saveRule,
+                icon: const Icon(Icons.check, size: 16),
+                label: const Text('Save'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: Size.zero,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  backgroundColor: AppTheme.emerald,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+              ),
             ),
           ),
         ],

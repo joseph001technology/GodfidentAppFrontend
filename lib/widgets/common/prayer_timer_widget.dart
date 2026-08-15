@@ -123,10 +123,11 @@ class _PrayerTimerWidgetState extends State<PrayerTimerWidget>
 
   Widget _buildCompact() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: [Color(0xFF14243A), Color(0xFF1E1E3A)],
         ),
         borderRadius: BorderRadius.circular(20),
@@ -138,46 +139,79 @@ class _PrayerTimerWidgetState extends State<PrayerTimerWidget>
             animation: _pulseController,
             builder: (context, child) {
               final scale = _isRunning ? 1.0 + (_pulseController.value * 0.06) : 1.0;
-              return Transform.scale(scale: scale,
+              return Transform.scale(
+                scale: scale,
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: _isCompleted ? AppTheme.gold.withOpacity(0.2) : AppTheme.emerald.withOpacity(0.2),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     _isCompleted ? Icons.check_circle : _isRunning ? Icons.pause : Icons.timer_outlined,
-                    color: _isCompleted ? AppTheme.gold : AppTheme.emerald, size: 28),
+                    color: _isCompleted ? AppTheme.gold : AppTheme.emerald,
+                    size: 24,
+                  ),
                 ),
               );
             },
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(_isCompleted ? 'Prayer Complete! 🎉' : 'Prayer Timer',
-                style: const TextStyle(fontFamily: 'Lora', fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-              const SizedBox(height: 2),
-              Text(_isCompleted ? 'Amen! Great time with the Lord.' : _isRunning ? 'Praying... $_formattedTime remaining' : 'Enter focused silent prayer',
-                style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted)),
-            ]),
-          ),
           const SizedBox(width: 12),
-          Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(_formattedTime, style: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.bold, color: _isCompleted ? AppTheme.gold : AppTheme.emerald)),
-            const SizedBox(height: 4),
-            SizedBox(height: 28, child: ElevatedButton(
-              onPressed: _toggleTimer,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isCompleted ? AppTheme.gold : _isRunning ? Colors.orange : AppTheme.emerald,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0), elevation: 0,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _isCompleted ? 'Prayer Complete! 🎉' : 'Prayer Timer',
+                  style: const TextStyle(fontFamily: 'Lora', fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _isCompleted
+                      ? 'Amen! Great time with the Lord.'
+                      : _isRunning
+                          ? 'Praying... $_formattedTime remaining'
+                          : 'Focused silent prayer',
+                  style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _formattedTime,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: _isCompleted ? AppTheme.gold : AppTheme.emerald,
+                ),
               ),
-              child: Text(_isCompleted ? 'Again' : _isRunning ? 'Pause' : 'Start',
-                style: const TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.bold)),
-            )),
-          ]),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: _toggleTimer,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: Size.zero,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  backgroundColor: _isCompleted ? AppTheme.gold : _isRunning ? Colors.orange : AppTheme.emerald,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: Text(
+                  _isCompleted ? 'Again' : _isRunning ? 'Pause' : 'Start',
+                  style: const TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

@@ -12,10 +12,26 @@ class PrayerStatsScreen extends ConsumerWidget {
     final statsAsync = ref.watch(prayerStatsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Prayer Statistics')),
+      backgroundColor: AppTheme.navy,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text(
+          'Prayer Statistics',
+          style: TextStyle(
+            fontFamily: 'Lora',
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+      ),
       body: statsAsync.when(
         loading: () => const ShimmerList(count: 4),
-        error: (e, _) => ErrorView(message: e.toString()),
+        error: (e, _) => ErrorView(
+          message: e.toString(),
+          onRetry: () => ref.invalidate(prayerStatsProvider),
+        ),
         data: (stats) => ListView(
           padding: const EdgeInsets.all(20),
           children: [
@@ -23,55 +39,102 @@ class PrayerStatsScreen extends ConsumerWidget {
             Row(children: [
               _BigStat(label: 'Total', value: '${stats.total}', color: AppTheme.gold),
               const SizedBox(width: 12),
-              _BigStat(label: 'Answered', value: '${stats.answered}', color: Colors.green),
+              _BigStat(label: 'Answered', value: '${stats.answered}', color: AppTheme.emerald),
               const SizedBox(width: 12),
-              _BigStat(label: 'Times Prayed', value: '${stats.timesPrayed}', color: Colors.blue),
+              _BigStat(label: 'Prayed', value: '${stats.timesPrayed}×', color: AppTheme.softBlue),
             ]),
             const SizedBox(height: 20),
 
-            // Answer rate
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Answer Rate', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 12),
-                    LinearProgressIndicator(
-                      value: stats.answerRate / 100,
-                      backgroundColor: AppTheme.navyVariant,
-                      valueColor: const AlwaysStoppedAnimation(Colors.green),
-                      minHeight: 10,
-                      borderRadius: BorderRadius.circular(5),
+            // Answer rate card
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppTheme.navySurface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withOpacity(0.08)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Answer Rate',
+                    style: TextStyle(
+                      fontFamily: 'Lora',
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary,
                     ),
-                    const SizedBox(height: 8),
-                    Text('${stats.answerRate.toStringAsFixed(1)}% of prayers answered',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.green)),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 14),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: (stats.answerRate / 100).clamp(0.0, 1.0),
+                      backgroundColor: AppTheme.navyVariant,
+                      valueColor: const AlwaysStoppedAnimation(AppTheme.emerald),
+                      minHeight: 10,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    '${stats.answerRate.toStringAsFixed(1)}% of prayers answered 🎉',
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.emerald,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-            // By type
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('By Type', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 12),
+            // By type card
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppTheme.navySurface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withOpacity(0.08)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Prayers by Type',
+                    style: TextStyle(
+                      fontFamily: 'Lora',
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (stats.byType.isEmpty)
+                    const Text(
+                      'No prayers recorded yet',
+                      style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textMuted),
+                    )
+                  else
                     ...stats.byType.entries.map((e) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(children: [
-                            Expanded(child: Text(e.key[0].toUpperCase() + e.key.substring(1))),
-                            Text('${e.value}', style: const TextStyle(color: AppTheme.gold, fontWeight: FontWeight.w700)),
-                          ]),
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  e.key.isEmpty ? 'General' : e.key[0].toUpperCase() + e.key.substring(1),
+                                  style: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppTheme.textPrimary),
+                                ),
+                              ),
+                              Text(
+                                '${e.value}',
+                                style: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.gold),
+                              ),
+                            ],
+                          ),
                         )),
-                  ],
-                ),
+                ],
               ),
             ),
           ],
@@ -90,15 +153,25 @@ class _BigStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-          child: Column(
-            children: [
-              Text(value, style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: color)),
-              Text(label, style: Theme.of(context).textTheme.labelSmall),
-            ],
-          ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.navySurface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.bold, color: color),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
+            ),
+          ],
         ),
       ),
     );

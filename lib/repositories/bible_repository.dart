@@ -15,6 +15,7 @@ class BibleRepository {
   Future<List<BibleBook>> getBooks({String? testament}) async {
     final res = await _dio.get('/api/bible/books/', queryParameters: {
       if (testament != null) 'testament': testament,
+      'page_size': 100,
     });
     final list = readList(res.data);
     return (list).map((j) => BibleBook.fromJson(j)).toList();
@@ -192,7 +193,11 @@ class BibleRepository {
   Future<BibleVerse> getVerseOfTheDay() async {
     final res = await _dio.get('/api/bible/verse-of-the-day/');
     final data = res.data['data'] ?? res.data;
-    return BibleVerse.fromJson(data);
+    final map = readMap(data);
+    if (map['verse_data'] != null && map['verse_data'] is Map) {
+      return BibleVerse.fromJson(readMap(map['verse_data']));
+    }
+    return BibleVerse.fromJson(map);
   }
 
   Future<Map<String, dynamic>> getReadingProgress() async {

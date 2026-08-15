@@ -16,7 +16,7 @@ class PrayerListScreen extends ConsumerStatefulWidget {
 
 class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
   String _selectedCategory = 'All';
-  final List<String> _categories = ['All', 'Requests', 'Answered', 'Thanksgiving', 'Family', 'Healing'];
+  final List<String> _categories = ['All', 'Requests', 'Praise', 'Intercession', 'Thanksgiving', 'Answered'];
 
   @override
   Widget build(BuildContext context) {
@@ -134,81 +134,102 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
   }
 
   Widget _buildPrayerCard(BuildContext context, WidgetRef ref, Prayer prayer) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.navySurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: prayer.isAnswered ? AppTheme.emerald.withOpacity(0.4) : Colors.white.withOpacity(0.08),
+    return GestureDetector(
+      onTap: () async {
+        await context.push('/prayer/${prayer.id}');
+        ref.read(prayerListProvider.notifier).load();
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.navySurface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: prayer.isAnswered ? AppTheme.emerald.withOpacity(0.4) : Colors.white.withOpacity(0.08),
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    prayer.isAnswered ? Icons.check_circle : Icons.volunteer_activism,
-                    color: prayer.isAnswered ? AppTheme.emerald : AppTheme.gold,
-                    size: 20,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(
+                        prayer.isAnswered ? Icons.check_circle : Icons.volunteer_activism,
+                        color: prayer.isAnswered ? AppTheme.emerald : AppTheme.gold,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          prayer.title,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontFamily: 'Lora', fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    prayer.title,
-                    style: const TextStyle(fontFamily: 'Lora', fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                  ),
-                ],
-              ),
-              if (prayer.isAnswered)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppTheme.emerald.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text('ANSWERED 🎉', style: TextStyle(fontFamily: 'Inter', fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                 ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            prayer.content,
-            style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Prayed ${prayer.timesPrayed}×',
-                style: const TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.gold),
-              ),
-              ElevatedButton.icon(
-                onPressed: () {
-                  ref.read(prayerRepositoryProvider).recordPrayer(prayer.id);
-                  ref.read(prayerListProvider.notifier).load();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Prayer recorded! Amen. 🙏')),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.gold.withOpacity(0.15),
-                  foregroundColor: AppTheme.gold,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                if (prayer.isAnswered)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.emerald.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text('ANSWERED 🎉', style: TextStyle(fontFamily: 'Inter', fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                  )
+                else
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.textMuted),
+                    onPressed: () async {
+                      await context.push('/prayer/${prayer.id}/edit');
+                      ref.read(prayerListProvider.notifier).load();
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              prayer.content,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Prayed ${prayer.timesPrayed}×',
+                  style: const TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.gold),
                 ),
-                icon: const Icon(Icons.favorite, size: 14),
-                label: const Text('Pray Now', style: TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ],
+                ElevatedButton.icon(
+                  onPressed: () {
+                    ref.read(prayerRepositoryProvider).recordPrayer(prayer.id);
+                    ref.read(prayerListProvider.notifier).load();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Prayer recorded! Amen. 🙏')),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.gold.withOpacity(0.15),
+                    foregroundColor: AppTheme.gold,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  ),
+                  icon: const Icon(Icons.favorite, size: 14),
+                  label: const Text('Pray Now', style: TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

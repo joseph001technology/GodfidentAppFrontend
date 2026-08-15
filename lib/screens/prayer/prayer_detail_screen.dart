@@ -24,9 +24,16 @@ class PrayerDetailScreen extends ConsumerWidget {
         );
 
         return Scaffold(
+          backgroundColor: AppTheme.navy,
           appBar: AppBar(
+            backgroundColor: Colors.transparent,
             title: Text(prayer.title, overflow: TextOverflow.ellipsis),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.edit, color: AppTheme.gold),
+                onPressed: () => context.push('/prayer/${prayer.id}/edit'),
+                tooltip: 'Edit Prayer',
+              ),
               PopupMenuButton<String>(
                 onSelected: (v) async {
                   if (v == 'edit') context.push('/prayer/${prayer.id}/edit');

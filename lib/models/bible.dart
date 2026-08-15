@@ -70,15 +70,21 @@ class BibleVerse {
     required this.reference,
   });
 
-  factory BibleVerse.fromJson(Map<String, dynamic> j) => BibleVerse(
-        id: j['id'] ?? 0,
-        translationCode: j['translation_code'] ?? '',
-        bookName: j['book_name'] ?? '',
-        chapter: j['chapter'] ?? 0,
-        verse: j['verse'] ?? 0,
-        text: j['text'] ?? '',
-        reference: j['reference'] ?? '',
-      );
+  factory BibleVerse.fromJson(Map<String, dynamic> j) {
+    final book = (j['book_name'] ?? j['book'] ?? '').toString();
+    final ch = j['chapter'] is int ? j['chapter'] as int : int.tryParse(j['chapter']?.toString() ?? '') ?? 0;
+    final v = j['verse'] is int ? j['verse'] as int : int.tryParse(j['verse']?.toString() ?? '') ?? 0;
+    final ref = (j['reference'] ?? '').toString();
+    return BibleVerse(
+      id: j['id'] ?? 0,
+      translationCode: (j['translation_code'] ?? j['translation'] ?? '').toString(),
+      bookName: book,
+      chapter: ch,
+      verse: v,
+      text: (j['text'] ?? '').toString(),
+      reference: ref.isNotEmpty ? ref : (book.isNotEmpty && ch > 0 ? '$book $ch:$v' : ''),
+    );
+  }
 }
 
 class BibleChapter {
