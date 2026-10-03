@@ -1,10 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/focus.dart';
 import '../repositories/focus_repository.dart';
-import '../services/usage_stats_service.dart';
 
 final focusRepositoryProvider = Provider((_) => FocusRepository());
-final usageStatsServiceProvider = Provider((_) => PlaceholderUsageStatsService() as UsageStatsService);
 
 // ── Focus Session ────────────────────────────────────────────────
 final activeSessionProvider = StateNotifierProvider<ActiveSessionNotifier, AsyncValue<FocusSession?>>((ref) {
@@ -65,19 +63,4 @@ final blockedAttemptsProvider = FutureProvider<List<BlockedAttempt>>((ref) {
 // ── Stats ────────────────────────────────────────────────────────
 final focusStatsProvider = FutureProvider<FocusStats>((ref) {
   return ref.read(focusRepositoryProvider).getStats();
-});
-
-// ── Usage Stats (combo of device data + API) ─────────────────────
-final usageStatsProvider = FutureProvider<List<UsageStats>>((ref) async {
-  // For now, returns empty until device-level integration is done
-  return [];
-});
-
-final screenTimeDataProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  final usage = await ref.watch(usageStatsProvider.future);
-  final focus = await ref.watch(focusStatsProvider.future);
-  return {
-    'screen_time': usage.isNotEmpty ? usage.first.screenTimeMinutes : 0,
-    'focus_time': focus.totalFocusMinutes,
-  };
 });

@@ -29,7 +29,7 @@ class PrayerStatsScreen extends ConsumerWidget {
       body: statsAsync.when(
         loading: () => const ShimmerList(count: 4),
         error: (e, _) => ErrorView(
-          message: e.toString(),
+          message: friendlyError(e),
           onRetry: () => ref.invalidate(prayerStatsProvider),
         ),
         data: (stats) => ListView(

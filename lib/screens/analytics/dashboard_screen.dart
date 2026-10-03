@@ -46,7 +46,7 @@ class DashboardScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 dashAsync.when(
                   loading: () => const LoadingShimmer(height: 200),
-                  error: (e, _) => ErrorView(message: e.toString()),
+                  error: (e, _) => ErrorView(message: friendlyError(e)),
                   data: (dash) => _DashOverview(dash: dash),
                 ),
                 const SizedBox(height: 20),

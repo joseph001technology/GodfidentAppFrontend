@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../core/theme.dart';
 import '../../providers/bible_provider.dart';
-import '../../repositories/ai_repository.dart';
 import '../../widgets/common/app_widgets.dart';
 
 class VerseDetailScreen extends ConsumerStatefulWidget {
@@ -26,25 +24,6 @@ class VerseDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
-  String? _explanation;
-  bool _loadingAi = false;
-
-  Future<void> _explain(String verseText) async {
-    setState(() => _loadingAi = true);
-    try {
-      final result = await AiRepository().explainVerse(
-        reference: '${widget.book} ${widget.chapter}:${widget.verse}',
-        translation: widget.translation,
-        verseText: verseText,
-      );
-      setState(() => _explanation = result);
-    } catch (e) {
-      setState(() => _explanation = 'Could not load explanation. Please try again.');
-    } finally {
-      setState(() => _loadingAi = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final verseRef = VerseRef(widget.book, widget.chapter, widget.verse);
@@ -98,33 +77,6 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
 
           const GoldDivider(),
 
-          // Explain with AI
-          if (_explanation == null)
-            ElevatedButton.icon(
-              onPressed: _loadingAi ? null : () => _explain(verseText),
-              icon: _loadingAi
-                  ? const SizedBox(
-                      width: 16, height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.auto_awesome, size: 16),
-              label: Text(_loadingAi ? 'Explaining...' : 'Explain this verse with AI'),
-            )
-          else ...[
-            Row(children: [
-              const Icon(Icons.auto_awesome, color: AppTheme.gold, size: 16),
-              const SizedBox(width: 8),
-              Text('AI Explanation', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.gold)),
-              const Spacer(),
-              TextButton(onPressed: () => setState(() => _explanation = null), child: const Text('Clear')),
-            ]),
-            const SizedBox(height: 8),
-            MarkdownBody(
-              data: _explanation!,
-              styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                p: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.6),
-              ),
-            ),
-          ],
 
           const GoldDivider(),
 

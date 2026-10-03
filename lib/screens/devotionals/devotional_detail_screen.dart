@@ -16,7 +16,7 @@ class DevotionalDetailScreen extends ConsumerWidget {
 
     return devotionalAsync.when(
       loading: () => Scaffold(appBar: AppBar(), body: const ShimmerList()),
-      error: (e, _) => Scaffold(appBar: AppBar(), body: ErrorView(message: e.toString())),
+      error: (e, _) => Scaffold(appBar: AppBar(), body: ErrorView(message: friendlyError(e))),
       data: (d) => Scaffold(
         appBar: AppBar(
           title: Text(d.title, overflow: TextOverflow.ellipsis),
@@ -37,13 +37,6 @@ class DevotionalDetailScreen extends ConsumerWidget {
               },
             ),
           ],
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => context.push('/ai/prayer-assistance'),
-          icon: const Icon(Icons.volunteer_activism),
-          label: const Text('Pray with AI'),
-          backgroundColor: AppTheme.gold,
-          foregroundColor: AppTheme.inkNavy, // was Color(0xFF1A1A2E) — dark text on a gold button
         ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
@@ -155,7 +148,7 @@ class SavedDevotionalsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Saved Devotionals')),
       body: savedAsync.when(
         loading: () => const ShimmerList(),
-        error: (e, _) => ErrorView(message: e.toString()),
+        error: (e, _) => ErrorView(message: friendlyError(e)),
         data: (devotionals) {
           if (devotionals.isEmpty) {
             return const EmptyView(

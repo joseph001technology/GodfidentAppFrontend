@@ -29,7 +29,7 @@ class DevotionalListScreen extends ConsumerWidget {
         child: devotionalsAsync.when(
           loading: () => const ShimmerList(),
           error: (e, _) => ErrorView(
-            message: e.toString(),
+            message: friendlyError(e),
             onRetry: () => ref.invalidate(devotionalListProvider),
           ),
           data: (devotionals) {

@@ -108,7 +108,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
               // Prayers List
               prayersAsync.when(
                 loading: () => const LoadingShimmer(height: 200),
-                error: (e, _) => ErrorView(message: e.toString()),
+                error: (e, _) => ErrorView(message: friendlyError(e)),
                 data: (prayers) {
                   var filtered = prayers.where((p) {
                     if (_selectedCategory == 'Answered') return p.isAnswered;

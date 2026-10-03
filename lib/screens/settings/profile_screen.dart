@@ -195,10 +195,16 @@ class ProfileScreen extends ConsumerWidget {
                 onTap: () => context.push('/focus'),
               ),
               _SettingsTile(
-                icon: Icons.smart_toy_outlined,
-                label: 'AI Spiritual Assistant',
+                icon: Icons.verified_user_outlined,
+                label: 'Permissions',
+                color: AppTheme.goldDark,
+                onTap: () => context.push('/focus/permissions'),
+              ),
+              _SettingsTile(
+                icon: Icons.library_music_outlined,
+                label: 'Music',
                 color: AppTheme.accentPurple,
-                onTap: () => context.push('/ai'),
+                onTap: () => context.push('/music'),
               ),
             ]),
 

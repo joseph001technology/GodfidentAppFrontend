@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../core/theme.dart';
+export '../../core/dio_client.dart' show friendlyError;
 
 class LoadingShimmer extends StatelessWidget {
   final double height;

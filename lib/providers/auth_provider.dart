@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/secure_storage.dart';
 import '../core/auth_event_service.dart';
+import '../core/dio_client.dart';
 import '../models/user.dart';
 import '../repositories/auth_repository.dart';
 
@@ -32,7 +33,15 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<bool>> {
 
   Future<void> checkAuth() async {
     final token = await SecureStorage.getAccessToken();
-    state = AsyncValue.data(token != null);
+    if (token == null) {
+      state = const AsyncValue.data(false);
+      return;
+    }
+    // A stored token isn't proof of a live session: renew it now, and if the
+    // server rejects the session, go to the login screen instead of showing
+    // a Home full of errors.
+    final ok = await DioClient.ensureSession();
+    state = AsyncValue.data(ok != false);
   }
 
   void setUnauthenticated() {

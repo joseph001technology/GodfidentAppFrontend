@@ -146,7 +146,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
             const SizedBox(height: 20),
             notesAsync.when(
               loading: () => const LoadingShimmer(height: 200),
-              error: (e, _) => ErrorView(message: e.toString()),
+              error: (e, _) => ErrorView(message: friendlyError(e)),
               data: (notes) {
                 final filtered = notes.where((n) {
                   final matchesTopic = _notesTopic == 'All' || n.topicNames.contains(_notesTopic);
@@ -346,7 +346,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
             const SizedBox(height: 20),
             rulesAsync.when(
               loading: () => const LoadingShimmer(height: 200),
-              error: (e, _) => ErrorView(message: e.toString()),
+              error: (e, _) => ErrorView(message: friendlyError(e)),
               data: (rules) {
                 final filtered = rules.where((r) {
                   final matchesCat =

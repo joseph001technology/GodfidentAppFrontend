@@ -6,6 +6,15 @@ gradle-wrapper.jar
 /local.properties
 GeneratedPluginRegistrant.java
 .cxx/
+/build/
+
+# JVM crash dumps from Gradle/Kotlin compiler OOM — these showed up in the
+# project zip and shouldn't be committed or shipped.
+hs_err_pid*.log
+replay_pid*.log
+
+# Android Studio / IntelliJ module file, machine-specific
+*.iml
 
 # Remember to never publicly share your keystore.
 # See https://flutter.dev/to/reference-keystore

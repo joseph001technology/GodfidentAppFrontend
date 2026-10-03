@@ -1,9 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Focus Mode / App Restrictions: real enforcement additions -->
+
+    <!-- Lets us read which app is currently in the foreground. This is a
+         "special" permission — there is no runtime dialog for it; the user
+         must grant it manually via Settings > Apps > Special app access >
+         Usage access. MainActivity's `hasUsageAccess`/`requestUsageAccess`
+         channel methods handle checking for and deep-linking to that
+         screen; permission_handler (already in pubspec.yaml) does NOT
+         cover this permission, so don't try to request it that way. -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- Needed to list installed apps with real names/icons for the "choose
+         which apps to restrict" screen. Play Store requires a declared-use
+         justification for this in the Play Console at publish time — not a
+         code change, just something to fill in on the Play Console form
+         when you get there. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <!-- The blocking check runs as a foreground service (so Android
+         doesn't kill it) for the duration of a Focus session, which
+         requires these two on Android 13+/14+. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <!-- Lets Godfident open Android's own "Uninstall this app?" dialog for an
+         app the user chose to remove. Android never allows silent removal;
+         the user always confirms in the system dialog. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+
+    <!-- Reminders: show on time, even with the app closed or after a reboot. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- Songs on this phone: Android 13+ uses READ_MEDIA_AUDIO, older versions the storage permission. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
     <application
         android:label="Godfident"
@@ -33,5 +76,72 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Real Focus Mode enforcement: polls the foreground app while a
+             session is active and brings Godfident back to front if a
+             blocked app is opened. See FocusBlockingService.kt. -->
+        <service
+            android:name=".FocusBlockingService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Blocks distracting apps during a user-started focus/prayer session" />
+        </service>
+
+        <!-- Real website blocking: local VPN that answers DNS lookups for
+             blocked domains with "does not exist". See WebsiteBlockVpnService.kt. -->
+        <service
+            android:name=".WebsiteBlockVpnService"
+            android:exported="false"
+            android:permission="android.permission.BIND_VPN_SERVICE"
+            android:foregroundServiceType="specialUse">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Blocks websites chosen by the user using a local DNS-filtering VPN" />
+        </service>
+
+        <!-- Instant app blocking. The user must switch this on in Android's
+             Accessibility settings; the app checks and guides them there. -->
+        <service
+            android:name=".FocusAccessibilityService"
+            android:exported="false"
+            android:label="Godfident Focus"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- flutter_local_notifications: required for scheduled reminders to
+             fire at all, and to be restored after a reboot. -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Re-applies protection after a reboot. -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

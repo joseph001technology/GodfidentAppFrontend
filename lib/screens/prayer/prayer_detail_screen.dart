@@ -16,7 +16,7 @@ class PrayerDetailScreen extends ConsumerWidget {
 
     return prayersAsync.when(
       loading: () => Scaffold(appBar: AppBar(), body: const ShimmerList()),
-      error: (e, _) => Scaffold(appBar: AppBar(), body: ErrorView(message: e.toString())),
+      error: (e, _) => Scaffold(appBar: AppBar(), body: ErrorView(message: friendlyError(e))),
       data: (prayers) {
         final prayer = prayers.firstWhere(
           (p) => p.id == id,

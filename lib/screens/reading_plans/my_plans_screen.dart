@@ -33,7 +33,7 @@ class MyPlansScreen extends ConsumerWidget {
             plansAsync.when(
               loading: () => const ShimmerList(count: 3),
               error: (e, _) => ErrorView(
-                message: e.toString(),
+                message: friendlyError(e),
                 onRetry: () => ref.read(myPlansProvider.notifier).load(),
               ),
               data: (plans) {

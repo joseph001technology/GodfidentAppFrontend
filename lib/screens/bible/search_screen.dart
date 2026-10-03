@@ -60,7 +60,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
       body: results.when(
         loading: () => const ShimmerList(count: 6),
-        error: (e, _) => ErrorView(message: e.toString()),
+        error: (e, _) => ErrorView(message: friendlyError(e)),
         data: (verses) {
           if (_ctrl.text.isEmpty) {
             return const EmptyView(

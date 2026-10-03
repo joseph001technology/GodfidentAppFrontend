@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme.dart';
@@ -62,6 +63,42 @@ class GodfidentApp extends ConsumerWidget {
       themeMode: ThemeMode.light, // was ThemeMode.dark — this line is the actual reason the old dark palette was rendering at all; theme.dart's color values were never the only thing controlling it
       routerConfig: router,
       scaffoldMessengerKey: appScaffoldMessengerKey,
+      builder: (context, child) => _SessionKeeper(child: child ?? const SizedBox.shrink()),
     );
   }
+}
+
+/// Renews the login in the background while the app is open, so a session
+/// never lapses mid-use. If the server rejects it, the user is signed out.
+class _SessionKeeper extends StatefulWidget {
+  final Widget child;
+  const _SessionKeeper({required this.child});
+  @override
+  State<_SessionKeeper> createState() => _SessionKeeperState();
+}
+
+class _SessionKeeperState extends State<_SessionKeeper> with WidgetsBindingObserver {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _timer = Timer.periodic(const Duration(minutes: 2), (_) => DioClient.ensureSession());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) DioClient.ensureSession();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

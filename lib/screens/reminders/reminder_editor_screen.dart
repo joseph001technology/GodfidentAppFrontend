@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
-import '../../models/reminder.dart';
 import '../../providers/reminders_provider.dart';
-import '../../services/notification_service.dart';
+import '../../core/dio_client.dart';
+import '../../services/ringtone_store.dart';
+import '../../widgets/common/ringtone_picker.dart';
 
 class ReminderEditorScreen extends ConsumerStatefulWidget {
   final String? reminderId;
@@ -28,6 +29,8 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
   bool isEnabled = true;
   bool isAlarmWithRingtone = true;
   Duration snoozeDuration = const Duration(minutes: 5);
+  Ringtone _ringtone = Ringtone.fallback;
+  bool _saving = false;
 
   static const repeatOptions = ['none', 'daily', 'weekly', 'monthly'];
 
@@ -36,6 +39,37 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
     super.initState();
     titleController = TextEditingController();
     descriptionController = TextEditingController();
+    _loadExisting();
+  }
+
+  /// Pre-fills the form when editing (it used to open blank), and picks up the
+  /// ringtone saved for this reminder (or the last one used).
+  Future<void> _loadExisting() async {
+    final id = int.tryParse(widget.reminderId ?? '');
+    final tone = await RingtoneStore.instance.load(id ?? 0);
+    if (mounted) setState(() => _ringtone = tone);
+    if (id == null) return;
+    try {
+      final r = await ref.read(remindersRepositoryProvider).getDetail(id);
+      if (!mounted) return;
+      setState(() {
+        titleController.text = r.title;
+        descriptionController.text = r.description ?? '';
+        final dt = r.dateTime;
+        if (dt != null) {
+          selectedDate = DateTime(dt.year, dt.month, dt.day);
+          selectedTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
+        }
+        selectedRepeat = repeatOptions.contains(r.repeat) ? r.repeat : 'none';
+        isEnabled = r.isEnabled;
+        isAlarmWithRingtone = r.isAlarm;
+        selectedCategoryId = r.category;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+    }
   }
 
   @override
@@ -46,70 +80,54 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
   }
 
   Future<void> _saveReminder() async {
+    if (_saving) return; // a second tap must never create a second reminder
+    final messenger = ScaffoldMessenger.of(context);
     if (titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text('Please enter a reminder title'), backgroundColor: Colors.red),
       );
       return;
     }
+    final when = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, selectedTime.hour, selectedTime.minute);
+    if (selectedRepeat == 'none' && !when.isAfter(DateTime.now())) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('That time has already passed. Pick a time in the future.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    final savedAt = selectedTime.format(context); // read context before any await
 
     final data = <String, dynamic>{
       'title': titleController.text.trim(),
-      if (descriptionController.text.trim().isNotEmpty) 'description': descriptionController.text.trim(),
+      'description': descriptionController.text.trim(),
       'date': '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
       'time': '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}:00',
       'repeat': selectedRepeat,
+      'is_enabled': isEnabled,
+      'is_alarm': isAlarmWithRingtone,
       if (selectedCategoryId != null) 'category': selectedCategoryId,
       'snooze_minutes': snoozeDuration.inMinutes,
     };
 
-    if (widget.reminderId != null) {
-      final id = int.tryParse(widget.reminderId!) ?? 0;
-      await ref.read(remindersProvider.notifier).update(id, data);
-    } else {
-      await ref.read(remindersProvider.notifier).create(data);
-    }
-
-    // Schedule local notification or alarm
-    if (isEnabled) {
-      final title = titleController.text.trim();
-      final body = descriptionController.text.trim().isNotEmpty
-          ? descriptionController.text.trim()
-          : 'Time for your spiritual reminder - $title';
-      final scheduledDate = DateTime(
-        selectedDate.year,
-        selectedDate.month,
-        selectedDate.day,
-        selectedTime.hour,
-        selectedTime.minute,
-      );
-
-      try {
-        final reminder = Reminder(
-          id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-          title: title,
-          description: body,
-          date: '${scheduledDate.year}-${scheduledDate.month.toString().padLeft(2, '0')}-${scheduledDate.day.toString().padLeft(2, '0')}',
-          time: '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}:00',
-          repeat: selectedRepeat,
-          isEnabled: true,
-          isAlarm: isAlarmWithRingtone,
-          createdAt: DateTime.now().toIso8601String(),
-        );
-        await NotificationService().scheduleReminder(reminder);
-      } catch (_) {
-        // Notification/alarm scheduling silently fails if permissions not granted
+    try {
+      final notifier = ref.read(remindersProvider.notifier);
+      if (widget.reminderId != null) {
+        await notifier.update(int.tryParse(widget.reminderId!) ?? 0, data, ringtone: _ringtone);
+      } else {
+        await notifier.create(data, ringtone: _ringtone);
       }
-    }
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
-          content: Text(isAlarmWithRingtone ? 'Alarm scheduled with ringtone ⏰' : 'Reminder saved 🔔'),
+          content: Text(isEnabled ? 'Saved. You will be reminded at $savedAt.' : 'Saved (reminder is switched off).'),
           backgroundColor: AppTheme.emerald,
         ),
       );
-      Navigator.of(context).pop();
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      // Show the REAL reason (server message / network) and let them retry.
+      messenger.showSnackBar(SnackBar(content: Text(friendlyError(e)), backgroundColor: Colors.red));
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -144,12 +162,12 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
         title: Text(
           widget.reminderId != null ? 'Edit Reminder' : 'New Reminder',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            color: Colors.white,
+            color: AppTheme.textPrimary,
             fontWeight: FontWeight.w600,
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -182,6 +200,8 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
             _buildEnabledToggle(),
             const SizedBox(height: 16),
             _buildAlarmToggle(),
+            const SizedBox(height: 12),
+            _buildRingtoneTile(),
             const SizedBox(height: 32),
             _buildSaveButton(),
           ],
@@ -202,7 +222,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
         Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppTheme.warmGray,
+            color: AppTheme.textSecondary,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -211,12 +231,12 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
           controller: controller,
           maxLines: maxLines,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: Colors.white,
+            color: AppTheme.textPrimary,
           ),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.warmGray.withValues(alpha: 0.5),
+              color: AppTheme.textMuted,
             ),
             filled: true,
             fillColor: AppTheme.navySurface,
@@ -240,7 +260,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
         Text(
           'Category',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppTheme.warmGray,
+            color: AppTheme.textSecondary,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -273,7 +293,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
                       Text(
                         category.name.toUpperCase(),
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: isSelected ? Colors.white : AppTheme.warmGray,
+                          color: isSelected ? Colors.white : AppTheme.textSecondary,
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                         ),
                       ),
@@ -284,7 +304,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
             }).toList(),
           ),
           loading: () => const CircularProgressIndicator(),
-          error: (_, __) => const Text('Could not load categories', style: TextStyle(color: AppTheme.warmGray)),
+          error: (_, __) => const Text('Could not load categories', style: TextStyle(color: AppTheme.textSecondary)),
         ),
       ],
     );
@@ -300,7 +320,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
               Text(
                 'Date',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.warmGray,
+                  color: AppTheme.textSecondary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -316,7 +336,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
                   child: Text(
                     '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
                 ),
@@ -332,7 +352,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
               Text(
                 'Time',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.warmGray,
+                  color: AppTheme.textSecondary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -348,7 +368,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
                   child: Text(
                     selectedTime.format(context),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
                 ),
@@ -367,7 +387,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
         Text(
           'Frequency',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppTheme.warmGray,
+            color: AppTheme.textSecondary,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -390,7 +410,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
                     child: Text(
                       repeat.toUpperCase(),
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: isSelected ? Colors.white : AppTheme.warmGray,
+                        color: isSelected ? Colors.white : AppTheme.textSecondary,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                       ),
                     ),
@@ -411,7 +431,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
         Text(
           'Snooze Duration',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppTheme.warmGray,
+            color: AppTheme.textSecondary,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -432,7 +452,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
               child: Text(
                 '${duration.inMinutes} minutes',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                 ),
               ),
             );
@@ -454,7 +474,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
         Text(
           'Enable Reminder',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Colors.white,
+            color: AppTheme.textPrimary,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -478,14 +498,14 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
             Text(
               'Alarm with Ringtone ⏰',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
+                color: AppTheme.textPrimary,
                 fontWeight: FontWeight.w500,
               ),
             ),
             Text(
               'Max volume alert with sound & vibration',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppTheme.warmGray,
+                color: AppTheme.textSecondary,
                 fontSize: 11,
               ),
             ),
@@ -501,11 +521,40 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
     );
   }
 
+  Widget _buildRingtoneTile() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () async {
+        final picked = await showRingtonePicker(context, current: _ringtone);
+        if (picked != null && mounted) setState(() => _ringtone = picked);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.navySurface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.navyOutline),
+        ),
+        child: Row(children: [
+          const Icon(Icons.music_note, color: AppTheme.goldDark),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Ringtone', style: TextStyle(fontWeight: FontWeight.w600)),
+              Text(_ringtone.title, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            ]),
+          ),
+          const Icon(Icons.chevron_right, color: AppTheme.textMuted),
+        ]),
+      ),
+    );
+  }
+
   Widget _buildSaveButton() {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: _saveReminder,
+        onPressed: _saving ? null : _saveReminder,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.emerald,
           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -514,7 +563,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
           ),
         ),
         child: Text(
-          'Save Reminder',
+          _saving ? 'Saving\u2026' : 'Save Reminder',
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w600,

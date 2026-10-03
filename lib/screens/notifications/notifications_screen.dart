@@ -29,7 +29,7 @@ class NotificationsScreen extends ConsumerWidget {
         child: notifsAsync.when(
           loading: () => const ShimmerList(),
           error: (e, _) => ErrorView(
-            message: e.toString(),
+            message: friendlyError(e),
             onRetry: () => ref.read(notificationsProvider.notifier).load(),
           ),
           data: (notifications) {

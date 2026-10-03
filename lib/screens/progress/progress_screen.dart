@@ -267,7 +267,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                   color: AppTheme.gold,
                   child: const Text(
                     '…',
-                    style: TextStyle(fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                   ),
                 ),
                 error: (_, __) => ProgressRing(
@@ -277,7 +277,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                   color: AppTheme.gold,
                   child: const Text(
                     '—',
-                    style: TextStyle(fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                   ),
                 ),
                 data: (m) {
@@ -292,7 +292,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                       children: [
                         Text(
                           '${m.consistencyScore.toStringAsFixed(0)}%',
-                          style: const TextStyle(fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: const TextStyle(fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                         ),
                         const Text(
                           'monthly',
@@ -490,7 +490,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
         children: [
           Text(emoji, style: const TextStyle(fontSize: 26)),
           const SizedBox(height: 10),
-          Text(val, style: const TextStyle(fontFamily: 'Inter', fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+          Text(val, style: const TextStyle(fontFamily: 'Inter', fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
           Text(title, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
           Text(sub, style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted)),
         ],

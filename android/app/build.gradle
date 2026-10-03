@@ -51,6 +51,10 @@ android {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Needed by FocusBlockingService.kt / MainActivity.kt (NotificationCompat,
+    // ContextCompat.startForegroundService) — not reliably pulled in
+    // transitively by Flutter's embedding alone.
+    implementation("androidx.core:core-ktx:1.13.1")
 }
 
 flutter {

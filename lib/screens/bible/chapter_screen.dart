@@ -69,7 +69,7 @@ class _ChapterScreenState extends ConsumerState<ChapterScreen> {
         backgroundColor: AppTheme.navy,
         appBar: AppBar(title: Text('${widget.book} ${widget.chapter}')),
         body: ErrorView(
-          message: e.toString(),
+          message: friendlyError(e),
           onRetry: () => ref.invalidate(chapterProvider(params)),
         ),
       ),

@@ -1,598 +1,367 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
-import '../../providers/focus_provider.dart';
-import '../../widgets/common/app_widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../providers/restriction_provider.dart';
+import '../../repositories/focus_repository.dart';
+import '../../services/focus_blocking_service.dart';
+import '../../services/restriction_store.dart';
+import '../../services/permissions_service.dart';
+import '../../services/website_protection_service.dart';
 
+/// Focus Mode: pick a duration, then start a REAL Android restriction session.
+/// The screen only shows "active" after the native service confirms it.
 class FocusScreen extends ConsumerStatefulWidget {
   const FocusScreen({super.key});
-
   @override
   ConsumerState<FocusScreen> createState() => _FocusScreenState();
 }
 
-class _FocusScreenState extends ConsumerState<FocusScreen> {
+class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingObserver {
+  int _minutes = 30;
+  bool _allowOnly = false;
+  bool _busy = false;
+  String? _message;
+  Map<String, dynamic> _session = const {'active': false};
+  List<PermissionItem> _perms = const [];
+  Timer? _tick;
+
+  final _focus = FocusBlockingService.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    RestrictionStore.instance.getAllowOnly().then((v) {
+      if (mounted) setState(() => _allowOnly = v);
+    });
+    _refresh();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      final endAt = (_session['endAtMs'] as num?)?.toInt() ?? 0;
+      if (_session['active'] == true && endAt != 0 && endAt <= DateTime.now().millisecondsSinceEpoch) {
+        _refresh();
+      } else if (_session['active'] == true) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refresh();
+      ref.invalidate(usageAccessProvider);
+      ref.invalidate(websiteStatusProvider);
+      _showBlockedAttempt();
+    }
+  }
+
+  Future<void> _showBlockedAttempt() async {
+    final label = await _focus.getLastBlockedApp();
+    if (label != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$label is blocked during your focus session.')),
+      );
+    }
+  }
+
+  static const _kSessionId = 'focus_backend_session_id';
+
+  Future<void> _refresh() async {
+    final info = await _focus.getSessionInfo();
+    final perms = await PermissionsService.instance.snapshot();
+    if (mounted) {
+      setState(() {
+        _session = info;
+        _perms = perms;
+      });
+    }
+    if (info['active'] != true) _closeBackendSession();
+  }
+
+  /// Best-effort online record of the session. Enforcement never depends on this.
+  Future<void> _openBackendSession() async {
+    try {
+      final s = await FocusRepository().startSession();
+      (await SharedPreferences.getInstance()).setInt(_kSessionId, s.id);
+    } catch (_) {/* offline: the session still runs on the device */}
+  }
+
+  Future<void> _closeBackendSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final id = prefs.getInt(_kSessionId);
+    if (id == null) return;
+    try {
+      await FocusRepository().endSession(id, durationMinutes: _minutes);
+      await prefs.remove(_kSessionId);
+    } catch (_) {/* try again next time the screen opens */}
+  }
+
+  Future<void> _start() async {
+    final apps = ref.read(restrictedAppsProvider).valueOrNull ?? [];
+    if (apps.isEmpty && !_allowOnly) {
+      setState(() => _message = 'Choose at least one app to restrict first, or turn on "Only Godfident".');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    // Instant blocking needs the Accessibility service. Without it Android
+    // does not let Godfident stop an app from opening, so we refuse to start
+    // rather than show a session that is not actually protecting anything.
+    final accessibility = await _focus.isAccessibilityEnabled();
+    if (!accessibility) {
+      setState(() {
+        _busy = false;
+        _message = 'Focus can\u2019t block apps yet: the Godfident Focus accessibility service is switched off. Open Permissions and enable it.';
+      });
+      if (mounted) context.push('/focus/permissions');
+      return;
+    }
+    final ok = await _focus.startFocusSession(
+      apps.map((a) => a.packageName).toList(),
+      endAt: DateTime.now().add(Duration(minutes: _minutes)),
+      allowOnly: _allowOnly,
+    );
+    if (ok) _openBackendSession();
+    await _refresh();
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _message = ok ? null : 'Android did not start the restriction service, so no apps are being blocked.';
+    });
+  }
+
+  Future<void> _stop() async {
+    setState(() => _busy = true);
+    await _focus.stopFocusSession();
+    await _refresh();
+    if (mounted) setState(() => _busy = false);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final statsAsync = ref.watch(focusStatsProvider);
-    final blockedAppsAsync = ref.watch(blockedAppsProvider);
-    final sessionAsync = ref.watch(activeSessionProvider);
+    final apps = ref.watch(restrictedAppsProvider).valueOrNull ?? [];
+    final sites = ref.watch(restrictedSitesProvider).valueOrNull ?? [];
+    final web = ref.watch(websiteStatusProvider).valueOrNull;
+    final active = _session['active'] == true;
 
     return Scaffold(
       backgroundColor: AppTheme.navy,
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(focusStatsProvider);
-          ref.invalidate(blockedAppsProvider);
-        },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 52, 16, 100),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(sessionAsync),
-              const SizedBox(height: 6),
-              const Text(
-                'Protect your attention. Honor God with your time.',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 13,
-                  color: AppTheme.textMuted,
-                ),
-              ),
-              const SizedBox(height: 20),
-              _buildStatsRow(statsAsync),
-              const SizedBox(height: 24),
-              _buildWeeklyChartSection(),
-              const SizedBox(height: 24),
-              _buildMostUsedAppsSection(),
-              const SizedBox(height: 24),
-              _buildBlockedAppsSection(blockedAppsAsync),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
+          children: [
+            const Text('Focus Mode',
+                style: TextStyle(fontFamily: 'Lora', fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.inkNavy)),
+            const SizedBox(height: 4),
+            const Text('Protect your time with God.', style: TextStyle(color: AppTheme.textSecondary)),
+            const SizedBox(height: 20),
+            if (active) _activeCard() else _setupCard(apps),
+            if (_message != null) ...[
+              const SizedBox(height: 12),
+              _notice(_message!, error: true),
             ],
-          ),
+            if (_perms.any((p) => p.required && !p.granted)) ...[
+              const SizedBox(height: 12),
+              _permissionCard(
+                'Permissions needed',
+                '${_perms.where((p) => p.required && !p.granted).map((p) => p.title).join(', ')} ${_perms.where((p) => p.required && !p.granted).length == 1 ? 'is' : 'are'} not enabled yet, so some protection will not work.',
+                'Review',
+                () => context.push('/focus/permissions'),
+              ),
+            ],
+            const SizedBox(height: 22),
+            const Text('PROTECTION',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppTheme.textMuted)),
+            const SizedBox(height: 10),
+            _row(
+              icon: Icons.apps_rounded,
+              title: 'App Restrictions',
+              sub: apps.isEmpty ? 'No apps selected' : '${apps.length} app${apps.length == 1 ? '' : 's'} selected',
+              onTap: () => context.push('/focus/apps'),
+            ),
+            _row(
+              icon: Icons.language_rounded,
+              title: 'Website Protection',
+              // Domains are deliberately NOT shown here - only a count, so the
+              // list stays hidden until the Protection Key is entered.
+              sub: _webSummary(sites.length, web),
+              onTap: () => context.push('/focus/websites'),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(AsyncValue<dynamic> sessionAsync) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Row(
-          children: [
-            Text('🎯 ', style: TextStyle(fontSize: 22)),
-            Text(
-              'Digital Focus',
-              style: TextStyle(
-                fontFamily: 'Lora',
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ],
-        ),
-        sessionAsync.when(
-          data: (session) {
-            final isActive = session != null && session.isActive;
-            return OutlinedButton.icon(
-              onPressed: () => isActive
-                  ? ref.read(activeSessionProvider.notifier).end()
-                  : ref.read(activeSessionProvider.notifier).start(),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: isActive ? const Color(0xFFEF4444) : AppTheme.gold,
-                side: BorderSide(color: isActive ? const Color(0xFFEF4444) : AppTheme.gold),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              ),
-              icon: Icon(isActive ? Icons.stop : Icons.play_arrow, size: 16),
-              label: Text(
-                isActive ? 'End Focus' : 'Start Focus',
-                style: const TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-            );
-          },
-          loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
-        ),
-      ],
-    );
+  String _webSummary(int count, WebsiteProtectionStatus? web) {
+    final state = (web?.running ?? false) ? 'Active' : 'Off';
+    return '$state · $count site${count == 1 ? '' : 's'} protected';
   }
 
-  Widget _buildStatsRow(AsyncValue<dynamic> statsAsync) {
-    return statsAsync.when(
-      loading: () => const LoadingShimmer(height: 90),
-      error: (_, __) => _buildStatsContainer('82%', '3.3h', '2h 14m'),
-      data: (stats) {
-        final score = '${stats.averageFocusScore.toInt()}%';
-        final screen = '${stats.totalFocusMinutes ~/ 60}.${(stats.totalFocusMinutes % 60) ~/ 6}h';
-        final saved = '${stats.timeSavedMinutes ~/ 60}h ${stats.timeSavedMinutes % 60}m';
-        return _buildStatsContainer(score, screen, saved);
-      },
-    );
-  }
-
-  Widget _buildStatsContainer(String score, String screenTime, String timeSaved) {
-    return Row(
-      children: [
-        Expanded(
-          child: _StatCard(
-            icon: '🎯',
-            label: 'Focus Score',
-            value: score.isNotEmpty ? score : '82%',
-            color: AppTheme.gold,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _StatCard(
-            icon: '📱',
-            label: 'Avg Screen',
-            value: screenTime.isNotEmpty ? screenTime : '3.3h',
-            color: AppTheme.softBlue,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _StatCard(
-            icon: '⚡',
-            label: 'Time Saved',
-            value: timeSaved.isNotEmpty ? timeSaved : '2h 14m',
-            color: AppTheme.emerald,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWeeklyChartSection() {
+  Widget _setupCard(List<RestrictedApp> apps) {
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppTheme.navySurface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.navyOutline),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Weekly Screen Time',
-            style: TextStyle(
-              fontFamily: 'Lora',
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+      decoration: _cardDeco(),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Duration', style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+        const SizedBox(height: 10),
+        Wrap(spacing: 10, children: [
+          for (final m in const [15, 30, 60, 120])
+            ChoiceChip(
+              label: Text(m < 60 ? '$m min' : '${m ~/ 60} hr'),
+              selected: _minutes == m,
+              selectedColor: AppTheme.gold,
+              labelStyle: TextStyle(
+                  color: _minutes == m ? AppTheme.inkNavy : AppTheme.textPrimary, fontWeight: FontWeight.w600),
+              onSelected: (_) => setState(() => _minutes = m),
             ),
+        ]),
+        const SizedBox(height: 14),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          activeThumbColor: AppTheme.gold,
+          title: const Text('Only Godfident', style: TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: const Text(
+            'Every other app is sent back here (phone, keyboard and Settings stay usable).',
+            style: TextStyle(fontSize: 12),
           ),
-          const SizedBox(height: 2),
-          const Text(
-            'Hours per day',
-            style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 150,
-            child: LineChart(
-              LineChartData(
-                gridData: const FlGridData(show: false),
-                titlesData: FlTitlesData(
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (val, _) {
-                        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                        final idx = val.toInt();
-                        if (idx >= 0 && idx < days.length) {
-                          return Text(
-                            days[idx],
-                            style: const TextStyle(color: AppTheme.textMuted, fontSize: 10),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 22,
-                      getTitlesWidget: (val, _) {
-                        if (val == 0 || val == 2 || val == 4 || val == 6 || val == 8) {
-                          return Text(
-                            '${val.toInt()}',
-                            style: const TextStyle(color: AppTheme.textMuted, fontSize: 10),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                ),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  // Screen Time Line (Red)
-                  LineChartBarData(
-                    spots: const [
-                      FlSpot(0, 4.5),
-                      FlSpot(1, 3.8),
-                      FlSpot(2, 5.8),
-                      FlSpot(3, 3.2),
-                      FlSpot(4, 3.5),
-                      FlSpot(5, 2.5),
-                      FlSpot(6, 2.2),
-                    ],
-                    isCurved: true,
-                    color: const Color(0xFFEF4444),
-                    barWidth: 2.5,
-                    dotData: const FlDotData(show: false),
-                  ),
-                  // Focus Time Line (Green)
-                  LineChartBarData(
-                    spots: const [
-                      FlSpot(0, 2.0),
-                      FlSpot(1, 2.5),
-                      FlSpot(2, 3.0),
-                      FlSpot(3, 3.5),
-                      FlSpot(4, 3.2),
-                      FlSpot(5, 4.5),
-                      FlSpot(6, 4.8),
-                    ],
-                    isCurved: true,
-                    color: AppTheme.emerald,
-                    barWidth: 2.5,
-                    dotData: const FlDotData(show: false),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(width: 12, height: 3, color: const Color(0xFFEF4444)),
-              const SizedBox(width: 6),
-              const Text('Screen Time', style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted)),
-              const SizedBox(width: 20),
-              Container(width: 12, height: 3, color: AppTheme.emerald),
-              const SizedBox(width: 6),
-              const Text('Focus Time', style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMostUsedAppsSection() {
-    final apps = [
-      {'name': 'Instagram', 'icon': Icons.camera_alt_outlined, 'time': '1h 24m', 'pct': '34%', 'progress': 0.34, 'limited': true},
-      {'name': 'YouTube', 'icon': Icons.play_circle_outline, 'time': '58m', 'pct': '23%', 'progress': 0.23, 'limited': true},
-      {'name': 'WhatsApp', 'icon': Icons.chat_bubble_outline, 'time': '42m', 'pct': '17%', 'progress': 0.17, 'limited': false},
-      {'name': 'TikTok', 'icon': Icons.music_note_outlined, 'time': '38m', 'pct': '15%', 'progress': 0.15, 'limited': true},
-      {'name': 'Twitter', 'icon': Icons.flutter_dash, 'time': '22m', 'pct': '9%', 'progress': 0.09, 'limited': false},
-      {'name': 'Games', 'icon': Icons.sports_esports_outlined, 'time': '8m', 'pct': '3%', 'progress': 0.03, 'limited': false},
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Most Used Apps',
-          style: TextStyle(
-            fontFamily: 'Lora',
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.textPrimary,
-          ),
-        ),
-        const Text(
-          "Today's usage",
-          style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted),
-        ),
-        const SizedBox(height: 12),
-        ...apps.map((app) {
-          final isLimited = app['limited'] as bool;
-          final pct = (app['progress'] as double);
-
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppTheme.navySurface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.navyOutline),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.navyOutline,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(app['icon'] as IconData, color: AppTheme.gold, size: 22),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            app['name'] as String,
-                            style: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                          ),
-                          if (isLimited) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEF4444).withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Text(
-                                'LIMITED',
-                                style: TextStyle(fontFamily: 'Inter', fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFEF4444)),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: pct,
-                          minHeight: 4,
-                          backgroundColor: AppTheme.navyOutline,
-                          valueColor: AlwaysStoppedAnimation<Color>(isLimited ? const Color(0xFFEF4444) : AppTheme.emerald),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      app['time'] as String,
-                      style: const TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
-                    ),
-                    Text(
-                      app['pct'] as String,
-                      style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildBlockedAppsSection(AsyncValue<List<dynamic>> appsAsync) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.shield_outlined, color: AppTheme.textPrimary, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Blocked Apps',
-                      style: TextStyle(
-                        fontFamily: 'Lora',
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-                Text(
-                  'Active restrictions',
-                  style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted),
-                ),
-              ],
-            ),
-            ElevatedButton.icon(
-              onPressed: () => _showAddBlockedAppDialog(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.gold.withOpacity(0.2),
-                foregroundColor: AppTheme.gold,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text('Add App', style: TextStyle(fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        appsAsync.when(
-          loading: () => const LoadingShimmer(height: 60),
-          error: (_, __) => _buildDefaultBlockedApps(),
-          data: (apps) {
-            if (apps.isEmpty) return _buildDefaultBlockedApps();
-            return Column(
-              children: apps.map((app) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.navySurface,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.camera_alt_outlined, color: AppTheme.gold, size: 22),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          app.appName,
-                          style: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: AppTheme.textMuted, size: 18),
-                        onPressed: () {
-                          ref.read(focusRepositoryProvider).removeBlockedApp(app.id);
-                          ref.invalidate(blockedAppsProvider);
-                        },
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            );
+          value: _allowOnly,
+          onChanged: (v) {
+            setState(() => _allowOnly = v);
+            RestrictionStore.instance.setAllowOnly(v);
           },
         ),
-      ],
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _busy ? null : _start,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.gold,
+              foregroundColor: AppTheme.inkNavy,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            child: _busy
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : Text('Start $_minutes minute session'),
+          ),
+        ),
+      ]),
     );
   }
 
-  Widget _buildDefaultBlockedApps() {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppTheme.navySurface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.navyOutline),
+  Widget _activeCard() {
+    final endAt = (_session['endAtMs'] as num?)?.toInt() ?? 0;
+    final left = endAt == 0 ? null : Duration(milliseconds: (endAt - DateTime.now().millisecondsSinceEpoch).clamp(0, 1 << 40));
+    String fmt(Duration d) {
+      final m = d.inMinutes, s = d.inSeconds % 60;
+      return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: _cardDeco(border: AppTheme.gold),
+      child: Column(children: [
+        const Icon(Icons.shield_rounded, color: AppTheme.gold, size: 36),
+        const SizedBox(height: 8),
+        const Text('Focus session active',
+            style: TextStyle(fontFamily: 'Lora', fontSize: 20, fontWeight: FontWeight.bold)),
+        if (left != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(fmt(left),
+                style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w700, color: AppTheme.inkNavy)),
           ),
-          child: Row(
-            children: [
-              const Icon(Icons.camera_alt_outlined, color: AppTheme.gold, size: 24),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Instagram',
-                      style: TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        const Icon(Icons.access_time, size: 12, color: AppTheme.textMuted),
-                        const SizedBox(width: 4),
-                        const Text('30 min', style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted)),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.emerald.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            'ACTIVE',
-                            style: TextStyle(fontFamily: 'Inter', fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.close, color: AppTheme.textMuted, size: 20),
-            ],
-          ),
+        Text(
+          _session['allowOnly'] == true
+              ? 'Only Godfident is allowed.'
+              : 'Blocked apps are being sent back here.',
+          style: const TextStyle(color: AppTheme.textSecondary),
         ),
-      ],
+        const SizedBox(height: 6),
+        Text('${_session['attempts'] ?? 0} blocked attempt(s)',
+            style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+        const SizedBox(height: 14),
+        OutlinedButton(onPressed: _busy ? null : _stop, child: const Text('End session')),
+      ]),
     );
   }
 
-  void _showAddBlockedAppDialog(BuildContext context) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.navySurface,
-        title: const Text('Add Blocked App'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'App name (e.g. TikTok)',
-            hintStyle: TextStyle(color: AppTheme.textMuted),
-          ),
+  Widget _permissionCard(String title, String body, String action, VoidCallback onTap) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _cardDeco(border: AppTheme.danger.withValues(alpha: 0.5)),
+      child: Row(children: [
+        const Icon(Icons.info_outline, color: AppTheme.danger),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Text(body, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          ]),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                ref.read(focusRepositoryProvider).addBlockedApp({
-                  'app_name': controller.text,
-                  'package_name': controller.text.toLowerCase().replaceAll(' ', '.'),
-                });
-                ref.invalidate(blockedAppsProvider);
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Add App'),
-          ),
-        ],
+        TextButton(onPressed: onTap, child: Text(action)),
+      ]),
+    );
+  }
+
+  Widget _notice(String text, {bool error = false}) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: (error ? AppTheme.danger : AppTheme.gold).withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(text, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
+      );
+
+  Widget _row({required IconData icon, required String title, required String sub, required VoidCallback onTap}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: _cardDeco(),
+          child: Row(children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, color: AppTheme.goldDark),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                const SizedBox(height: 2),
+                Text(sub, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              ]),
+            ),
+            const Icon(Icons.chevron_right, color: AppTheme.textMuted),
+          ]),
+        ),
       ),
     );
   }
-}
 
-class _StatCard extends StatelessWidget {
-  final String icon, label, value;
-  final Color color;
-
-  const _StatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
+  BoxDecoration _cardDeco({Color? border}) => BoxDecoration(
         color: AppTheme.navySurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(icon, style: const TextStyle(fontSize: 20)),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.bold, color: color),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(fontFamily: 'Inter', fontSize: 10, color: AppTheme.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
+        border: Border.all(color: border ?? AppTheme.navyOutline),
+      );
 }

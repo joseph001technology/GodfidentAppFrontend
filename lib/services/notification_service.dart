@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_native_timezone/flutter_native_timezone.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 import '../models/reminder.dart';
+import 'ringtone_store.dart';
 
 class NotificationService {
   NotificationService._internal();
@@ -39,7 +40,8 @@ class NotificationService {
 
     try {
       tz_data.initializeTimeZones();
-      final String tzName = await FlutterNativeTimezone.getLocalTimezone();
+      final timezone = await FlutterTimezone.getLocalTimezone();
+      final String tzName = timezone.identifier;
       tz.setLocalLocation(tz.getLocation(tzName));
     } catch (e) {
       if (kDebugMode) {
@@ -47,13 +49,6 @@ class NotificationService {
       }
       tz.setLocalLocation(tz.UTC);
     }
-
-    try {
-      await Permission.notification.request();
-      if (await Permission.scheduleExactAlarm.isDenied) {
-        await Permission.scheduleExactAlarm.request();
-      }
-    } catch (_) {}
 
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosInit = DarwinInitializationSettings(
@@ -151,92 +146,118 @@ class NotificationService {
     );
   }
 
-  Future<void> scheduleReminder(Reminder reminder) async {
-    await initialize();
-    if (reminder.dateTime == null || !reminder.isEnabled || reminder.isCompleted) {
-      await cancelReminder(reminder.id);
-      return;
-    }
+  AndroidNotificationSound _soundFor(Ringtone t) => t.isDevice
+      ? UriAndroidNotificationSound(t.uri!)
+      : RawResourceAndroidNotificationSound('godfident_${t.id}');
 
-    final scheduled = tz.TZDateTime.from(reminder.dateTime!.toLocal(), tz.local);
-    final id = reminder.id;
-    final payload = reminder.targetRoute;
-    final title = reminder.title;
-    final body = reminder.description ?? 'Time for your spiritual check-in';
-    final details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        reminder.isAlarm ? _alarmChannelId : _reminderChannelId,
-        reminder.isAlarm ? _alarmChannelName : _reminderChannelName,
-        channelDescription: reminder.isAlarm ? _alarmChannelDesc : _reminderChannelDesc,
+  // A channel's sound cannot change after it is created, so every
+  // (kind, ringtone) pair gets its own channel.
+  String _channelIdFor(Ringtone t, bool alarm) =>
+      '${alarm ? 'alarm' : 'rem'}_${t.isDevice ? 'u${t.uri.hashCode.abs()}' : t.id}';
+
+  AndroidNotificationDetails _androidDetails(Ringtone t, bool alarm) => AndroidNotificationDetails(
+        _channelIdFor(t, alarm),
+        alarm ? 'Alarms \u2013 ${t.title}' : 'Reminders \u2013 ${t.title}',
+        channelDescription: alarm ? 'Loud alarm reminders' : 'Prayer, scripture and devotion reminders',
         importance: Importance.max,
-        priority: reminder.isAlarm ? Priority.max : Priority.high,
+        priority: Priority.high,
         playSound: true,
+        sound: _soundFor(t),
         enableVibration: true,
-        fullScreenIntent: reminder.isAlarm,
-        category: reminder.isAlarm ? AndroidNotificationCategory.alarm : null,
-        ongoing: reminder.isAlarm,
-        autoCancel: !reminder.isAlarm,
-        audioAttributesUsage: reminder.isAlarm ? AudioAttributesUsage.alarm : AudioAttributesUsage.notification,
-      ),
-      iOS: DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-        presentBanner: true,
-        presentList: true,
-        interruptionLevel: reminder.isAlarm ? InterruptionLevel.timeSensitive : null,
-      ),
-    );
-
-    final nextDate = reminder.repeat == 'daily'
-        ? _nextInstanceOfTime(scheduled)
-        : reminder.repeat == 'weekly'
-            ? _nextInstanceOfTime(scheduled)
-            : scheduled.isBefore(tz.TZDateTime.now(tz.local))
-                ? _nextInstanceOfTime(scheduled)
-                : scheduled;
-
-    if (reminder.repeat == 'daily') {
-      await _plugin.zonedSchedule(
-        id,
-        title,
-        body,
-        nextDate,
-        details,
-        androidAllowWhileIdle: true,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time,
-        payload: payload,
+        fullScreenIntent: alarm,
+        category: alarm ? AndroidNotificationCategory.alarm : AndroidNotificationCategory.reminder,
+        audioAttributesUsage: alarm ? AudioAttributesUsage.alarm : AudioAttributesUsage.notification,
       );
-      return;
-    }
 
-    if (reminder.repeat == 'weekly') {
-      await _plugin.zonedSchedule(
-        id,
-        title,
-        body,
-        nextDate,
-        details,
-        androidAllowWhileIdle: true,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-        payload: payload,
+  /// Schedules ONE local notification for [reminder] using its saved ringtone.
+  /// Works with the app closed and with no internet. Returns true only if
+  /// Android accepted the schedule.
+  Future<bool> scheduleReminder(Reminder reminder) async {
+    try {
+      await initialize();
+      final base = reminder.dateTime;
+      if (base == null || !reminder.isEnabled || reminder.isCompleted) {
+        await cancelReminder(reminder.id);
+        return false;
+      }
+
+      final now = DateTime.now();
+      var when = base;
+      DateTimeComponents? match;
+      switch (reminder.repeat) {
+        case 'daily':
+          while (!when.isAfter(now)) {
+            when = when.add(const Duration(days: 1));
+          }
+          match = DateTimeComponents.time;
+          break;
+        case 'weekly':
+          while (!when.isAfter(now)) {
+            when = when.add(const Duration(days: 7));
+          }
+          match = DateTimeComponents.dayOfWeekAndTime;
+          break;
+        case 'monthly':
+          while (!when.isAfter(now)) {
+            when = DateTime(when.year, when.month + 1, when.day, when.hour, when.minute);
+          }
+          match = DateTimeComponents.dayOfMonthAndTime;
+          break;
+        default:
+          // One-time reminder whose time has passed: nothing to schedule.
+          if (!when.isAfter(now)) {
+            await cancelReminder(reminder.id);
+            return false;
+          }
+      }
+
+      final tone = await RingtoneStore.instance.load(reminder.id);
+      final details = NotificationDetails(
+        android: _androidDetails(tone, reminder.isAlarm),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+          interruptionLevel: reminder.isAlarm ? InterruptionLevel.timeSensitive : null,
+        ),
       );
-      return;
-    }
 
-    await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      nextDate,
-      details,
-      androidAllowWhileIdle: true,
-      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      payload: payload,
+      // Exact delivery needs the "Alarms & reminders" permission; without it
+      // fall back to inexact (a few minutes late) instead of failing silently.
+      final exact = await Permission.scheduleExactAlarm.isGranted;
+      await _plugin.zonedSchedule(
+        reminder.id,
+        reminder.title,
+        reminder.description?.isNotEmpty == true ? reminder.description! : 'Time for your spiritual check-in',
+        tz.TZDateTime.from(when, tz.local),
+        details,
+        androidScheduleMode:
+            exact ? AndroidScheduleMode.exactAllowWhileIdle : AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: match,
+        payload: reminder.targetRoute,
+      );
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('scheduleReminder failed: $e');
+      return false;
+    }
+  }
+
+  /// Fires a real notification immediately with the chosen sound (used by "Test").
+  Future<void> showNow(Reminder reminder) async {
+    await initialize();
+    final tone = await RingtoneStore.instance.load(reminder.id);
+    await _plugin.show(
+      900000 + (reminder.id.abs() % 90000),
+      reminder.title,
+      reminder.description ?? 'Test reminder',
+      NotificationDetails(android: _androidDetails(tone, reminder.isAlarm)),
+      payload: reminder.targetRoute,
     );
   }
+
+  Future<int> pendingCount() async => (await _plugin.pendingNotificationRequests()).length;
 
   Future<void> scheduleAlarm(Reminder reminder) async {
     final alarmReminder = reminder.copyWith(isAlarm: true);
@@ -260,18 +281,5 @@ class NotificationService {
 
   Future<void> cancelAll() async {
     await _plugin.cancelAll();
-  }
-
-  tz.TZDateTime _nextInstanceOfTime(tz.TZDateTime dt) {
-    final now = tz.TZDateTime.now(tz.local);
-    if (dt.isAfter(now)) return dt;
-    return tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      dt.hour,
-      dt.minute,
-    ).add(const Duration(days: 1));
   }
 }

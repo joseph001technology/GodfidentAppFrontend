@@ -202,10 +202,14 @@ class BibleRepository {
 
   Future<Map<String, dynamic>> getReadingProgress() async {
     final res = await _dio.get('/api/bible/reading-progress/');
-    final data = res.data['data'] ?? res.data;
+    final raw = res.data is Map ? (res.data['data'] ?? res.data) : null;
+    if (raw is! Map || raw['book_name'] == null) {
+      // The user has not read anything yet: report that honestly.
+      return {'location': null, 'percent': 0.0};
+    }
     return {
-      'location': '${data['book_name'] ?? 'Genesis'} ${data['chapter'] ?? 1}',
-      'percent': (data['percent'] ?? 0.0) / 100.0,
+      'location': '${raw['book_name']} ${raw['chapter'] ?? 1}',
+      'percent': ((raw['percent'] ?? 0.0) as num).toDouble() / 100.0,
     };
   }
 

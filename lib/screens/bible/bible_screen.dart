@@ -114,27 +114,21 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                       ],
                     ),
                     loading: () => const LoadingShimmer(height: 40),
-                    error: (_, __) => const Column(
+                    error: (e, _) => Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '"I can do all things through Christ who strengthens me."',
-                          style: TextStyle(
-                            fontFamily: 'Lora',
-                            fontSize: 15,
-                            fontStyle: FontStyle.italic,
-                            color: AppTheme.textOnDark, // was textPrimary
+                          'Verse of the day could not be loaded. ${friendlyError(e)}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textOnDarkMuted,
                           ),
                         ),
-                        SizedBox(height: 6),
-                        Text(
-                          '— Philippians 4:13',
-                          style: TextStyle(
-                            fontFamily: 'Lora',
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.gold,
-                          ),
+                        const SizedBox(height: 6),
+                        TextButton.icon(
+                          onPressed: () => ref.invalidate(verseOfTheDayProvider),
+                          icon: const Icon(Icons.refresh, size: 16, color: AppTheme.gold),
+                          label: const Text('Retry', style: TextStyle(color: AppTheme.gold)),
                         ),
                       ],
                     ),
@@ -234,8 +228,24 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
   Widget _buildBooksGrid(AsyncValue<List<BibleBook>> booksAsync) {
     return booksAsync.when(
       loading: () => const LoadingShimmer(height: 300),
-      error: (e, _) => ErrorView(message: e.toString()),
+      error: (e, _) => ErrorView(
+        message: friendlyError(e),
+        onRetry: () {
+          ref.invalidate(otBooksProvider);
+          ref.invalidate(ntBooksProvider);
+        },
+      ),
       data: (books) {
+        if (books.isEmpty) {
+          return ErrorView(
+            message: 'The server has no Bible books yet. The Bible has not been loaded on the server - '
+                'it needs to be imported there (not a problem with your phone).',
+            onRetry: () {
+              ref.invalidate(otBooksProvider);
+              ref.invalidate(ntBooksProvider);
+            },
+          );
+        }
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),

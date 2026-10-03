@@ -2,13 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/devotional.dart';
 import '../models/prayer.dart';
 import '../models/reading_plan.dart';
-import '../models/chat_message.dart';
 import '../models/notification.dart';
 import '../models/analytics.dart';
 import '../repositories/devotional_repository.dart';
 import '../repositories/prayer_repository.dart';
 import '../repositories/reading_plan_repository.dart';
-import '../repositories/ai_repository.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/analytics_repository.dart';
 import '../services/notification_service.dart';
@@ -22,7 +20,6 @@ export 'rules_provider.dart';
 final devotionalRepositoryProvider = Provider((_) => DevotionalRepository());
 final prayerRepositoryProvider     = Provider((_) => PrayerRepository());
 final planRepositoryProvider       = Provider((_) => ReadingPlanRepository());
-final aiRepositoryProvider         = Provider((_) => AiRepository());
 final notificationRepositoryProvider = Provider((_) => NotificationRepository());
 final analyticsRepositoryProvider  = Provider((_) => AnalyticsRepository());
 
@@ -170,66 +167,6 @@ class MyPlansNotifier extends StateNotifier<AsyncValue<List<UserReadingPlan>>> {
 
 final readingStreakProvider = FutureProvider<ReadingStreak>((ref) {
   return ref.read(planRepositoryProvider).getStreak();
-});
-
-// ── AI ────────────────────────────────────────────────────────────────────────
-
-final chatMessagesProvider =
-    StateNotifierProvider.family<ChatNotifier, List<ChatMessage>, int?>((ref, sessionId) {
-  return ChatNotifier(ref.read(aiRepositoryProvider), sessionId);
-});
-
-class ChatNotifier extends StateNotifier<List<ChatMessage>> {
-  final AiRepository _repo;
-  int? sessionId;
-
-  ChatNotifier(this._repo, this.sessionId) : super([]);
-
-  Future<void> send(String message) async {
-    // Optimistically add user message
-    final userMsg = ChatMessage(
-      id: DateTime.now().millisecondsSinceEpoch,
-      role: 'user',
-      content: message,
-      createdAt: DateTime.now().toIso8601String(),
-    );
-    state = [...state, userMsg];
-
-    // Add thinking placeholder
-    final thinkingMsg = ChatMessage(
-      id: -1,
-      role: 'assistant',
-      content: '...',
-      createdAt: DateTime.now().toIso8601String(),
-    );
-    state = [...state, thinkingMsg];
-
-    try {
-      final result = await _repo.chat(message: message, sessionId: sessionId);
-      sessionId = result['session_id'];
-      final aiMsg = ChatMessage(
-        id: DateTime.now().millisecondsSinceEpoch + 1,
-        role: 'assistant',
-        content: result['response'] as String,
-        createdAt: DateTime.now().toIso8601String(),
-      );
-      state = [...state.where((m) => m.id != -1), aiMsg];
-    } catch (e) {
-      state = state.where((m) => m.id != -1).toList();
-    }
-  }
-}
-
-final aiStudyHistoryProvider = FutureProvider<List<StudySession>>((ref) {
-  return ref.read(aiRepositoryProvider).getStudyHistory();
-});
-
-final chatSessionsProvider = FutureProvider<List<ChatSession>>((ref) {
-  return ref.read(aiRepositoryProvider).getSessions();
-});
-
-final dailyEncouragementProvider = FutureProvider<String>((ref) {
-  return ref.read(aiRepositoryProvider).dailyEncouragement();
 });
 
 // ── Notifications ─────────────────────────────────────────────────────────────

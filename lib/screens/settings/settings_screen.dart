@@ -102,7 +102,6 @@ class _FeatureGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final features = [
-      {'icon': '🤖', 'label': 'AI Assistant', 'route': '/settings/ai'},
       {'icon': '✝️', 'label': 'Prayer', 'route': '/settings/prayer'},
       {'icon': '📖', 'label': 'Devotionals', 'route': '/settings/devotionals'},
       {'icon': '📚', 'label': 'Reading Plans', 'route': '/settings/plans'},

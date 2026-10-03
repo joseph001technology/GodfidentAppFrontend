@@ -142,7 +142,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           children: [
             TextField(
               controller: _titleController,
-              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
               decoration: InputDecoration(
                 hintText: 'Note title',
                 hintStyle: TextStyle(color: AppTheme.warmGray.withValues(alpha: 0.5)),
@@ -165,7 +165,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
               ),
               child: TextField(
                 controller: _bodyController,
-                style: const TextStyle(color: Colors.white, height: 1.6),
+                style: const TextStyle(color: AppTheme.textPrimary, height: 1.6),
                 decoration: InputDecoration(
                   hintText: 'Write your thoughts, prayers, insights...',
                   hintStyle: TextStyle(color: AppTheme.warmGray.withValues(alpha: 0.5)),
@@ -180,7 +180,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Pin Note', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)),
+                Text('Pin Note', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.textPrimary)),
                 Switch(
                   value: _isPinned,
                   onChanged: (value) => setState(() => _isPinned = value),
@@ -191,7 +191,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Favorite', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)),
+                Text('Favorite', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.textPrimary)),
                 Switch(
                   value: _isFavorite,
                   onChanged: (value) => setState(() => _isFavorite = value),
@@ -216,7 +216,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         value: _selectedTopicId,
         isExpanded: true,
         underline: const SizedBox(),
-        style: const TextStyle(color: Colors.white),
+        style: const TextStyle(color: AppTheme.textPrimary),
         dropdownColor: AppTheme.navyVariant,
         items: [
           const DropdownMenuItem<int?>(

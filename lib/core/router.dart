@@ -20,9 +20,6 @@ import '../screens/prayer/prayer_list_screen.dart';
 import '../screens/prayer/prayer_form_screen.dart';
 import '../screens/prayer/prayer_detail_screen.dart';
 import '../screens/prayer/prayer_stats_screen.dart';
-import '../screens/ai/ai_home_screen.dart';
-import '../screens/ai/chat_screen.dart';
-import '../screens/ai/ai_screens.dart';
 import '../screens/analytics/dashboard_screen.dart';
 import '../screens/progress/progress_screen.dart';
 import '../screens/search/global_search_screen.dart';
@@ -35,6 +32,10 @@ import '../screens/reminders/reminders_screen.dart';
 import '../screens/reminders/reminder_editor_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
 import '../screens/focus/focus_screen.dart';
+import '../screens/focus/app_restrictions_screen.dart';
+import '../screens/focus/website_protection_screen.dart';
+import '../screens/focus/permissions_screen.dart';
+import '../screens/music/music_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/settings/profile_screen.dart';
 import '../screens/settings/change_password_screen.dart';
@@ -66,6 +67,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) => ShellScaffold(child: child),
         routes: [
           GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
+          GoRoute(path: '/music', builder: (_, __) => const MusicScreen()),
           GoRoute(
             path: '/bible',
             builder: (_, __) => const BibleScreen(),
@@ -90,7 +92,15 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(path: 'search', builder: (_, __) => const SearchScreen()),
             ],
           ),
-          GoRoute(path: '/focus', builder: (_, __) => const FocusScreen()),
+          GoRoute(
+            path: '/focus',
+            builder: (_, __) => const FocusScreen(),
+            routes: [
+              GoRoute(path: 'apps', builder: (_, __) => const AppRestrictionsScreen()),
+              GoRoute(path: 'websites', builder: (_, __) => const WebsiteProtectionScreen()),
+              GoRoute(path: 'permissions', builder: (_, __) => const PermissionsScreen()),
+            ],
+          ),
           GoRoute(path: '/progress', builder: (_, __) => const ProgressScreen()),
 
           // Prayer routes
@@ -219,21 +229,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/global-search',
             builder: (_, __) => const GlobalSearchScreen(),
-          ),
-
-          // AI routes
-          GoRoute(
-            path: '/ai',
-            builder: (_, __) => const AiHomeScreen(),
-            routes: [
-              GoRoute(
-                path: 'chat',
-                builder: (_, state) => ChatScreen(sessionId: state.uri.queryParameters['session']),
-              ),
-              GoRoute(path: 'explain-verse', builder: (_, __) => const ExplainVerseScreen()),
-              GoRoute(path: 'topic-study', builder: (_, __) => const TopicStudyScreen()),
-              GoRoute(path: 'character-study', builder: (_, __) => const CharacterStudyScreen()),
-            ],
           ),
 
           // More routes

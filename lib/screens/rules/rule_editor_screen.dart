@@ -181,7 +181,7 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
                       Expanded(
                         child: TextField(
                           controller: _titleController,
-                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
                           decoration: InputDecoration(
                             hintText: 'Rule title',
                             hintStyle: TextStyle(color: AppTheme.warmGray.withValues(alpha: 0.5)),
@@ -193,7 +193,7 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  Text('Description', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)),
+                  Text('Description', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.textPrimary)),
                   const SizedBox(height: 8),
                   Container(
                     decoration: BoxDecoration(
@@ -203,7 +203,7 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
                     ),
                     child: TextField(
                       controller: _descriptionController,
-                      style: const TextStyle(color: Colors.white, height: 1.6),
+                      style: const TextStyle(color: AppTheme.textPrimary, height: 1.6),
                       decoration: InputDecoration(
                         hintText: 'Describe your rule...',
                         hintStyle: TextStyle(color: AppTheme.warmGray.withValues(alpha: 0.5)),
@@ -215,25 +215,25 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Text('Category', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)),
+                  Text('Category', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.textPrimary)),
                   const SizedBox(height: 8),
                   _buildCategorySelector(),
                   const SizedBox(height: 24),
-                  Text('Color', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)),
+                  Text('Color', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.textPrimary)),
                   const SizedBox(height: 8),
                   _buildColorSelector(),
                   const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Pin Rule', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)),
+                      Text('Pin Rule', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.textPrimary)),
                       Switch(value: _isPinned, onChanged: (v) => setState(() => _isPinned = v), activeThumbColor: AppTheme.emerald),
                     ],
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Favorite', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)),
+                      Text('Favorite', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.textPrimary)),
                       Switch(value: _isFavorite, onChanged: (v) => setState(() => _isFavorite = v), activeThumbColor: AppTheme.accentPink),
                     ],
                   ),
@@ -291,7 +291,7 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: isSelected ? Colors.white : Colors.transparent, width: isSelected ? 3 : 0),
+              border: Border.all(color: isSelected ? AppTheme.textPrimary : Colors.transparent, width: isSelected ? 3 : 0),
               boxShadow: [
                 if (isSelected) BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 8, spreadRadius: 2),
               ],

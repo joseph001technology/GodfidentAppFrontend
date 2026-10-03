@@ -43,14 +43,18 @@ dependencies:
   intl: ^0.19.0
   uuid: ^4.4.0
   collection: ^1.18.0
+  crypto: ^3.0.3
   url_launcher: ^6.2.6
+
+  # Music playback
+  just_audio: ^0.9.40
 
   # Local notifications & alarms
   flutter_local_notifications: ^17.2.1+2
   timezone: ^0.9.4
-  flutter_native_timezone: ^2.0.0
   permission_handler: ^11.3.1
   android_alarm_manager_plus: ^4.0.5
+  flutter_timezone: ^5.1.0
   
 dev_dependencies:
   flutter_test:
@@ -67,4 +71,6 @@ flutter:
     - assets/images/
     - assets/icons/
     - assets/json/
+    - assets/audio/
+    - assets/audio/ringtones/
 

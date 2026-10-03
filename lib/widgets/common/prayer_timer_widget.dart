@@ -27,19 +27,6 @@ class _PrayerTimerWidgetState extends State<PrayerTimerWidget>
   bool _isCompleted = false;
   late AnimationController _pulseController;
 
-  static const _verses = [
-    '"Be still, and know that I am God." — Psalm 46:10',
-    '"Do not be anxious about anything, but in every situation, by prayer and petition, present your requests to God." — Philippians 4:6',
-    '"The Lord is near to all who call on Him." — Psalm 145:18',
-    '"Pray without ceasing." — 1 Thessalonians 5:17',
-    '"Cast all your anxiety on Him because He cares for you." — 1 Peter 5:7',
-    '"Call to me and I will answer you." — Jeremiah 33:3',
-    '"The righteous cry out, and the Lord hears them." — Psalm 34:17',
-    '"Commit your way to the Lord; trust in Him and He will do this." — Psalm 37:5',
-  ];
-
-  String get _currentVerse => _verses[_remainingSeconds % _verses.length];
-
   @override
   void initState() {
     super.initState();
@@ -290,17 +277,6 @@ class _PrayerTimerWidgetState extends State<PrayerTimerWidget>
               ]),
             );
           },
-        ),
-        const SizedBox(height: 20),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(16)), // reverted, see note above
-          child: Row(children: [
-            const Icon(Icons.format_quote, color: AppTheme.gold, size: 20),
-            const SizedBox(width: 10),
-            Expanded(child: Text(_currentVerse,
-              style: const TextStyle(fontFamily: 'Lora', fontSize: 13, fontStyle: FontStyle.italic, color: AppTheme.textSecondary, height: 1.4))),
-          ]),
         ),
         const SizedBox(height: 24),
         Row(children: [

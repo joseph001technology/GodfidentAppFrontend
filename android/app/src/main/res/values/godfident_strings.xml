@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Lets Godfident notice which app has just opened so it can send you back Home when you open an app you chose to block during a Focus session. It cannot read your screen, messages or anything you type.</string>
+</resources>

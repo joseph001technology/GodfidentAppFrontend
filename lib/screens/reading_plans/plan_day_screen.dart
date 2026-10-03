@@ -15,7 +15,7 @@ class PlanDayScreen extends ConsumerWidget {
 
     return plansAsync.when(
       loading: () => Scaffold(appBar: AppBar(), body: const ShimmerList()),
-      error: (e, _) => Scaffold(appBar: AppBar(), body: ErrorView(message: e.toString())),
+      error: (e, _) => Scaffold(appBar: AppBar(), body: ErrorView(message: friendlyError(e))),
       data: (plans) {
         final userPlan = plans.firstWhere(
           (p) => p.id == planId,
@@ -129,7 +129,7 @@ class PlanDayScreen extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())));
+          SnackBar(content: Text(friendlyError(e))));
       }
     }
   }

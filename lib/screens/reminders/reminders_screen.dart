@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
+import '../../services/ringtone_store.dart';
 import '../../models/reminder.dart';
 import '../../providers/reminders_provider.dart';
 import '../../services/notification_service.dart';
@@ -38,19 +40,29 @@ class RemindersScreen extends ConsumerWidget {
             icon: const Icon(Icons.notifications_active, color: AppTheme.gold),
             tooltip: 'Test Notification',
             onPressed: () async {
-              await NotificationService().showNotification(
-                id: 9999,
-                title: 'Godfident Spiritual Alert 🔔',
-                body: 'Seek first His kingdom and His righteousness. — Matthew 6:33',
-              );
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Test notification triggered! 🔔'),
-                    backgroundColor: AppTheme.emerald,
-                  ),
-                );
+              final messenger = ScaffoldMessenger.of(context);
+              final granted = await Permission.notification.isGranted;
+              if (!granted) {
+                messenger.showSnackBar(const SnackBar(
+                  content: Text('Notifications are switched off for Godfident. Open Profile \u2192 Permissions to turn them on.'),
+                  backgroundColor: AppTheme.danger,
+                ));
+                return;
               }
+              final svc = NotificationService();
+              final tone = await RingtoneStore.instance.load(0);
+              await svc.showNow(Reminder(
+                id: 0,
+                title: 'Test reminder',
+                description: 'If you can see and hear this, reminders will reach you.',
+                date: '',
+                createdAt: '',
+              ));
+              final pending = await svc.pendingCount();
+              messenger.showSnackBar(SnackBar(
+                content: Text('Test sent with "${tone.title}". $pending reminder${pending == 1 ? '' : 's'} scheduled on this phone.'),
+                backgroundColor: AppTheme.emerald,
+              ));
             },
           ),
           IconButton(
@@ -121,7 +133,7 @@ class RemindersScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               remindersAsync.when(
                 loading: () => const LoadingShimmer(height: 200),
-                error: (e, _) => ErrorView(message: e.toString()),
+                error: (e, _) => ErrorView(message: friendlyError(e)),
                 data: (reminders) {
                   if (reminders.isEmpty) {
                     return EmptyView(
@@ -183,31 +195,31 @@ class _ReminderCard extends ConsumerWidget {
       confirmDismiss: (_) async {
         return await showDialog<bool>(
           context: context,
-          builder: (_) => AlertDialog(
+          builder: (dialogContext) => AlertDialog(
             backgroundColor: AppTheme.navySurface,
-            title: const Text('Delete Reminder', style: TextStyle(color: AppTheme.textPrimary)),
-            content: Text('Delete "${r.title}"?', style: const TextStyle(color: AppTheme.textMuted)),
+            title: const Text('Delete reminder', style: TextStyle(color: AppTheme.textPrimary)),
+            content: Text('Delete "${r.title}"?', style: const TextStyle(color: AppTheme.textSecondary)),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel', style: TextStyle(color: AppTheme.textMuted)),
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
               ),
               TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Delete', style: TextStyle(color: AppTheme.danger)),
               ),
             ],
           ),
-        );
+        ) ?? false;
       },
       onDismissed: (_) {
+        // Grab everything we need BEFORE the card leaves the tree: using this
+        // card's context after it is removed is what blanked the screen.
+        final messenger = ScaffoldMessenger.of(context);
+        final title = r.title;
+        // delete() removes the reminder from the list in the same frame.
         ref.read(remindersProvider.notifier).delete(r.id);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Deleted "${r.title}"'),
-            backgroundColor: AppTheme.navySurface,
-          ),
-        );
+        messenger.showSnackBar(SnackBar(content: Text('Deleted "$title"')));
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -284,7 +296,7 @@ class _ReminderCard extends ConsumerWidget {
               activeColor: AppTheme.gold,
               onChanged: (val) async {
                 try {
-                  await ref.read(remindersProvider.notifier).update(r.id, {'is_enabled': val});
+                  await ref.read(remindersProvider.notifier).toggleEnabled(r.id);
                 } catch (e) {
                   ref.invalidate(remindersProvider);
                   if (context.mounted) {

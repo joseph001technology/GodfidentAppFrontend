@@ -26,7 +26,7 @@ class PlansScreen extends ConsumerWidget {
       body: plansAsync.when(
         loading: () => const ShimmerList(),
         error: (e, _) => ErrorView(
-          message: e.toString(),
+          message: friendlyError(e),
           onRetry: () => ref.invalidate(readingPlansProvider),
         ),
         data: (plans) {

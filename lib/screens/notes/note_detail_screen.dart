@@ -14,7 +14,7 @@ class NoteDetailScreen extends ConsumerWidget {
     final notesAsync = ref.watch(notesProvider);
     return notesAsync.when(
       loading: () => const Scaffold(body: ShimmerList()),
-      error: (e, _) => Scaffold(body: ErrorView(message: e.toString())),
+      error: (e, _) => Scaffold(body: ErrorView(message: friendlyError(e))),
       data: (notes) {
         final note = notes.firstWhere((n) => n.id == noteId, orElse: () => notes.first);
         return Scaffold(

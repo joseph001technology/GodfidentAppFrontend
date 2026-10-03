@@ -91,13 +91,8 @@ final verseOfTheDayProvider = FutureProvider<BibleVerse>((ref) async {
 });
 
 // Reading Progress
-final readingProgressProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  try {
-    final progress = await ref.read(bibleRepositoryProvider).getReadingProgress();
-    return progress;
-  } catch (_) {
-    return {'location': 'Genesis 1', 'percent': 0.0};
-  }
+final readingProgressProvider = FutureProvider<Map<String, dynamic>>((ref) {
+  return ref.read(bibleRepositoryProvider).getReadingProgress();
 });
 
 // Bookmarks
