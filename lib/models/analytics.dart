@@ -2,7 +2,6 @@ class Dashboard {
   final ReadingStats reading;
   final PrayerDashStats prayer;
   final DevotionalStats devotionals;
-  final StudyStats study;
   final PlanStats plans;
   final AnnotationStats annotations;
 
@@ -10,7 +9,6 @@ class Dashboard {
     required this.reading,
     required this.prayer,
     required this.devotionals,
-    required this.study,
     required this.plans,
     required this.annotations,
   });
@@ -19,7 +17,6 @@ class Dashboard {
         reading: ReadingStats.fromJson(j['reading'] ?? {}),
         prayer: PrayerDashStats.fromJson(j['prayer'] ?? {}),
         devotionals: DevotionalStats.fromJson(j['devotionals'] ?? {}),
-        study: StudyStats.fromJson(j['study'] ?? {}),
         plans: PlanStats.fromJson(j['plans'] ?? {}),
         annotations: AnnotationStats.fromJson(j['annotations'] ?? {}),
       );
@@ -81,13 +78,6 @@ class DevotionalStats {
       );
 }
 
-class StudyStats {
-  final int aiSessions;
-  const StudyStats({required this.aiSessions});
-  factory StudyStats.fromJson(Map<String, dynamic> j) =>
-      StudyStats(aiSessions: j['ai_sessions'] ?? 0);
-}
-
 class PlanStats {
   final int active;
   final int completed;
@@ -135,7 +125,6 @@ class MonthlyReport {
   final int chaptersRead;
   final int prayersLogged;
   final int devotionalsRead;
-  final int studySessions;
 
   const MonthlyReport({
     required this.year,
@@ -147,7 +136,6 @@ class MonthlyReport {
     required this.chaptersRead,
     required this.prayersLogged,
     required this.devotionalsRead,
-    required this.studySessions,
   });
 
   factory MonthlyReport.fromJson(Map<String, dynamic> j) => MonthlyReport(
@@ -160,7 +148,6 @@ class MonthlyReport {
         chaptersRead: j['chapters_read'] ?? 0,
         prayersLogged: j['prayers_logged'] ?? 0,
         devotionalsRead: j['devotionals_read'] ?? 0,
-        studySessions: j['study_sessions'] ?? 0,
       );
 }
 

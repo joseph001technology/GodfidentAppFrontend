@@ -4,6 +4,7 @@ import '../../core/theme.dart';
 import '../../providers/reminders_provider.dart';
 import '../../core/dio_client.dart';
 import '../../services/ringtone_store.dart';
+import '../../widgets/common/delete_reminder.dart';
 import '../../widgets/common/ringtone_picker.dart';
 
 class ReminderEditorScreen extends ConsumerStatefulWidget {
@@ -117,18 +118,38 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
       } else {
         await notifier.create(data, ringtone: _ringtone);
       }
+      final scheduled = notifier.lastScheduleOk;
       messenger.showSnackBar(
         SnackBar(
-          content: Text(isEnabled ? 'Saved. You will be reminded at $savedAt.' : 'Saved (reminder is switched off).'),
-          backgroundColor: AppTheme.emerald,
+          content: Text(!isEnabled
+              ? 'Saved (reminder is switched off).'
+              : scheduled
+                  ? 'Saved. You will be reminded at $savedAt.'
+                  : 'Saved to your account, but this phone could not schedule the alert. Check Profile \u2192 Permissions.'),
+          backgroundColor: scheduled || !isEnabled ? AppTheme.emerald : AppTheme.danger,
         ),
       );
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       // Show the REAL reason (server message / network) and let them retry.
+      debugPrint('Saving reminder failed: $e');
       messenger.showSnackBar(SnackBar(content: Text(friendlyError(e)), backgroundColor: Colors.red));
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _deleteReminder() async {
+    final id = int.tryParse(widget.reminderId ?? '');
+    if (id == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+    final notifier = ref.read(remindersProvider.notifier);
+    final name = titleController.text.trim().isEmpty ? 'this reminder' : titleController.text.trim();
+    final ok = await confirmDeleteReminder(context, name);
+    if (!ok) return;
+    await notifier.delete(id);
+    messenger.showSnackBar(SnackBar(content: Text('Deleted "$name"')));
+    nav.pop();
   }
 
   Future<void> _selectDate() async {
@@ -170,6 +191,14 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
           icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          if (widget.reminderId != null)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: AppTheme.danger),
+              tooltip: 'Delete reminder',
+              onPressed: _saving ? null : _deleteReminder,
+            ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -204,6 +233,22 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
             _buildRingtoneTile(),
             const SizedBox(height: 32),
             _buildSaveButton(),
+            if (widget.reminderId != null) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _saving ? null : _deleteReminder,
+                  icon: const Icon(Icons.delete_outline, color: AppTheme.danger),
+                  label: const Text('Delete reminder', style: TextStyle(color: AppTheme.danger)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: AppTheme.danger),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -525,7 +570,13 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () async {
-        final picked = await showRingtonePicker(context, current: _ringtone);
+        final picked = await showRingtonePicker(
+          context,
+          current: _ringtone,
+          onChanged: (t) {
+            if (mounted) setState(() => _ringtone = t);
+          },
+        );
         if (picked != null && mounted) setState(() => _ringtone = picked);
       },
       child: Container(

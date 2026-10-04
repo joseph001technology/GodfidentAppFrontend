@@ -49,6 +49,10 @@ class RingtoneStore {
     await p.setString('ringtone_default', jsonEncode(r.toJson())); // next new reminder starts with it
   }
 
+  /// Like [save] but without changing the default tone for new reminders.
+  Future<void> saveFor(int id, Ringtone r) async =>
+      (await SharedPreferences.getInstance()).setString(_key(id), jsonEncode(r.toJson()));
+
   Future<void> move(int fromId, int toId) async {
     final p = await SharedPreferences.getInstance();
     final raw = p.getString(_key(fromId));

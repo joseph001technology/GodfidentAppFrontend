@@ -2,452 +2,246 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
+import '../../models/activity.dart';
 import '../../models/user.dart';
-import '../../providers/achievements_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/remaining_providers.dart';
 import '../../widgets/common/app_widgets.dart';
 
+/// The Profile tab: who you are, your REAL numbers, and every setting that
+/// actually works. Rows that did nothing (Privacy, Terms, dead "App Settings")
+/// were removed.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
+
+  static const _months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(currentUserProvider);
-    final prayerStreakAsync = ref.watch(prayerStreakProvider);
-    final readingStreakAsync = ref.watch(readingStreakProvider);
+    final overview = ref.watch(overviewProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.navy,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 52, 16, 100),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Page Title
-            const Text(
-              'My Profile',
-              style: TextStyle(
-                fontFamily: 'Lora',
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
+      body: SafeArea(
+        child: RefreshIndicator(
+          color: AppTheme.gold,
+          onRefresh: () async {
+            ref.invalidate(overviewProvider);
+            await ref.read(currentUserProvider.notifier).refresh();
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            children: [
+              const Text('Profile',
+                  style: TextStyle(fontFamily: 'Lora', fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.inkNavy)),
+              const SizedBox(height: 16),
+              userAsync.when(
+                loading: () => const LoadingShimmer(height: 150),
+                error: (_, __) => _header(context, null, overview.valueOrNull),
+                data: (u) => _header(context, u, overview.valueOrNull),
               ),
-            ),
-            const SizedBox(height: 16),
-
-            // User Card
-            userAsync.when(
-              loading: () => const LoadingShimmer(height: 120),
-              error: (_, __) =>
-                  _buildUserCard(context, ref, 'Faithful Servant', '@godfident_user', null),
-              data: (user) {
-                final name = (user?.firstName.isNotEmpty == true)
-                    ? '${user!.firstName} ${user.lastName}'
-                    : 'Faithful Servant';
-                final handle = user?.email.isNotEmpty == true
-                    ? '@${user!.email.split('@').first}'
-                    : '@godfident_user';
-                return _buildUserCard(context, ref, name, handle, user);
-              },
-            ),
-
-            const SizedBox(height: 20),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    label: 'Prayer Streak',
-                    icon: Icons.volunteer_activism,
-                    color: AppTheme.emerald,
-                    value: prayerStreakAsync.when(
-                      data: (s) => '${s.currentStreak}d 🔥',
-                      loading: () => '—',
-                      error: (_, __) => '0d',
-                      skipLoadingOnReload: false,
-                    ),
-                  ),
+              const SizedBox(height: 16),
+              overview.when(
+                loading: () => const LoadingShimmer(height: 170),
+                error: (e, _) => ErrorView(message: friendlyError(e), onRetry: () => ref.invalidate(overviewProvider)),
+                data: _stats,
+              ),
+              const SizedBox(height: 22),
+              _group('My Journey', [
+                _Row(Icons.insights_outlined, 'My Activity', 'Calendar, streaks and what you did each day', AppTheme.gold, () => context.push('/analytics')),
+                _Row(Icons.emoji_events_outlined, 'Achievements', null, AppTheme.goldDark, () => context.push('/more/achievements')),
+              ]),
+              _group('Protect my time', [
+                _Row(Icons.shield_outlined, 'Focus sessions', 'Schedule and start time with God', AppTheme.emerald, () => context.go('/focus')),
+                _Row(Icons.apps_rounded, 'App restrictions', null, AppTheme.emerald, () => context.push('/focus/apps')),
+                _Row(Icons.language_rounded, 'Website protection', null, AppTheme.emerald, () => context.push('/focus/websites')),
+                _Row(Icons.verified_user_outlined, 'Permissions', 'What Android must allow for protection to work', AppTheme.goldDark, () => context.push('/focus/permissions')),
+              ]),
+              _group('My tools', [
+                _Row(Icons.alarm_outlined, 'Reminders', null, AppTheme.gold, () => context.go('/reminders')),
+                _Row(Icons.edit_note, 'Notes & rules', null, AppTheme.softBlue, () => context.push('/notes')),
+                _Row(Icons.library_music_outlined, 'Music', null, AppTheme.accentPurple, () => context.push('/music')),
+              ]),
+              _group('Account', [
+                _Row(Icons.person_outline, 'Edit profile', null, AppTheme.inkNavy, () => context.push('/profile/edit')),
+                _Row(Icons.lock_outlined, 'Change password', null, AppTheme.inkNavy, () => context.push('/profile/change-password')),
+                _Row(Icons.notifications_outlined, 'Notification settings', null, AppTheme.inkNavy, () => context.push('/notification-settings')),
+              ]),
+              const SizedBox(height: 6),
+              OutlinedButton.icon(
+                onPressed: () => _signOut(context, ref),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.danger,
+                  side: BorderSide(color: AppTheme.danger.withValues(alpha: 0.5)),
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    label: 'Bible Streak',
-                    icon: Icons.menu_book,
-                    color: AppTheme.softBlue,
-                    value: readingStreakAsync.when(
-                      data: (s) => '${s.currentStreak}d 📖',
-                      loading: () => '—',
-                      error: (_, __) => '0d',
-                      skipLoadingOnReload: false,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            // Analytics — moved from bottom nav here
-            _sectionTitle('Analytics'),
-            const SizedBox(height: 12),
-            GestureDetector(
-              onTap: () => context.push('/analytics'),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  // was a dark [#14142A, #1A1040] gradient — flattened,
-                  // same reasoning as the other "motivational banner" cards
-                  color: AppTheme.navySurface,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppTheme.accentPurple.withOpacity(0.25)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppTheme.accentPurple.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(Icons.analytics_outlined,
-                          color: AppTheme.accentPurple, size: 26),
-                    ),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Spiritual Dashboard',
-                            style: TextStyle(
-                                fontFamily: 'Lora',
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'View streaks, progress & weekly insights',
-                            style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 12,
-                                color: AppTheme.textMuted),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right,
-                        color: AppTheme.textMuted, size: 20),
-                  ],
-                ),
+                icon: const Icon(Icons.logout, size: 18),
+                label: const Text('Sign out', style: TextStyle(fontWeight: FontWeight.w700)),
               ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Account section
-            _sectionTitle('Account'),
-            const SizedBox(height: 12),
-            _settingsGroup([
-              _SettingsTile(
-                icon: Icons.lock_outlined,
-                label: 'Change Password',
-                color: AppTheme.gold,
-                onTap: () => context.push('/profile/change-password'),
-              ),
-              _SettingsTile(
-                icon: Icons.notifications_outlined,
-                label: 'Notification Settings',
-                color: AppTheme.accentPurple,
-                onTap: () => context.push('/notification-settings'),
-              ),
-              _SettingsTile(
-                icon: Icons.settings_outlined,
-                label: 'App Settings',
-                color: AppTheme.textMuted,
-                onTap: () => context.push('/profile/settings'),
-              ),
-            ]),
-
-            const SizedBox(height: 24),
-
-            // Quick Links
-            _sectionTitle('Quick Links'),
-            const SizedBox(height: 12),
-            _settingsGroup([
-              _SettingsTile(
-                icon: Icons.alarm_outlined,
-                label: 'Reminders & Alarms',
-                color: AppTheme.gold,
-                onTap: () => context.push('/reminders'),
-              ),
-              _SettingsTile(
-                icon: Icons.emoji_events_outlined,
-                label: 'Achievements',
-                color: const Color(0xFFF59E0B),
-                onTap: () => context.push('/more/achievements'),
-              ),
-              _SettingsTile(
-                icon: Icons.self_improvement_outlined,
-                label: 'Focus Sessions',
-                color: AppTheme.emerald,
-                onTap: () => context.push('/focus'),
-              ),
-              _SettingsTile(
-                icon: Icons.verified_user_outlined,
-                label: 'Permissions',
-                color: AppTheme.goldDark,
-                onTap: () => context.push('/focus/permissions'),
-              ),
-              _SettingsTile(
-                icon: Icons.library_music_outlined,
-                label: 'Music',
-                color: AppTheme.accentPurple,
-                onTap: () => context.push('/music'),
-              ),
-            ]),
-
-            const SizedBox(height: 24),
-
-            // About
-            _sectionTitle('About'),
-            const SizedBox(height: 12),
-            _settingsGroup([
-              _SettingsTile(
-                icon: Icons.shield_outlined,
-                label: 'Privacy Policy',
-                color: AppTheme.textMuted,
-                onTap: () {},
-              ),
-              _SettingsTile(
-                icon: Icons.description_outlined,
-                label: 'Terms of Service',
-                color: AppTheme.textMuted,
-                onTap: () {},
-              ),
-              _SettingsTile(
-                icon: Icons.info_outlined,
-                label: 'App Version 1.0.0',
-                color: AppTheme.textMuted,
-                onTap: () {},
-                trailing: const SizedBox.shrink(),
-              ),
-            ]),
-
-            const SizedBox(height: 32),
-
-            // Sign Out
-            ElevatedButton.icon(
-              onPressed: () async {
-                await ref.read(authActionProvider).logout();
-                if (context.mounted) context.go('/login');
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFEF4444).withOpacity(0.15),
-                foregroundColor: const Color(0xFFEF4444),
-                minimumSize: const Size(double.infinity, 50),
-                shape:
-                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 0,
-                side: BorderSide(color: const Color(0xFFEF4444).withOpacity(0.3)),
-              ),
-              icon: const Icon(Icons.logout, size: 18),
-              label: const Text('Sign Out',
-                  style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold)),
-            ),
-          ],
+              const SizedBox(height: 16),
+              const Center(child: Text('Godfident · Make Time for God', style: TextStyle(fontSize: 12, color: AppTheme.textMuted))),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildUserCard(
-    BuildContext context,
-    WidgetRef ref,
-    String name,
-    String handle,
-    User? user,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        // was a dark [#14142A, #1E1E3A] gradient — flattened, same
-        // reasoning as the other "motivational banner" cards
-        color: AppTheme.navySurface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.navyOutline),
+  Future<void> _signOut(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text('Your protected websites and reminders stay safe on your account.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Sign out', style: TextStyle(color: AppTheme.danger))),
+        ],
       ),
-      child: Row(
-        children: [
+    );
+    if (ok != true) return;
+    await ref.read(authActionProvider).logout();
+    if (context.mounted) context.go('/login');
+  }
+
+  Widget _header(BuildContext context, User? u, Overview? o) {
+    final name = (u?.fullName.isNotEmpty ?? false) && u!.fullName != u.email ? u.fullName : 'Faithful servant';
+    final since = o?.memberSince ?? DateTime.tryParse(u?.dateJoined ?? '');
+    final bio = u?.profile?.bio ?? '';
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [AppTheme.inkNavy, Color(0xFF2A3B63)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
           Container(
-            width: 64,
-            height: 64,
+            width: 66,
+            height: 66,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppTheme.gold, Color(0xFFE8B84B)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
+              gradient: const LinearGradient(colors: [AppTheme.gold, AppTheme.goldLight]),
+              borderRadius: BorderRadius.circular(22),
             ),
-            child: const Icon(Icons.person, color: AppTheme.inkNavy, size: 36),
+            child: Text(u?.initials ?? 'G',
+                style: const TextStyle(fontFamily: 'Lora', fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.inkNavy)),
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                      fontFamily: 'Lora',
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name, style: const TextStyle(fontFamily: 'Lora', fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textOnDark)),
+              const SizedBox(height: 2),
+              Text(u?.email ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppTheme.textOnDarkMuted)),
+              if (since != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text('With Godfident since ${_months[since.month - 1]} ${since.year}',
+                      style: const TextStyle(fontSize: 11, color: AppTheme.goldLight)),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  handle,
-                  style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      color: AppTheme.gold,
-                      fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  user?.email ?? '',
-                  style: const TextStyle(
-                      fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
-                ),
-              ],
-            ),
+            ]),
           ),
           IconButton(
-            icon: const Icon(Icons.edit_outlined, color: AppTheme.textMuted, size: 20),
-            onPressed: () => context.push('/profile/settings'),
             tooltip: 'Edit profile',
+            onPressed: () => context.push('/profile/edit'),
+            icon: const Icon(Icons.edit_outlined, color: AppTheme.goldLight),
           ),
+        ]),
+        if (bio.trim().isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Text(bio, style: const TextStyle(color: AppTheme.textOnDarkMuted, height: 1.4, fontSize: 13)),
         ],
-      ),
+        if (u != null && !u.isEmailVerified) ...[
+          const SizedBox(height: 12),
+          const Row(children: [
+            Icon(Icons.info_outline, size: 16, color: AppTheme.goldLight),
+            SizedBox(width: 6),
+            Expanded(child: Text('Your email is not verified yet.', style: TextStyle(fontSize: 12, color: AppTheme.goldLight))),
+          ]),
+        ],
+      ]),
     );
   }
 
-  Widget _buildStatCard({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required String value,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.navySurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: 'Lora',
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: color,
+  Widget _stats(Overview o) {
+    Widget tile(IconData i, Color c, String v, String l) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.navySurface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.navyOutline),
             ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(i, color: c, size: 20),
+              const SizedBox(height: 8),
+              Text(v, style: const TextStyle(fontFamily: 'Lora', fontSize: 21, fontWeight: FontWeight.bold, color: AppTheme.inkNavy)),
+              Text(l, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+            ]),
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-                fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
-          ),
-        ],
-      ),
-    );
+        );
+    return Column(children: [
+      Row(children: [
+        tile(Icons.shield, AppTheme.emerald, Overview.minutes(o.protectedMinutes), 'Protected time'),
+        const SizedBox(width: 12),
+        tile(Icons.check_circle_outline, AppTheme.emerald, '${o.completedSessions}', 'Focus sessions completed'),
+      ]),
+      const SizedBox(height: 12),
+      Row(children: [
+        tile(Icons.local_fire_department, AppTheme.gold, '${o.readingStreak}d', 'Bible reading streak'),
+        const SizedBox(width: 12),
+        tile(Icons.menu_book_outlined, AppTheme.gold, '${o.chaptersTotal}', 'Chapters read'),
+      ]),
+    ]);
   }
 
-  Widget _sectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontFamily: 'Lora',
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: AppTheme.textPrimary,
-      ),
-    );
-  }
-
-  Widget _settingsGroup(List<_SettingsTile> tiles) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.navySurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.navyOutline),
-      ),
-      child: Column(
-        children: tiles.asMap().entries.map((entry) {
-          return Column(
-            children: [
-              entry.value,
-              if (entry.key < tiles.length - 1)
-                const Divider(height: 1, indent: 52),
-            ],
-          );
-        }).toList(),
-      ),
-    );
-  }
+  Widget _group(String title, List<_Row> rows) => Padding(
+        padding: const EdgeInsets.only(bottom: 18),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(title.toUpperCase(),
+                style: const TextStyle(fontSize: 11, letterSpacing: 1.1, fontWeight: FontWeight.w700, color: AppTheme.textMuted)),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.navySurface,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppTheme.navyOutline),
+            ),
+            child: Column(children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                rows[i],
+                if (i < rows.length - 1) const Divider(height: 1, indent: 58),
+              ],
+            ]),
+          ),
+        ]),
+      );
 }
 
-class _SettingsTile extends StatelessWidget {
+class _Row extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String? sub;
   final Color color;
   final VoidCallback onTap;
-  final Widget? trailing;
-
-  const _SettingsTile({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-    this.trailing,
-  });
+  const _Row(this.icon, this.label, this.sub, this.color, this.onTap);
 
   @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Container(
-        padding: const EdgeInsets.all(7),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.15),
-          shape: BoxShape.circle,
+  Widget build(BuildContext context) => ListTile(
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.13), borderRadius: BorderRadius.circular(11)),
+          child: Icon(icon, color: color, size: 20),
         ),
-        child: Icon(icon, color: color, size: 18),
-      ),
-      title: Text(
-        label,
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: AppTheme.textPrimary,
-        ),
-      ),
-      trailing: trailing ??
-          const Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 18),
-    );
-  }
+        title: Text(label, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+        subtitle: sub == null ? null : Text(sub!, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+        trailing: const Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 20),
+      );
 }

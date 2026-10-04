@@ -1,32 +1,42 @@
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../core/theme.dart';
+import '../../services/music_controller.dart';
 import '../../services/music_service.dart';
 import '../../services/permissions_service.dart';
 import '../../services/ringtone_store.dart';
 
 /// Bottom sheet to choose a reminder ringtone: bundled tones (tap to preview)
-/// or any song from this phone. Returns the choice, or null if dismissed.
-Future<Ringtone?> showRingtonePicker(BuildContext context, {required Ringtone current}) {
+/// or any song from this phone.
+///
+/// [onChanged] fires the moment the user taps a tone or a song, so the choice
+/// is kept even if the sheet is swiped away or the Back button is used (before,
+/// the choice only counted if "Use this ringtone" was pressed - and that button
+/// was broken by the app theme's infinite-width buttons inside a Row).
+Future<Ringtone?> showRingtonePicker(
+  BuildContext context, {
+  required Ringtone current,
+  ValueChanged<Ringtone>? onChanged,
+}) {
   return showModalBottomSheet<Ringtone>(
     context: context,
     isScrollControlled: true,
     backgroundColor: AppTheme.navy,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-    builder: (_) => _RingtoneSheet(current: current),
+    builder: (_) => _RingtoneSheet(current: current, onChanged: onChanged),
   );
 }
 
 class _RingtoneSheet extends StatefulWidget {
   final Ringtone current;
-  const _RingtoneSheet({required this.current});
+  final ValueChanged<Ringtone>? onChanged;
+  const _RingtoneSheet({required this.current, this.onChanged});
   @override
   State<_RingtoneSheet> createState() => _RingtoneSheetState();
 }
 
 class _RingtoneSheetState extends State<_RingtoneSheet> {
-  final _player = AudioPlayer();
+  final _music = MusicController.instance;
   late Ringtone _selected = widget.current;
   List<Song>? _songs;
   String? _songsMessage;
@@ -34,19 +44,22 @@ class _RingtoneSheetState extends State<_RingtoneSheet> {
 
   @override
   void dispose() {
-    _player.dispose();
+    _music.stopPreview();
     super.dispose();
   }
 
+  void _choose(Ringtone t) {
+    setState(() => _selected = t);
+    widget.onChanged?.call(t); // keep the choice even if the sheet is dismissed
+    _preview(t);
+  }
+
   Future<void> _preview(Ringtone t) async {
-    try {
-      if (t.isDevice) {
-        await _player.setAudioSource(AudioSource.uri(Uri.parse(t.uri!)));
-      } else {
-        await _player.setAsset('assets/audio/ringtones/${t.id}.mp3');
-      }
-      await _player.play();
-    } catch (_) {/* preview is best effort */}
+    if (t.isDevice) {
+      await _music.previewUri(t.uri!, t.title);
+    } else {
+      await _music.previewAsset('assets/audio/ringtones/${t.id}.mp3', t.title);
+    }
   }
 
   Future<void> _openSongs() async {
@@ -93,10 +106,7 @@ class _RingtoneSheetState extends State<_RingtoneSheet> {
                       color: AppTheme.goldDark),
                   title: Text(t.title),
                   trailing: IconButton(icon: const Icon(Icons.play_arrow), onPressed: () => _preview(t)),
-                  onTap: () {
-                    setState(() => _selected = t);
-                    _preview(t);
-                  },
+                  onTap: () => _choose(t),
                 ),
               ListTile(
                 leading: Icon(_selected.isDevice ? Icons.radio_button_checked : Icons.library_music_outlined, color: AppTheme.goldDark),
@@ -114,10 +124,15 @@ class _RingtoneSheetState extends State<_RingtoneSheet> {
               const Spacer(),
               ElevatedButton(
                 onPressed: () {
-                  _player.stop();
+                  _music.stopPreview();
                   Navigator.pop(context, _selected);
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.gold, foregroundColor: AppTheme.inkNavy),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.gold,
+                  foregroundColor: AppTheme.inkNavy,
+                  // finite width: the theme's infinite minimum width cannot be laid out inside a Row
+                  minimumSize: const Size(180, 48),
+                ),
                 child: const Text('Use this ringtone'),
               ),
             ]),
@@ -139,13 +154,10 @@ class _RingtoneSheetState extends State<_RingtoneSheet> {
         final picked = _selected.uri == s.uri;
         return ListTile(
           leading: Icon(picked ? Icons.radio_button_checked : Icons.music_note, color: AppTheme.goldDark),
+          trailing: picked ? const Icon(Icons.check_circle, color: AppTheme.emerald) : null,
           title: Text(s.title, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text(s.artist, maxLines: 1, overflow: TextOverflow.ellipsis),
-          onTap: () {
-            final r = Ringtone('device', s.title, uri: s.uri);
-            setState(() => _selected = r);
-            _preview(r);
-          },
+          onTap: () => _choose(Ringtone('device', s.title, uri: s.uri)),
         );
       },
     );

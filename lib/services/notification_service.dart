@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -6,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 import '../models/reminder.dart';
+import '../models/scheduled_focus.dart';
 import 'ringtone_store.dart';
 
 class NotificationService {
@@ -257,6 +259,138 @@ class NotificationService {
     );
   }
 
+  // ── Scheduled Focus sessions ───────────────────────────────────────
+  // Ring tone for session [id] is kept in RingtoneStore under this key so it
+  // can never collide with a reminder id.
+  static int focusRingtoneKey(int id) => 5000000 + id;
+
+  // 8 slots per session: 1..7 = weekday, 0 = one-time. Heads-up uses +400000.
+  static int _focusNotifId(int id, int slot) => 800000 + id * 10 + slot;
+  static int _focusHeadsUpId(int id, int slot) => 1200000 + id * 10 + slot;
+
+  /// Where tapping the ringing notification (or its Start button) goes.
+  static String focusRoute(int id) => '/focus?start=$id';
+
+  Future<void> cancelFocusSession(int id) async {
+    for (var slot = 0; slot <= 7; slot++) {
+      await cancelReminder(_focusNotifId(id, slot));
+      await cancelReminder(_focusHeadsUpId(id, slot));
+    }
+  }
+
+  tz.TZDateTime _nextFocusInstance(int? weekday, int hour, int minute, {int shiftMinutes = 0}) {
+    final now = tz.TZDateTime.now(tz.local);
+    var d = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute).add(Duration(minutes: shiftMinutes));
+    // Find the first instance in the future that falls on [weekday] (any day if null).
+    for (var i = 0; i < 16; i++) {
+      final base = tz.TZDateTime(tz.local, now.year, now.month, now.day + i, hour, minute);
+      d = base.add(Duration(minutes: shiftMinutes));
+      final dayOk = weekday == null || base.weekday == weekday;
+      if (dayOk && d.isAfter(now)) return d;
+    }
+    return d;
+  }
+
+  /// Schedules the ringing alarm (and a quiet 5-minute heads-up) for a
+  /// pre-set Focus session. The alarm uses FLAG_INSISTENT: the ringtone keeps
+  /// repeating, and the notification cannot be swiped away, until the user
+  /// presses Start (it gives up after 30 minutes so it never rings all day).
+  Future<bool> scheduleFocusSession(ScheduledFocus f) async {
+    try {
+      await initialize();
+      await cancelFocusSession(f.id);
+      if (!f.enabled) return true;
+
+      final tone = await RingtoneStore.instance.load(focusRingtoneKey(f.id));
+      final ring = NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelIdFor(tone, true),
+          'Alarms \u2013 ${tone.title}',
+          channelDescription: 'Loud alarm reminders',
+          importance: Importance.max,
+          priority: Priority.max,
+          playSound: true,
+          sound: _soundFor(tone),
+          enableVibration: true,
+          fullScreenIntent: true,
+          ongoing: true,
+          autoCancel: false,
+          timeoutAfter: 30 * 60 * 1000,
+          category: AndroidNotificationCategory.alarm,
+          audioAttributesUsage: AudioAttributesUsage.alarm,
+          additionalFlags: Int32List.fromList(<int>[4]), // FLAG_INSISTENT: keep ringing
+          actions: const [
+            AndroidNotificationAction('focus_start', 'Start', showsUserInterface: true),
+          ],
+        ),
+        iOS: const DarwinNotificationDetails(presentAlert: true, presentSound: true, interruptionLevel: InterruptionLevel.timeSensitive),
+      );
+      const headsUp = NotificationDetails(
+        android: AndroidNotificationDetails(
+          _reminderChannelId,
+          _reminderChannelName,
+          channelDescription: _reminderChannelDesc,
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      );
+
+      final exact = await Permission.scheduleExactAlarm.isGranted;
+      final mode = exact ? AndroidScheduleMode.exactAllowWhileIdle : AndroidScheduleMode.inexactAllowWhileIdle;
+      final slots = f.days.isEmpty ? <int?>[null] : f.days.cast<int?>();
+
+      for (final wd in slots) {
+        final slot = wd ?? 0;
+        final match = wd == null ? null : DateTimeComponents.dayOfWeekAndTime;
+        await _plugin.zonedSchedule(
+          _focusNotifId(f.id, slot),
+          'Your time with God is starting',
+          '${f.displayTitle} \u00b7 ${f.durationLabel}. Press Start to begin your Focus session.',
+          _nextFocusInstance(wd, f.hour, f.minute),
+          ring,
+          androidScheduleMode: mode,
+          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: match,
+          payload: focusRoute(f.id),
+        );
+        // 5 minutes before. Its weekday may differ from [wd] when it crosses midnight.
+        final before = _nextFocusInstance(wd, f.hour, f.minute, shiftMinutes: -5);
+        await _plugin.zonedSchedule(
+          _focusHeadsUpId(f.id, slot),
+          'Focus session in 5 minutes',
+          '${f.displayTitle} starts at ${f.timeLabel}.',
+          before,
+          headsUp,
+          androidScheduleMode: mode,
+          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: wd == null ? null : DateTimeComponents.dayOfWeekAndTime,
+          payload: focusRoute(f.id),
+        );
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('scheduleFocusSession failed: $e');
+      return false;
+    }
+  }
+
+  /// Stops the ringing for [f] after Start is pressed, then re-arms its future
+  /// occurrences (cancelling a notification id also removes its repeat).
+  Future<void> silenceFocusRing(ScheduledFocus f) async {
+    await cancelFocusSession(f.id);
+    if (f.days.isNotEmpty) await scheduleFocusSession(f);
+  }
+
+  /// Route of the notification that launched the app from a cold start, if any.
+  Future<String?> launchPayload() async {
+    try {
+      await initialize();
+      final d = await _plugin.getNotificationAppLaunchDetails();
+      if (d?.didNotificationLaunchApp ?? false) return d?.notificationResponse?.payload;
+    } catch (_) {}
+    return null;
+  }
+
   Future<int> pendingCount() async => (await _plugin.pendingNotificationRequests()).length;
 
   Future<void> scheduleAlarm(Reminder reminder) async {
@@ -275,11 +409,24 @@ class NotificationService {
 
   Future<void> cancelNotification(int id) async => cancelReminder(id);
 
-  Future<void> cancelReminder(int id) async {
-    await _plugin.cancel(id);
+  /// Never throws. A failure to cancel an OS notification must not stop the
+  /// caller from saving, toggling or DELETING the reminder on the server (it
+  /// used to: one PlatformException here meant the delete request never ran).
+  Future<bool> cancelReminder(int id) async {
+    try {
+      await _plugin.cancel(id);
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('cancelReminder($id) failed: $e');
+      return false;
+    }
   }
 
   Future<void> cancelAll() async {
-    await _plugin.cancelAll();
+    try {
+      await _plugin.cancelAll();
+    } catch (e) {
+      if (kDebugMode) print('cancelAll failed: $e');
+    }
   }
 }

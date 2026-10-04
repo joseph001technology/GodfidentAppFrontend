@@ -13,7 +13,7 @@ import android.content.ContentUris
 import android.util.Size
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayOutputStream
@@ -24,7 +24,7 @@ import java.io.ByteArrayOutputStream
  *  - [FocusBlockingService]    blocks launching of chosen apps (UsageStats)
  *  - [WebsiteBlockVpnService]  blocks chosen domains system-wide (local VPN/DNS)
  */
-class MainActivity : FlutterActivity() {
+class MainActivity : AudioServiceActivity() {
 
     companion object {
         const val CHANNEL = "com.godfident/focus_blocking"
@@ -120,25 +120,6 @@ class MainActivity : FlutterActivity() {
                     pendingBlockedAppLabel = null
                     prefs.edit().remove(FocusBlockingService.KEY_LAST_BLOCKED_LABEL).apply()
                     result.success(label)
-                }
-
-                // Android never lets a normal app silently remove another app.
-                // This opens the system "Uninstall?" dialog; the user confirms.
-                "uninstallApp" -> {
-                    val pkg = call.argument<String>("packageName")
-                    if (pkg.isNullOrBlank() || pkg == packageName) {
-                        result.success(false)
-                    } else {
-                        try {
-                            startActivity(
-                                Intent(Intent.ACTION_DELETE, Uri.parse("package:$pkg"))
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            )
-                            result.success(true)
-                        } catch (_: Exception) {
-                            result.success(false)
-                        }
-                    }
                 }
 
                 // ───── website protection (VPN/DNS) ─────

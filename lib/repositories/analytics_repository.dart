@@ -1,5 +1,6 @@
 import '../core/dio_client.dart';
 import '../core/api_response.dart';
+import '../models/activity.dart';
 import '../models/analytics.dart';
 
 class AnalyticsRepository {
@@ -14,6 +15,35 @@ class AnalyticsRepository {
     final res = await _dio.get('/api/analytics/heatmap/', queryParameters: {'days': days});
     final raw = Map<String, dynamic>.from(readDataMap(res.data)['heatmap'] ?? {});
     return raw.map((k, v) => MapEntry(k, (v as num).toInt()));
+  }
+
+  /// The user's UTC offset in minutes, so the server groups activity by the
+  /// user's own calendar day (a prayer at 01:00 in Nairobi belongs to that day).
+  static int get _tzOffset => DateTime.now().timeZoneOffset.inMinutes;
+
+  static String _ymd(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// Real per-day activity between [start] and [end] (inclusive).
+  Future<Map<String, DayActivity>> getActivity(DateTime start, DateTime end) async {
+    final res = await _dio.get('/api/analytics/activity/', queryParameters: {
+      'start': _ymd(start),
+      'end': _ymd(end),
+      'tz_offset': _tzOffset,
+    });
+    final raw = readDataMap(res.data)['days'];
+    final out = <String, DayActivity>{};
+    if (raw is Map) {
+      raw.forEach((k, v) {
+        if (v is Map) out['$k'] = DayActivity.fromJson(Map<String, dynamic>.from(v));
+      });
+    }
+    return out;
+  }
+
+  Future<Overview> getOverview() async {
+    final res = await _dio.get('/api/analytics/overview/', queryParameters: {'tz_offset': _tzOffset});
+    return Overview.fromJson(readDataMap(res.data));
   }
 
   Future<WeeklyReport> getWeeklyReport() async {

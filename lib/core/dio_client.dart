@@ -252,6 +252,38 @@ String friendlyError(Object e) {
       return 'The server had a problem (error $status). Please try again shortly.';
     }
     if (serverMsg != null && serverMsg.isNotEmpty) return serverMsg;
+    // Django REST validation errors look like {"date": ["Date has wrong format."]}
+    if (data is Map) {
+      final field = _firstFieldError(data);
+      if (field != null) return field;
+    }
+    if (status != null) return 'The server rejected that request (error $status). Please check the details and try again.';
+  }
+  if (e is! DioException) {
+    // Not a network error: a bug on the phone. Say what it was.
+    return 'Something went wrong on this phone (${e.runtimeType}). Please try again.';
   }
   return 'Something went wrong. Please try again.';
+}
+
+String? _firstFieldError(Map data) {
+  for (final entry in data.entries) {
+    final k = entry.key.toString();
+    if (k == 'success') continue;
+    final v = entry.value;
+    String? msg;
+    if (v is List && v.isNotEmpty) {
+      msg = v.first.toString();
+    } else if (v is String && v.isNotEmpty) {
+      msg = v;
+    } else if (v is Map) {
+      msg = _firstFieldError(v);
+    }
+    if (msg != null) {
+      if (k == 'non_field_errors' || k == 'errors' || k == 'detail' || k == 'data') return msg;
+      final label = k.replaceAll('_', ' ');
+      return '${label[0].toUpperCase()}${label.substring(1)}: $msg';
+    }
+  }
+  return null;
 }

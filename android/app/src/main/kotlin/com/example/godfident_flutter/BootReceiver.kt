@@ -13,8 +13,29 @@ import androidx.core.content.ContextCompat
  * the app tells the user, rather than pretending.
  */
 class BootReceiver : BroadcastReceiver() {
+    companion object {
+        const val ACTION_WATCHDOG = "com.example.godfident_flutter.WEB_PROTECTION_WATCHDOG"
+    }
+
     override fun onReceive(context: Context, intent: Intent?) {
-        if (intent?.action != Intent.ACTION_BOOT_COMPLETED) return
+        val action = intent?.action
+        if (action != Intent.ACTION_BOOT_COMPLETED && action != ACTION_WATCHDOG) return
+
+        // Periodic check: only protection is re-applied (a Focus session is
+        // time-boxed and handled by its own service).
+        if (action == ACTION_WATCHDOG) {
+            val web = context.getSharedPreferences(WebsiteBlockVpnService.PREFS, Context.MODE_PRIVATE)
+            if (web.getBoolean(WebsiteBlockVpnService.KEY_ACTIVE, false) &&
+                !WebsiteBlockVpnService.isRunning &&
+                VpnService.prepare(context) == null
+            ) {
+                try {
+                    ContextCompat.startForegroundService(context, Intent(context, WebsiteBlockVpnService::class.java))
+                } catch (_: Exception) {
+                }
+            }
+            return
+        }
 
         val web = context.getSharedPreferences(WebsiteBlockVpnService.PREFS, Context.MODE_PRIVATE)
         if (web.getBoolean(WebsiteBlockVpnService.KEY_ACTIVE, false) && VpnService.prepare(context) == null) {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../core/theme.dart';
+import '../../services/music_controller.dart';
 import '../../services/music_service.dart';
 import '../../services/permissions_service.dart';
 
@@ -16,30 +17,34 @@ class MusicScreen extends StatefulWidget {
 }
 
 class _MusicScreenState extends State<MusicScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  final _player = AudioPlayer();
+  final _music = MusicController.instance;
+  AudioPlayer get _player => _music.player;
   late final TabController _tabs = TabController(length: 2, vsync: this);
 
   _DeviceState _state = _DeviceState.loading;
   List<Song> _device = const [];
   String _query = '';
-  Song? _current;
-  String? _playError;
+  Song? get _current => _music.current;
+  String? get _playError => _music.error;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadDevice();
-    // When a track ends, move to the next one in the same list.
-    _player.processingStateStream.listen((s) {
-      if (s == ProcessingState.completed) _next();
-    });
+    _music.addListener(_onMusic);
+  }
+
+  void _onMusic() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _player.dispose();
+    // The player is NOT disposed: it belongs to the app, so music goes on
+    // when you leave this screen.
+    _music.removeListener(_onMusic);
     _tabs.dispose();
     super.dispose();
   }
@@ -85,29 +90,10 @@ class _MusicScreenState extends State<MusicScreen> with SingleTickerProviderStat
 
   List<Song> get _list => _tabs.index == 0 ? bundledSongs : _device;
 
-  Future<void> _play(Song song) async {
-    setState(() {
-      _current = song;
-      _playError = null;
-    });
-    try {
-      if (song.isDevice) {
-        await _player.setAudioSource(AudioSource.uri(Uri.parse(song.uri!)));
-      } else {
-        await _player.setAsset(song.asset!);
-      }
-      await _player.play();
-    } catch (_) {
-      // Corrupt / unsupported / deleted file: say so, don't pretend it plays.
-      if (mounted) setState(() => _playError = '"${song.title}" could not be played (the file may be damaged or unsupported).');
-    }
-  }
+  Future<void> _play(List<Song> list, Song song) =>
+      _music.playList(list, list.indexWhere((s) => s.id == song.id));
 
-  Future<void> _next() async {
-    final list = _list;
-    final i = list.indexWhere((s) => s.id == _current?.id);
-    if (i != -1 && i + 1 < list.length) await _play(list[i + 1]);
-  }
+  Future<void> _next() => _music.next();
 
   String _fmt(Duration d) => '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
 
@@ -217,7 +203,7 @@ class _MusicScreenState extends State<MusicScreen> with SingleTickerProviderStat
           subtitle: Text('${s.artist}${s.album.isEmpty ? '' : ' \u00b7 ${s.album}'}',
               maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
           trailing: Text(_fmt(s.duration), style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
-          onTap: () => _play(s),
+          onTap: () => _play(songs, s),
         );
       },
     );
@@ -252,10 +238,11 @@ class _MusicScreenState extends State<MusicScreen> with SingleTickerProviderStat
                   icon: loading
                       ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.gold))
                       : Icon(playing ? Icons.pause_circle_filled : Icons.play_circle_filled),
-                  onPressed: () => playing ? _player.pause() : _player.play(),
+                  onPressed: _music.toggle,
                 );
               },
             ),
+            IconButton(icon: const Icon(Icons.skip_previous), onPressed: _music.previous),
             IconButton(icon: const Icon(Icons.skip_next), onPressed: _next),
           ]),
           StreamBuilder<Duration>(

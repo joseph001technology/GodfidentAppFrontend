@@ -6,6 +6,8 @@ import 'core/router.dart';
 import 'core/dio_client.dart';
 import 'providers/auth_provider.dart';
 import 'providers/remaining_providers.dart';
+import 'providers/restriction_provider.dart';
+import 'providers/scheduled_focus_provider.dart';
 
 // Global scaffold messenger key used for app-wide snackbars (e.g., session expired)
 final GlobalKey<ScaffoldMessengerState> appScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -70,21 +72,44 @@ class GodfidentApp extends ConsumerWidget {
 
 /// Renews the login in the background while the app is open, so a session
 /// never lapses mid-use. If the server rejects it, the user is signed out.
-class _SessionKeeper extends StatefulWidget {
+class _SessionKeeper extends ConsumerStatefulWidget {
   final Widget child;
   const _SessionKeeper({required this.child});
   @override
-  State<_SessionKeeper> createState() => _SessionKeeperState();
+  ConsumerState<_SessionKeeper> createState() => _SessionKeeperState();
 }
 
-class _SessionKeeperState extends State<_SessionKeeper> with WidgetsBindingObserver {
+class _SessionKeeperState extends ConsumerState<_SessionKeeper> with WidgetsBindingObserver {
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _timer = Timer.periodic(const Duration(minutes: 2), (_) => DioClient.ensureSession());
+    _timer = Timer.periodic(const Duration(minutes: 2), (_) {
+      DioClient.ensureSession();
+      _guardWebsites();
+    });
+    // Website protection is always on: load the saved list (from the phone,
+    // then from the account) and make sure Android is enforcing it.
+    Future.microtask(() => ref.read(restrictedSitesProvider.notifier).load());
+    // Opened by tapping/pressing Start on a ringing scheduled-session alarm
+    // while the app was closed: go straight to that session.
+    Future.microtask(() => ref.read(scheduledFocusProvider.notifier).load());
+    Future.microtask(() async {
+      final payload = await ref.read(notificationServiceProvider).launchPayload();
+      if (payload != null && payload.startsWith('/focus')) {
+        try {
+          ref.read(routerProvider).go(payload);
+        } catch (_) {}
+      }
+    });
+  }
+
+  void _guardWebsites() {
+    try {
+      ref.read(restrictedSitesProvider.notifier).guard();
+    } catch (_) {}
   }
 
   @override
@@ -96,9 +121,23 @@ class _SessionKeeperState extends State<_SessionKeeper> with WidgetsBindingObser
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) DioClient.ensureSession();
+    if (state == AppLifecycleState.resumed) {
+      DioClient.ensureSession();
+      _guardWebsites();
+    }
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    // After signing in (for example after clearing the app's data), pull the
+    // protected sites and apps back from the account and switch protection on.
+    ref.listen<AsyncValue<bool>>(authStateProvider, (prev, next) {
+      if (next.valueOrNull == true && prev?.valueOrNull != true) {
+        ref.read(restrictedSitesProvider.notifier).load();
+        ref.read(restrictedAppsProvider.notifier).load();
+        ref.read(scheduledFocusProvider.notifier).load();
+      }
+    });
+    return widget.child;
+  }
 }

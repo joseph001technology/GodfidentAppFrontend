@@ -3,6 +3,7 @@ import '../models/devotional.dart';
 import '../models/prayer.dart';
 import '../models/reading_plan.dart';
 import '../models/notification.dart';
+import '../models/activity.dart';
 import '../models/analytics.dart';
 import '../repositories/devotional_repository.dart';
 import '../repositories/prayer_repository.dart';
@@ -212,6 +213,24 @@ final unreadCountProvider = FutureProvider<int>((ref) {
 });
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
+
+/// Real activity for one calendar month (key: first day of that month).
+final monthActivityProvider = FutureProvider.autoDispose.family<Map<String, DayActivity>, DateTime>((ref, month) {
+  final first = DateTime(month.year, month.month, 1);
+  final last = DateTime(month.year, month.month + 1, 0);
+  return ref.read(analyticsRepositoryProvider).getActivity(first, last);
+});
+
+/// The last 7 days of real activity (for the dashboard chart).
+final recentActivityProvider = FutureProvider.autoDispose<Map<String, DayActivity>>((ref) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  return ref.read(analyticsRepositoryProvider).getActivity(today.subtract(const Duration(days: 6)), today);
+});
+
+final overviewProvider = FutureProvider.autoDispose<Overview>((ref) {
+  return ref.read(analyticsRepositoryProvider).getOverview();
+});
 
 final dashboardProvider = FutureProvider<Dashboard>((ref) {
   return ref.read(analyticsRepositoryProvider).getDashboard();

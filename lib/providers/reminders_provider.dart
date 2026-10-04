@@ -21,6 +21,9 @@ class RemindersNotifier extends StateNotifier<AsyncValue<List<Reminder>>> {
   bool? _completed;
   bool _loading = false;
 
+  /// Whether the phone accepted the last schedule request (the editor warns if not).
+  bool lastScheduleOk = true;
+
   RemindersNotifier(this._repo, this._notif) : super(const AsyncValue.loading()) {
     load();
   }
@@ -62,7 +65,7 @@ class RemindersNotifier extends StateNotifier<AsyncValue<List<Reminder>>> {
   Future<Reminder> create(Map<String, dynamic> data, {Ringtone? ringtone}) async {
     final created = await _repo.create(data);
     if (ringtone != null) await RingtoneStore.instance.save(created.id, ringtone);
-    await _notif.scheduleReminder(created);
+    lastScheduleOk = await _notif.scheduleReminder(created) || !created.isActive;
     state = AsyncValue.data([created, ..._current.where((r) => r.id != created.id)]);
     load();
     return created;
@@ -72,7 +75,7 @@ class RemindersNotifier extends StateNotifier<AsyncValue<List<Reminder>>> {
     final updated = await _repo.update(id, data);
     if (ringtone != null) await RingtoneStore.instance.save(id, ringtone);
     await _notif.cancelReminder(id);
-    await _notif.scheduleReminder(updated);
+    lastScheduleOk = await _notif.scheduleReminder(updated) || !updated.isActive;
     state = AsyncValue.data([for (final r in _current) r.id == id ? updated : r]);
     load();
   }
@@ -80,14 +83,18 @@ class RemindersNotifier extends StateNotifier<AsyncValue<List<Reminder>>> {
   /// Removes the card from the list FIRST (synchronously) - a swiped
   /// Dismissible must leave the widget tree in the same frame or Flutter
   /// throws and the screen goes black.
+  ///
+  /// Order matters: the SERVER delete runs first and nothing before it can
+  /// throw, so a deleted reminder can never reappear on the next refresh.
+  /// Both the trash button and the swipe call this one method.
   Future<void> delete(int id) async {
     state = AsyncValue.data(_current.where((r) => r.id != id).toList());
-    await _notif.cancelReminder(id);
     try {
       await _repo.delete(id);
     } catch (_) {
       // Remembered for retry in the repository; the card stays removed.
     }
+    await _notif.cancelReminder(id); // never throws
   }
 
   Future<void> complete(int id) async {
@@ -111,15 +118,16 @@ class RemindersNotifier extends StateNotifier<AsyncValue<List<Reminder>>> {
     if (idx == -1) return;
     final updated = _current[idx].copyWith(isEnabled: !_current[idx].isEnabled);
     state = AsyncValue.data([for (final r in _current) r.id == id ? updated : r]);
-    if (updated.isActive) {
-      await _notif.scheduleReminder(updated);
-    } else {
-      await _notif.cancelReminder(id);
-    }
     try {
       await _repo.update(id, {'is_enabled': updated.isEnabled});
     } catch (_) {
       load(); // server said no: show the truth
+      return;
+    }
+    if (updated.isActive) {
+      await _notif.scheduleReminder(updated);
+    } else {
+      await _notif.cancelReminder(id);
     }
   }
 }

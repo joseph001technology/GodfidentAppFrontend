@@ -8,6 +8,7 @@ import '../../models/reminder.dart';
 import '../../providers/reminders_provider.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/common/app_widgets.dart';
+import '../../widgets/common/delete_reminder.dart';
 
 class RemindersScreen extends ConsumerWidget {
   const RemindersScreen({super.key});
@@ -290,6 +291,18 @@ class _ReminderCard extends ConsumerWidget {
               icon: const Icon(Icons.edit, color: AppTheme.gold),
               onPressed: () => context.push('/reminders/${r.id}'),
               tooltip: 'Edit reminder',
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: AppTheme.danger),
+              tooltip: 'Delete reminder',
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final notifier = ref.read(remindersProvider.notifier);
+                final ok = await confirmDeleteReminder(context, r.title);
+                if (!ok) return;
+                notifier.delete(r.id);
+                messenger.showSnackBar(SnackBar(content: Text('Deleted "${r.title}"')));
+              },
             ),
             Switch(
               value: isEnabled,

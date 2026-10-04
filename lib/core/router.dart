@@ -21,7 +21,6 @@ import '../screens/prayer/prayer_form_screen.dart';
 import '../screens/prayer/prayer_detail_screen.dart';
 import '../screens/prayer/prayer_stats_screen.dart';
 import '../screens/analytics/dashboard_screen.dart';
-import '../screens/progress/progress_screen.dart';
 import '../screens/search/global_search_screen.dart';
 import '../screens/notes/notes_rules_screen.dart';
 import '../screens/notes/note_editor_screen.dart';
@@ -33,15 +32,17 @@ import '../screens/reminders/reminder_editor_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
 import '../screens/focus/focus_screen.dart';
 import '../screens/focus/app_restrictions_screen.dart';
+import '../screens/focus/schedule_editor_screen.dart';
 import '../screens/focus/website_protection_screen.dart';
 import '../screens/focus/permissions_screen.dart';
 import '../screens/music/music_screen.dart';
-import '../screens/settings/settings_screen.dart';
+import '../screens/settings/edit_profile_screen.dart';
 import '../screens/settings/profile_screen.dart';
 import '../screens/settings/change_password_screen.dart';
 import '../screens/settings/notification_settings_screen.dart';
 import '../screens/achievements/achievements_screen.dart';
 import '../widgets/common/shell_scaffold.dart';
+import 'package:flutter/material.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -94,14 +95,22 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/focus',
-            builder: (_, __) => const FocusScreen(),
+            builder: (_, state) => FocusScreen(
+              key: ValueKey('focus-${state.uri.queryParameters['start'] ?? ''}'),
+              startScheduleId: int.tryParse(state.uri.queryParameters['start'] ?? ''),
+            ),
             routes: [
+              GoRoute(path: 'schedule/new', builder: (_, __) => const ScheduleEditorScreen()),
+              GoRoute(
+                path: 'schedule/:id',
+                builder: (_, state) => ScheduleEditorScreen(scheduleId: int.tryParse(state.pathParameters['id'] ?? '')),
+              ),
               GoRoute(path: 'apps', builder: (_, __) => const AppRestrictionsScreen()),
               GoRoute(path: 'websites', builder: (_, __) => const WebsiteProtectionScreen()),
               GoRoute(path: 'permissions', builder: (_, __) => const PermissionsScreen()),
             ],
           ),
-          GoRoute(path: '/progress', builder: (_, __) => const ProgressScreen()),
+          GoRoute(path: '/progress', redirect: (_, __) => '/analytics'),
 
           // Prayer routes
           GoRoute(
@@ -212,18 +221,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/profile',
             builder: (_, __) => const ProfileScreen(),
             routes: [
-              GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
+              GoRoute(path: 'edit', builder: (_, __) => const EditProfileScreen()),
               GoRoute(path: 'change-password', builder: (_, __) => const ChangePasswordScreen()),
             ],
           ),
-          GoRoute(
-            path: '/settings',
-            builder: (_, __) => const SettingsScreen(),
-          ),
-          GoRoute(
-            path: '/settings/notifications',
-            builder: (_, __) => const NotificationSettingsScreen(),
-          ),
+          GoRoute(path: '/settings', redirect: (_, __) => '/profile'),
+          GoRoute(path: '/settings/notifications', redirect: (_, __) => '/notification-settings'),
 
           // Global Search route
           GoRoute(

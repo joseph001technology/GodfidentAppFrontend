@@ -137,6 +137,8 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _notesSummary(notesAsync.valueOrNull),
+            const SizedBox(height: 14),
             _buildSearchBar(
               hint: 'Search notes & topics...',
               onChanged: (v) => setState(() => _notesQuery = v.toLowerCase()),
@@ -174,6 +176,62 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
     );
   }
 
+  Widget _summaryCard({required IconData icon, required Color color, required String title, required String sub, double? progress}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [color.withValues(alpha: 0.16), AppTheme.navySurface], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(14)),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontFamily: 'Lora', fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            const SizedBox(height: 2),
+            Text(sub, style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textSecondary)),
+            if (progress != null) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(value: progress, minHeight: 6, color: color, backgroundColor: color.withValues(alpha: 0.15)),
+              ),
+            ],
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _notesSummary(List<Note>? notes) {
+    final n = notes?.length ?? 0;
+    final pinned = notes?.where((x) => x.isPinned).length ?? 0;
+    return _summaryCard(
+      icon: Icons.edit_note,
+      color: AppTheme.softBlue,
+      title: n == 0 ? 'Your notes' : '$n note${n == 1 ? '' : 's'}',
+      sub: n == 0 ? 'Write down what God is teaching you.' : '${pinned == 0 ? 'None' : pinned} pinned',
+    );
+  }
+
+  Widget _rulesSummary(List<Rule>? rules) {
+    final n = rules?.length ?? 0;
+    final done = rules?.where((r) => r.isCompletedToday).length ?? 0;
+    return _summaryCard(
+      icon: Icons.rule,
+      color: AppTheme.accentPurple,
+      title: n == 0 ? 'Your rules' : '$done of $n kept today',
+      sub: n == 0 ? 'Rules you hold to every day.' : (done == n ? 'Every rule kept today. Well done.' : 'Tap the circle on a rule when you keep it.'),
+      progress: n == 0 ? null : done / n,
+    );
+  }
+
   Widget _buildTopicPills(AsyncValue<List<NoteTopic>> topicsAsync) {
     return topicsAsync.when(
       loading: () => const SizedBox(height: 38),
@@ -198,7 +256,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
 
   Widget _buildListNotes(List<Note> notes) {
     return Column(
-      children: notes.map((n) => _buildNoteCard(n)).toList(),
+      children: [for (var i = 0; i < notes.length; i++) _buildNoteCard(notes[i], i + 1)],
     );
   }
 
@@ -213,65 +271,107 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
         mainAxisSpacing: 10,
       ),
       itemCount: notes.length,
-      itemBuilder: (_, i) => _buildNoteCard(notes[i]),
+      itemBuilder: (_, i) => _buildNoteCard(notes[i], i + 1, compact: true),
     );
   }
 
-  Widget _buildNoteCard(Note note) {
+  /// Two-digit number badge ("01", "02" ...) used by notes and rules.
+  Widget _numberBadge(int n, {Color color = AppTheme.gold, double size = 38}) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(size / 3),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        n.toString().padLeft(2, '0'),
+        style: TextStyle(fontFamily: 'Lora', fontSize: size * 0.4, fontWeight: FontWeight.bold, color: color),
+      ),
+    );
+  }
+
+  String _shortDate(String iso) {
+    final d = DateTime.tryParse(iso)?.toLocal();
+    if (d == null) return '';
+    const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${d.day} ${m[d.month - 1]} ${d.year}';
+  }
+
+  Widget _buildNoteCard(Note note, int number, {bool compact = false}) {
+    final topics = note.topicNames;
     return GestureDetector(
       onTap: () => context.push('/notes/${note.id}'),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: EdgeInsets.only(bottom: compact ? 0 : 12),
         decoration: BoxDecoration(
           color: AppTheme.navySurface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppTheme.navyOutline),
+          boxShadow: [BoxShadow(color: AppTheme.inkNavy.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppTheme.softBlue.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    note.topicName.isNotEmpty ? note.topicName : 'General',
-                    style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.softBlue),
-                  ),
-                ),
-                if (note.isPinned) const Icon(Icons.push_pin, color: AppTheme.gold, size: 14),
-              ],
+        clipBehavior: Clip.antiAlias,
+        child: IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Container(width: 5, color: note.isPinned ? AppTheme.gold : AppTheme.softBlue.withValues(alpha: 0.5)),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _numberBadge(number, color: AppTheme.softBlue, size: compact ? 32 : 38),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(
+                          note.title.isEmpty ? 'Untitled note' : note.title,
+                          maxLines: compact ? 2 : 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontFamily: 'Lora', fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(_shortDate(note.updatedAt),
+                            style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted)),
+                      ]),
+                    ),
+                    if (note.isPinned) const Icon(Icons.push_pin, color: AppTheme.gold, size: 16),
+                    if (note.isFavorite) const Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Icon(Icons.favorite, color: AppTheme.accentPink, size: 15),
+                    ),
+                  ]),
+                  if (note.content.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      note.content,
+                      maxLines: compact ? 3 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textSecondary, height: 1.45),
+                    ),
+                  ],
+                  if (topics.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Wrap(spacing: 6, runSpacing: 4, children: [
+                      for (final t in topics.take(3))
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.softBlue.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(t,
+                              style: const TextStyle(
+                                  fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.softBlue)),
+                        ),
+                    ]),
+                  ],
+                ]),
+              ),
             ),
-            const SizedBox(height: 10),
-            Text(
-              note.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontFamily: 'Lora',
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              note.content,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted, height: 1.4),
-            ),
-          ],
+          ]),
         ),
       ),
     );
@@ -294,6 +394,8 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _rulesSummary(rulesAsync.valueOrNull),
+            const SizedBox(height: 14),
             // Motivational banner
             Container(
               width: double.infinity,
@@ -367,7 +469,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
                   );
                 }
                 return Column(
-                  children: filtered.map((r) => _buildRuleItem(r)).toList(),
+                  children: [for (var i = 0; i < filtered.length; i++) _buildRuleItem(filtered[i], i + 1)],
                 );
               },
             ),
@@ -399,102 +501,91 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
     );
   }
 
-  Widget _buildRuleItem(Rule rule) {
+  Widget _buildRuleItem(Rule rule, int number) {
+    final done = rule.isCompletedToday;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.navySurface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: rule.isCompletedToday
-              ? AppTheme.emerald.withValues(alpha: 0.4)
-              : AppTheme.navyOutline,
-        ),
+        border: Border.all(color: done ? AppTheme.emerald.withValues(alpha: 0.45) : AppTheme.navyOutline),
+        boxShadow: [BoxShadow(color: AppTheme.inkNavy.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            onTap: () async {
-              await ref.read(rulesProvider.notifier).toggleToday(rule.id);
-              ref.invalidate(todayRulesProvider);
-            },
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: rule.isCompletedToday
-                    ? AppTheme.emerald
-                    : AppTheme.navyOutline,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(Icons.check,
-                  size: 16,
-                  color: rule.isCompletedToday ? Colors.white : Colors.transparent),
-            ),
-          ),
-          const SizedBox(width: 14),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Container(width: 5, color: done ? AppTheme.emerald : AppTheme.accentPurple.withValues(alpha: 0.5)),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  rule.title,
-                  style: TextStyle(
-                    fontFamily: 'Lora',
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: rule.isCompletedToday ? AppTheme.textMuted : AppTheme.textPrimary,
-                    decoration:
-                        rule.isCompletedToday ? TextDecoration.lineThrough : null,
-                  ),
-                ),
-                if (rule.description != null && rule.description!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(rule.description!,
-                      style: const TextStyle(
-                          fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted)),
-                ],
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    if (rule.categoryName != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.gold.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(rule.categoryName!,
-                            style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.gold)),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 4, 14),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _numberBadge(number, color: done ? AppTheme.emerald : AppTheme.accentPurple),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(
+                      rule.title,
+                      style: TextStyle(
+                        fontFamily: 'Lora',
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: done ? AppTheme.textMuted : AppTheme.textPrimary,
+                        decoration: done ? TextDecoration.lineThrough : null,
                       ),
-                    if (rule.currentStreak > 0) ...[
-                      const SizedBox(width: 8),
-                      Text('🔥 ${rule.currentStreak}d',
-                          style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.gold)),
+                    ),
+                    if (rule.description != null && rule.description!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(rule.description!,
+                          style: const TextStyle(fontFamily: 'Inter', fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4)),
                     ],
-                    if (rule.isPinned) ...[
-                      const SizedBox(width: 8),
-                      const Icon(Icons.push_pin, color: AppTheme.gold, size: 12),
-                    ],
-                  ],
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                      if (rule.categoryName != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.gold.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(rule.categoryName!,
+                              style: const TextStyle(
+                                  fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.goldDark)),
+                        ),
+                      if (rule.currentStreak > 0)
+                        Text('\u{1F525} ${rule.currentStreak} day streak',
+                            style: const TextStyle(
+                                fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.goldDark)),
+                      if (rule.isPinned) const Icon(Icons.push_pin, color: AppTheme.gold, size: 12),
+                    ]),
+                  ]),
                 ),
-              ],
+                Column(children: [
+                  GestureDetector(
+                    onTap: () async {
+                      await ref.read(rulesProvider.notifier).toggleToday(rule.id);
+                      ref.invalidate(todayRulesProvider);
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(4, 2, 8, 0),
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: done ? AppTheme.emerald : Colors.transparent,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: done ? AppTheme.emerald : AppTheme.textMuted, width: 1.5),
+                      ),
+                      child: Icon(Icons.check, size: 16, color: done ? Colors.white : Colors.transparent),
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.more_vert, color: AppTheme.textMuted, size: 18),
+                    onPressed: () => _showRuleActions(rule),
+                  ),
+                ]),
+              ]),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: AppTheme.textMuted, size: 18),
-            onPressed: () => _showRuleActions(rule),
-          ),
-        ],
+        ]),
       ),
     );
   }

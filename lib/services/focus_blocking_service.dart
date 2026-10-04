@@ -126,17 +126,6 @@ class FocusBlockingService {
     }
   }
 
-  /// Opens Android's own "Uninstall this app?" dialog. Android does not allow
-  /// any normal app to remove another app silently - the user must confirm.
-  Future<bool> uninstallApp(String packageName) async {
-    if (!_supported) return false;
-    try {
-      return await _channel.invokeMethod<bool>('uninstallApp', {'packageName': packageName}) ?? false;
-    } on PlatformException {
-      return false;
-    }
-  }
-
   /// Stops the foreground service — call this when a Focus session ends,
   /// whether it completed naturally or the user ended it early.
   Future<bool> stopFocusSession() async {

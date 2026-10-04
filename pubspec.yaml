@@ -14,6 +14,7 @@ dependencies:
   flutter_riverpod: ^2.5.1
   riverpod_annotation: ^2.3.5
 
+
   # HTTP
   dio: ^5.4.3
 
@@ -47,7 +48,8 @@ dependencies:
   url_launcher: ^6.2.6
 
   # Music playback
-  just_audio: ^0.9.40
+  just_audio: ^0.9.46
+  just_audio_background: ^0.0.1-beta.17
 
   # Local notifications & alarms
   flutter_local_notifications: ^17.2.1+2

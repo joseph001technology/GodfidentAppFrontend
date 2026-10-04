@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../models/scheduled_focus.dart';
 import '../../providers/restriction_provider.dart';
+import '../../providers/scheduled_focus_provider.dart';
 import '../../repositories/focus_repository.dart';
 import '../../services/focus_blocking_service.dart';
 import '../../services/restriction_store.dart';
@@ -14,7 +16,9 @@ import '../../services/website_protection_service.dart';
 /// Focus Mode: pick a duration, then start a REAL Android restriction session.
 /// The screen only shows "active" after the native service confirms it.
 class FocusScreen extends ConsumerStatefulWidget {
-  const FocusScreen({super.key});
+  /// Set when opened from a ringing scheduled-session notification.
+  final int? startScheduleId;
+  const FocusScreen({super.key, this.startScheduleId});
   @override
   ConsumerState<FocusScreen> createState() => _FocusScreenState();
 }
@@ -27,6 +31,8 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
   Map<String, dynamic> _session = const {'active': false};
   List<PermissionItem> _perms = const [];
   Timer? _tick;
+  ScheduledFocus? _due; // the scheduled session whose alarm brought us here
+  String? _purpose; // bible | prayer | both, of the running session
 
   final _focus = FocusBlockingService.instance;
 
@@ -38,6 +44,15 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
       if (mounted) setState(() => _allowOnly = v);
     });
     _refresh();
+    SharedPreferences.getInstance().then((p) {
+      if (mounted) setState(() => _purpose = p.getString(_kPurpose));
+    });
+    final sid = widget.startScheduleId;
+    if (sid != null) {
+      ref.read(scheduledFocusProvider.notifier).byId(sid).then((f) {
+        if (mounted && f != null) setState(() => _due = f);
+      });
+    }
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       final endAt = (_session['endAtMs'] as num?)?.toInt() ?? 0;
@@ -76,6 +91,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
   }
 
   static const _kSessionId = 'focus_backend_session_id';
+  static const _kPurpose = 'focus_active_purpose';
 
   Future<void> _refresh() async {
     final info = await _focus.getSessionInfo();
@@ -102,12 +118,13 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
     final id = prefs.getInt(_kSessionId);
     if (id == null) return;
     try {
-      await FocusRepository().endSession(id, durationMinutes: _minutes);
+      await FocusRepository().endSession(id, durationMinutes: prefs.getInt('focus_active_minutes') ?? _minutes);
       await prefs.remove(_kSessionId);
     } catch (_) {/* try again next time the screen opens */}
   }
 
-  Future<void> _start() async {
+  Future<void> _start({ScheduledFocus? from}) async {
+    final minutes = from?.durationMinutes ?? _minutes;
     final apps = ref.read(restrictedAppsProvider).valueOrNull ?? [];
     if (apps.isEmpty && !_allowOnly) {
       setState(() => _message = 'Choose at least one app to restrict first, or turn on "Only Godfident".');
@@ -131,10 +148,22 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
     }
     final ok = await _focus.startFocusSession(
       apps.map((a) => a.packageName).toList(),
-      endAt: DateTime.now().add(Duration(minutes: _minutes)),
+      endAt: DateTime.now().add(Duration(minutes: minutes)),
       allowOnly: _allowOnly,
     );
-    if (ok) _openBackendSession();
+    if (ok) {
+      _openBackendSession();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('focus_active_minutes', minutes);
+      if (from != null) {
+        await prefs.setString(_kPurpose, from.purpose);
+        await ref.read(scheduledFocusProvider.notifier).started(from); // stops the ringing
+        _due = null;
+      } else {
+        await prefs.remove(_kPurpose);
+      }
+      _purpose = from?.purpose;
+    }
     await _refresh();
     if (!mounted) return;
     setState(() {
@@ -168,6 +197,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
             const SizedBox(height: 4),
             const Text('Protect your time with God.', style: TextStyle(color: AppTheme.textSecondary)),
             const SizedBox(height: 20),
+            if (_due != null) ...[_dueCard(_due!, active), const SizedBox(height: 14)],
             if (active) _activeCard() else _setupCard(apps),
             if (_message != null) ...[
               const SizedBox(height: 12),
@@ -183,13 +213,17 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
               ),
             ],
             const SizedBox(height: 22),
+            _scheduledSection(),
+            const SizedBox(height: 22),
             const Text('PROTECTION',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppTheme.textMuted)),
             const SizedBox(height: 10),
             _row(
               icon: Icons.apps_rounded,
               title: 'App Restrictions',
-              sub: apps.isEmpty ? 'No apps selected' : '${apps.length} app${apps.length == 1 ? '' : 's'} selected',
+              sub: apps.isEmpty
+                  ? 'No apps selected'
+                  : '${apps.length} app${apps.length == 1 ? '' : 's'} \u00b7 blocked during Focus sessions',
               onTap: () => context.push('/focus/apps'),
             ),
             _row(
@@ -207,8 +241,8 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
   }
 
   String _webSummary(int count, WebsiteProtectionStatus? web) {
-    final state = (web?.running ?? false) ? 'Active' : 'Off';
-    return '$state · $count site${count == 1 ? '' : 's'} protected';
+    final state = (web?.running ?? false) ? 'Always on' : (count == 0 ? 'Not set up' : 'Off');
+    return '$state \u00b7 $count site${count == 1 ? '' : 's'} protected';
   }
 
   Widget _setupCard(List<RestrictedApp> apps) {
@@ -279,6 +313,11 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
         const SizedBox(height: 8),
         const Text('Focus session active',
             style: TextStyle(fontFamily: 'Lora', fontSize: 20, fontWeight: FontWeight.bold)),
+        if (_purpose != null && ScheduledFocus.purposes[_purpose] != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(ScheduledFocus.purposes[_purpose]!, style: const TextStyle(color: AppTheme.goldDark, fontWeight: FontWeight.w600)),
+          ),
         if (left != null)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -298,6 +337,105 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
         OutlinedButton(onPressed: _busy ? null : _stop, child: const Text('End session')),
       ]),
     );
+  }
+
+  Widget _dueCard(ScheduledFocus f, bool active) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: _cardDeco(border: AppTheme.gold),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Your time with God is starting',
+            style: TextStyle(fontFamily: 'Lora', fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text('${f.displayTitle} \u00b7 ${f.purposeLabel} \u00b7 ${f.durationLabel}',
+            style: const TextStyle(color: AppTheme.textSecondary)),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _busy
+                ? null
+                : () async {
+                    if (active) {
+                      // Already in a session: just stop the ringing.
+                      await ref.read(scheduledFocusProvider.notifier).started(f);
+                      if (mounted) setState(() => _due = null);
+                    } else {
+                      await _start(from: f);
+                    }
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.gold,
+              foregroundColor: AppTheme.inkNavy,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            child: Text(active ? 'Silence alarm' : 'Start'),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _scheduledSection() {
+    final list = ref.watch(scheduledFocusProvider).valueOrNull ?? const <ScheduledFocus>[];
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Expanded(
+          child: Text('SCHEDULED SESSIONS',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppTheme.textMuted)),
+        ),
+        TextButton.icon(
+          onPressed: () => context.push('/focus/schedule/new'),
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('Add'),
+        ),
+      ]),
+      if (list.isEmpty)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: _cardDeco(),
+          child: const Text(
+            'Pre-set a time with God, e.g. 6:00 AM every day. Your phone will ring at that time and the session starts when you press Start.',
+            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+          ),
+        ),
+      for (final f in list)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => context.push('/focus/schedule/${f.id}'),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+              decoration: _cardDeco(),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${f.timeLabel}  \u00b7  ${f.displayTitle}',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: f.enabled ? AppTheme.textPrimary : AppTheme.textMuted)),
+                    const SizedBox(height: 2),
+                    Text('${f.durationLabel} \u00b7 ${f.purposeLabel} \u00b7 ${f.repeatLabel}',
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  ]),
+                ),
+                Switch(
+                  value: f.enabled,
+                  activeThumbColor: AppTheme.gold,
+                  onChanged: (v) => ref.read(scheduledFocusProvider.notifier).toggle(f, v),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: AppTheme.textMuted),
+                  tooltip: 'Delete',
+                  onPressed: () => ref.read(scheduledFocusProvider.notifier).delete(f.id),
+                ),
+              ]),
+            ),
+          ),
+        ),
+    ]);
   }
 
   Widget _permissionCard(String title, String body, String action, VoidCallback onTap) {

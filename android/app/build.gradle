@@ -45,6 +45,13 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
+            // R8 shrinking removed the generic type info that
+            // flutter_local_notifications (Gson) needs, so every cancel() /
+            // schedule() crashed in release builds. Shrinking is OFF; the
+            // keep rules in proguard-rules.pro are ready if you switch it on.
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }

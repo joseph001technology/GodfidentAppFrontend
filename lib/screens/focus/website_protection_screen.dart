@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../../providers/restriction_provider.dart';
+import '../../services/permissions_service.dart';
 import '../../services/website_protection_service.dart';
 
 /// Website Protection. The blocked-site list is HIDDEN until the Website
@@ -20,7 +21,8 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
   final _siteCtrl = TextEditingController();
 
   bool _loading = true;
-  bool _hasKey = false;
+  bool? _hasKey; // null = could not check (offline, nothing stored on this phone)
+  bool _askingPermission = false; // Android's VPN dialog pauses the app - do not re-lock for it
   bool _unlocked = false; // memory only - leaving the screen locks it again
   bool _busy = false;
   String? _error;
@@ -28,6 +30,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
   bool _testing = false;
   int _lockLeft = 0;
   Timer? _lockTimer;
+  List<PermissionItem> _perms = const [];
 
   @override
   void initState() {
@@ -48,15 +51,39 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState s) {
-    if (s == AppLifecycleState.paused) {
+    if (s == AppLifecycleState.paused && !_askingPermission) {
       // Re-lock whenever the app leaves the foreground.
       if (_unlocked) setState(() => _unlocked = false);
     }
-    if (s == AppLifecycleState.resumed) ref.invalidate(websiteStatusProvider);
+    if (s == AppLifecycleState.resumed) {
+      ref.invalidate(websiteStatusProvider);
+      _loadPerms();
+    }
+  }
+
+  /// The permissions always-on protection really depends on. Anything missing
+  /// is listed on the unlocked screen with an Allow button.
+  static const _needed = {'vpn', 'notifications', 'alarms', 'battery'};
+
+  Future<void> _loadPerms() async {
+    final all = await PermissionsService.instance.snapshot();
+    if (mounted) setState(() => _perms = all.where((p) => _needed.contains(p.id)).toList());
+  }
+
+  Future<void> _allow(String id) async {
+    _askingPermission = true; // Android's dialogs pause the app - do not re-lock for them
+    await PermissionsService.instance.request(id);
+    _askingPermission = false;
+    await _loadPerms();
+    ref.invalidate(websiteStatusProvider);
+    // Permission just granted: switch protection on straight away.
+    final domains = (ref.read(restrictedSitesProvider).valueOrNull ?? []).map((x) => x.domain).toList();
+    if (domains.isNotEmpty) await ref.read(restrictedSitesProvider.notifier).guard();
+    ref.invalidate(websiteStatusProvider);
   }
 
   Future<void> _init() async {
-    final has = await _svc.hasKey();
+    final has = await _svc.hasKey(); // local copy, else asks your account
     final locked = await _svc.lockedSeconds();
     if (!mounted) return;
     setState(() {
@@ -65,6 +92,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
       _loading = false;
     });
     if (locked > 0) _startLockTimer();
+    _loadPerms();
   }
 
   void _startLockTimer() {
@@ -81,7 +109,17 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
     final a = _keyCtrl.text, b = _confirmCtrl.text;
     if (a.length < 4) return setState(() => _error = 'Use at least 4 characters.');
     if (a != b) return setState(() => _error = 'The two keys do not match.');
-    await _svc.setKey(a);
+    setState(() => _busy = true);
+    final err = await _svc.createKey(a);
+    if (!mounted) return;
+    if (err != null) {
+      setState(() {
+        _busy = false;
+        _error = err;
+      });
+      return;
+    }
+    _busy = false;
     _keyCtrl.clear();
     _confirmCtrl.clear();
     setState(() {
@@ -92,42 +130,47 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
   }
 
   Future<void> _unlock() async {
-    final ok = await _svc.verifyKey(_keyCtrl.text);
+    if (_busy) return;
+    setState(() => _busy = true);
+    final r = await _svc.verifyKey(_keyCtrl.text);
     _keyCtrl.clear();
-    if (ok) {
+    if (!mounted) return;
+    if (r.ok) {
       setState(() {
+        _busy = false;
         _unlocked = true;
         _error = null;
       });
+      // Pull the latest list from the account now that we are in.
+      ref.read(restrictedSitesProvider.notifier).load();
       return;
     }
-    final locked = await _svc.lockedSeconds();
-    final left = await _svc.remainingAttempts();
     setState(() {
-      _lockLeft = locked;
-      _error = locked > 0 ? 'Too many wrong attempts.' : 'Incorrect key. $left attempt${left == 1 ? '' : 's'} left.';
+      _busy = false;
+      _lockLeft = r.lockedSeconds;
+      _error = r.lockedSeconds > 0
+          ? 'Too many wrong attempts.'
+          : (r.message ??
+              (r.remaining >= 0
+                  ? 'Incorrect key. ${r.remaining} attempt${r.remaining == 1 ? '' : 's'} left.'
+                  : 'Incorrect key.'));
     });
-    if (locked > 0) _startLockTimer();
+    if (r.lockedSeconds > 0) _startLockTimer();
   }
 
-  Future<void> _toggle(bool on, List<String> domains) async {
+  /// Website protection is always on while sites are listed. This asks
+  /// Android for the VPN permission if it is missing, then verifies it runs.
+  Future<void> _turnOn(List<String> domains) async {
+    if (domains.isEmpty) return;
     setState(() {
       _busy = true;
       _error = null;
+      _askingPermission = true;
     });
-    if (on) {
-      if (domains.isEmpty) {
-        setState(() {
-          _busy = false;
-          _error = 'Add at least one website first.';
-        });
-        return;
-      }
-      final ok = await _svc.start(domains);
-      if (!ok) _error = 'Android did not start website protection. Allow the VPN request and try again.';
-    } else {
-      await _svc.stop();
-      await Future<void>.delayed(const Duration(milliseconds: 500));
+    final ok = await _svc.start(domains);
+    _askingPermission = false;
+    if (!ok && mounted) {
+      _error = 'Android did not start website protection. Tap "Turn on protection" and allow the VPN request.';
     }
     ref.invalidate(websiteStatusProvider);
     if (mounted) setState(() => _busy = false);
@@ -150,11 +193,13 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
                   padding: EdgeInsets.all(24),
                   child: Text('Website protection is only available on Android.'),
                 )
-              : !_hasKey
-                  ? _createKeyView()
-                  : !_unlocked
-                      ? _unlockView()
-                      : _unlockedView(),
+              : _hasKey == null
+                  ? _offlineView()
+                  : _hasKey == false
+                      ? _createKeyView()
+                      : !_unlocked
+                          ? _unlockView()
+                          : _unlockedView(),
     );
   }
 
@@ -176,10 +221,28 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
         TextField(controller: _confirmCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Confirm key')),
         if (_error != null) _err(_error!),
         const SizedBox(height: 16),
-        _primary('Save key', _createKey),
+        _primary(_busy ? 'Saving\u2026' : 'Save key', _busy ? null : _createKey),
         const SizedBox(height: 8),
-        const Text('The key is stored only as a one-way hash on this phone. It cannot be recovered - if you forget it, you must reinstall the app.',
+        const Text('You only create this once. It is saved to your account as a one-way hash, so clearing the app or signing in on a new phone does not remove it - you just enter it.',
             textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+      ]);
+
+  Widget _offlineView() => _pad([
+        const Icon(Icons.cloud_off_outlined, size: 40, color: AppTheme.gold),
+        const SizedBox(height: 12),
+        const Text('Connect to continue',
+            style: TextStyle(fontFamily: 'Lora', fontSize: 20, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        const Text(
+          'Godfident needs to check your account once to see whether your Website Protection Key already exists. Your protected sites keep blocking in the meantime.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: AppTheme.textSecondary),
+        ),
+        const SizedBox(height: 16),
+        _primary('Try again', () {
+          setState(() => _loading = true);
+          _init();
+        }),
       ]);
 
   Widget _unlockView() {
@@ -208,7 +271,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
       else if (_error != null)
         _err(_error!),
       const SizedBox(height: 16),
-      _primary('Unlock', _lockLeft > 0 ? null : _unlock),
+      _primary(_busy ? 'Checking\u2026' : 'Unlock', (_lockLeft > 0 || _busy) ? null : _unlock),
     ]);
   }
 
@@ -227,20 +290,35 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
           border: Border.all(color: running ? AppTheme.gold : AppTheme.navyOutline),
         ),
         child: Column(children: [
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            activeThumbColor: AppTheme.gold,
-            title: Text(running ? 'Protection is ON' : 'Protection is OFF',
-                style: const TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text(
-              running
-                  ? 'Android is blocking these sites in every browser and app.'
-                  : 'Sites are not blocked until you switch this on.',
-              style: const TextStyle(fontSize: 12),
+          Row(children: [
+            Icon(running ? Icons.shield : Icons.shield_outlined, color: running ? AppTheme.gold : AppTheme.textMuted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(running ? 'Protection is ON' : (domains.isEmpty ? 'Nothing to protect yet' : 'Protection is OFF'),
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text(
+                  running
+                      ? 'Always on. Android blocks these sites in every browser and app, all day - not only during Focus sessions.'
+                      : (domains.isEmpty
+                          ? 'Add a website below. Protection then stays on automatically.'
+                          : 'Android needs your permission to block websites.'),
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
+              ]),
             ),
-            value: running,
-            onChanged: _busy ? null : (v) => _toggle(v, domains),
-          ),
+          ]),
+          if (!running && domains.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _busy ? null : () => _turnOn(domains),
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.gold, foregroundColor: AppTheme.inkNavy),
+                child: Text(_busy ? 'Starting\u2026' : 'Turn on protection'),
+              ),
+            ),
+          ],
           if (status != null && running)
             Align(
               alignment: Alignment.centerLeft,
@@ -248,12 +326,13 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
                   style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
             ),
           if (status != null && !running && status.wanted)
-            _err('Protection was turned off outside Godfident (Android VPN settings). Switch it on again.'),
+            _err('Protection was turned off outside Godfident (Android VPN settings). Tap "Turn on protection".'),
           if (status?.privateDnsStrict ?? false)
             _err('Android "Private DNS" is set to a hostname. Blocking may not work until you set it to Off or Automatic.'),
         ]),
       ),
       if (_error != null) _err(_error!),
+      ..._permissionCards(),
       if (running) ...[
         const SizedBox(height: 10),
         Container(
@@ -312,9 +391,16 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
           ),
         ),
         const SizedBox(width: 10),
+        // The app theme gives ElevatedButton an infinite minimum width. Inside a
+        // Row that throws a layout error and the button (and the list below it)
+        // never worked - so give it a finite size here.
         ElevatedButton(
           onPressed: _addSite,
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.gold, foregroundColor: AppTheme.inkNavy),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.gold,
+            foregroundColor: AppTheme.inkNavy,
+            minimumSize: const Size(84, 52),
+          ),
           child: const Text('Add'),
         ),
       ]),
@@ -350,6 +436,22 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
                   ),
               ]),
       ),
+      const SizedBox(height: 14),
+      OutlinedButton.icon(
+        onPressed: () {
+          _askingPermission = true;
+          _svc.openVpnSettings();
+          Future.delayed(const Duration(seconds: 2), () => _askingPermission = false);
+        },
+        icon: const Icon(Icons.verified_user_outlined, size: 18),
+        label: const Text('Make it unstoppable: Always-on VPN'),
+        style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
+      ),
+      const SizedBox(height: 6),
+      const Text(
+        'In Android\u2019s VPN settings, tap the gear next to Godfident and switch on "Always-on VPN". Android then restarts protection by itself, even after a crash or reboot.',
+        style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+      ),
       const SizedBox(height: 10),
       const Text(
         'Subdomains are blocked too (youtube.com also blocks m.youtube.com). Browsers with their own "Secure DNS" setting can bypass this - turn that off in the browser.',
@@ -358,10 +460,55 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
     ]);
   }
 
+  List<Widget> _permissionCards() {
+    final missing = _perms.where((p) => !p.granted).toList();
+    if (missing.isEmpty) return const [];
+    return [
+      const SizedBox(height: 10),
+      Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.navySurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppTheme.danger.withValues(alpha: 0.5)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Needed to keep protection on all day',
+              style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          for (final p in missing)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(p.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    Text(p.why, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                  ]),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  onPressed: () => _allow(p.id),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(72, 36)),
+                  child: const Text('Allow'),
+                ),
+              ]),
+            ),
+        ]),
+      ),
+    ];
+  }
+
   Future<void> _addSite() async {
     final err = await ref.read(restrictedSitesProvider.notifier).add(_siteCtrl.text);
     if (err == null) _siteCtrl.clear();
     setState(() => _error = err);
+    if (err != null) return;
+    // Always-on: start (or keep) protection as soon as a site is added.
+    final domains = (ref.read(restrictedSitesProvider).valueOrNull ?? []).map((x) => x.domain).toList();
+    final st = await _svc.status();
+    if (!st.running) await _turnOn(domains);
+    ref.invalidate(websiteStatusProvider);
   }
 
   Widget _pad(List<Widget> c) => Center(

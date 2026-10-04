@@ -2,6 +2,7 @@ package com.example.godfident_flutter
 
 import android.app.Notification
 import android.app.NotificationChannel
+import android.app.AlarmManager
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -9,6 +10,7 @@ import android.content.Intent
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -60,6 +62,44 @@ class WebsiteBlockVpnService : VpnService() {
         @Volatile var lastHost: String = ""
         @Volatile var lastError: String = ""
 
+        private const val WATCHDOG_REQUEST = 4203
+        private const val WATCHDOG_INTERVAL_MS = 15 * 60 * 1000L
+
+        /**
+         * Keeps protection alive while the app is closed: every 15 minutes
+         * (and after the task is swiped away) [BootReceiver] checks whether
+         * protection is wanted but not running, and starts it again.
+         */
+        fun scheduleWatchdog(ctx: Context) {
+            try {
+                val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val pi = PendingIntent.getBroadcast(
+                    ctx, WATCHDOG_REQUEST,
+                    Intent(ctx, BootReceiver::class.java).setAction(BootReceiver.ACTION_WATCHDOG),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                am.setInexactRepeating(
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    SystemClock.elapsedRealtime() + WATCHDOG_INTERVAL_MS,
+                    WATCHDOG_INTERVAL_MS, pi
+                )
+            } catch (_: Exception) {
+            }
+        }
+
+        fun cancelWatchdog(ctx: Context) {
+            try {
+                val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val pi = PendingIntent.getBroadcast(
+                    ctx, WATCHDOG_REQUEST,
+                    Intent(ctx, BootReceiver::class.java).setAction(BootReceiver.ACTION_WATCHDOG),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                am.cancel(pi)
+            } catch (_: Exception) {
+            }
+        }
+
         /** True if [host] equals a blocked domain or is a subdomain of one. */
         fun isBlocked(host: String, domains: Set<String>): Boolean {
             val h = host.lowercase().trimEnd('.')
@@ -81,6 +121,7 @@ class WebsiteBlockVpnService : VpnService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            cancelWatchdog(this)
             shutdown(markInactive = true)
             stopSelf()
             return START_NOT_STICKY
@@ -117,16 +158,26 @@ class WebsiteBlockVpnService : VpnService() {
         stopping = false
         isRunning = true
         getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ACTIVE, true).apply()
+        scheduleWatchdog(this)
         pool = Executors.newCachedThreadPool()
         worker = Thread({ runLoop(pfd) }, "godfident-dns").also { it.start() }
         return START_STICKY
     }
 
     override fun onRevoke() {
-        // User turned the VPN off (or another VPN took over).
-        shutdown(markInactive = true)
+        // The user turned the VPN off (or another VPN took over). Protection is
+        // no longer running, but it is still WANTED: the app warns about it and
+        // the watchdog / next launch switch it back on when Android allows it.
+        shutdown(markInactive = false)
         stopSelf()
         super.onRevoke()
+    }
+
+    /** Swiping Godfident away from recents must not end protection. */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        val wanted = getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ACTIVE, false)
+        if (wanted) scheduleWatchdog(this)
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {

@@ -71,11 +71,15 @@ class RestrictedSitesNotifier extends StateNotifier<AsyncValue<List<RestrictedSi
     await _push();
   }
 
-  /// Hand the list to the Android filter so changes apply immediately.
+  /// Hand the list to the Android filter. Website protection is ALWAYS ON
+  /// while at least one site is listed (and off when the list is empty).
   Future<void> _push() async {
     final sites = state.valueOrNull ?? [];
-    await _web.setBlockedDomains(sites.map((s) => s.domain).toList());
+    await _web.ensureRunning(sites.map((s) => s.domain).toList());
   }
+
+  /// Cheap re-check used on app resume: restarts protection if it stopped.
+  Future<void> guard() => _push();
 
   /// Returns null on success, or a user-facing error message.
   Future<String?> add(String input) async {

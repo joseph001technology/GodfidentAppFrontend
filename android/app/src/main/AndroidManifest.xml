@@ -33,10 +33,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
-    <!-- Lets Godfident open Android's own "Uninstall this app?" dialog for an
-         app the user chose to remove. Android never allows silent removal;
-         the user always confirms in the system dialog. -->
-    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- Music keeps playing when you leave the Music tab, lock the phone or
+         close the app (just_audio_background runs a media foreground service). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <!-- Reminders: show on time, even with the app closed or after a reboot. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
@@ -95,6 +94,7 @@
             android:name=".WebsiteBlockVpnService"
             android:exported="false"
             android:permission="android.permission.BIND_VPN_SERVICE"
+            android:stopWithTask="false"
             android:foregroundServiceType="specialUse">
             <intent-filter>
                 <action android:name="android.net.VpnService" />
@@ -118,6 +118,26 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
+
+        <!-- Background music: lock-screen / notification controls + keeps the
+             player alive when the app is not on screen. -->
+        <service
+            android:name="com.ryanheise.audioservice.AudioService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="true"
+            tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <receiver
+            android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+            android:exported="true"
+            tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
 
         <!-- flutter_local_notifications: required for scheduled reminders to
              fire at all, and to be restored after a reboot. -->
