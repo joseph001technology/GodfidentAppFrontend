@@ -72,11 +72,13 @@ class MusicController extends ChangeNotifier {
   Future<void> playList(List<Song> songs, int index) async {
     if (songs.isEmpty || index < 0 || index >= songs.length) return;
     _isPreview = false;
+    _previewTitle = null;
     _error = null;
     _queue = List.unmodifiable(songs);
     _current = songs[index];
     notifyListeners();
     try {
+      await player.setLoopMode(LoopMode.off);
       await player.setAudioSource(
         // ignore: deprecated_member_use
         ConcatenatingAudioSource(children: [for (final s in songs) _sourceFor(s)]),
@@ -122,29 +124,52 @@ class MusicController extends ChangeNotifier {
   }
 
   // ── ringtone preview (one player only, so it shares this one) ────────
+  String? _previewTitle;
+  String? _previewError;
+
+  /// Title of the ringtone being previewed right now, or null.
+  String? get previewTitle => _isPreview && player.playing ? _previewTitle : null;
+  String? get previewError => _previewError;
+
   Future<void> previewAsset(String assetPath, String title) => _preview(
-        AudioSource.asset(assetPath, tag: MediaItem(id: 'preview_$assetPath', title: title, album: 'Ringtone preview')),
+        title,
+        () => AudioSource.asset(assetPath, tag: MediaItem(id: 'preview_$assetPath', title: title, album: 'Ringtone preview')),
       );
 
   Future<void> previewUri(String uri, String title) => _preview(
-        AudioSource.uri(Uri.parse(uri), tag: MediaItem(id: 'preview_$uri', title: title, album: 'Ringtone preview')),
+        title,
+        () => AudioSource.uri(Uri.parse(uri), tag: MediaItem(id: 'preview_$uri', title: title, album: 'Ringtone preview')),
       );
 
-  Future<void> _preview(AudioSource source) async {
+  /// Starts playing at once and keeps playing (looping) until another song is
+  /// chosen, [stopPreview] is called, or the picker is closed.
+  Future<void> _preview(String title, AudioSource Function() build) async {
+    _isPreview = true;
+    _previewTitle = title;
+    _previewError = null;
+    _queue = const [];
+    _current = null;
+    notifyListeners();
     try {
-      _isPreview = true;
-      _queue = const [];
-      _current = null;
+      await player.stop();
+      await player.setAudioSource(build());
+      await player.setLoopMode(LoopMode.one);
+      await player.setVolume(1.0);
+      // Do not await: play() only completes when playback ends.
+      player.play();
+    } catch (e) {
+      _previewError = 'This sound could not be played.';
       notifyListeners();
-      await player.setAudioSource(source);
-      await player.play();
-    } catch (_) {/* preview is best effort */}
+    }
   }
 
   Future<void> stopPreview() async {
     if (!_isPreview) return;
     _isPreview = false;
+    _previewTitle = null;
+    _previewError = null;
     try {
+      await player.setLoopMode(LoopMode.off);
       await player.stop();
     } catch (_) {}
     notifyListeners();

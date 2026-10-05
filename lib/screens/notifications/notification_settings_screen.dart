@@ -148,14 +148,14 @@ class NotificationSettingsScreen extends ConsumerWidget {
                 // so the card was meant to be light; flattened to match.
                 color: AppTheme.navySurface,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.gold.withOpacity(0.3)),
+                border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppTheme.gold.withOpacity(0.15),
+                      color: AppTheme.gold.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.notifications_active_outlined,
@@ -211,9 +211,9 @@ class NotificationSettingsScreen extends ConsumerWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                 decoration: BoxDecoration(
-                  color: AppTheme.emerald.withOpacity(0.1),
+                  color: AppTheme.emerald.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                  border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
                 ),
                 child: const Row(
                   children: [
@@ -274,7 +274,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                               leading: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: color.withOpacity(0.15),
+                                  color: color.withValues(alpha: 0.15),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(item['icon'] as IconData,
@@ -299,7 +299,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                               ),
                               trailing: Switch(
                                 value: isEnabled,
-                                activeColor: color,
+                                activeThumbColor: color,
                                 onChanged: (_) => ref
                                     .read(notificationPrefsProvider.notifier)
                                     .toggle(key),

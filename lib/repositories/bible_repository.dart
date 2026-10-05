@@ -113,7 +113,7 @@ class BibleRepository {
       'verse': verse,
       if (note.isNotEmpty) 'note': note,
     });
-    return Bookmark.fromJson(res.data);
+    return Bookmark.fromJson(readDataMap(res.data));
   }
 
   Future<Bookmark> updateBookmark(int id, {String note = ''}) async {
@@ -148,7 +148,7 @@ class BibleRepository {
       'color': color,
       if (note.isNotEmpty) 'note': note,
     });
-    return Highlight.fromJson(res.data);
+    return Highlight.fromJson(readDataMap(res.data));
   }
 
   Future<Highlight> updateHighlight(int id, {String? color, String? note}) async {
@@ -182,12 +182,12 @@ class BibleRepository {
       'verse': verse,
       'content': content,
     });
-    return VerseNote.fromJson(res.data);
+    return VerseNote.fromJson(readDataMap(res.data));
   }
 
   Future<VerseNote> updateNote(int id, String content) async {
     final res = await _dio.patch('/api/bible/notes/$id/', data: {'content': content});
-    return VerseNote.fromJson(res.data);
+    return VerseNote.fromJson(readDataMap(res.data));
   }
 
   Future<BibleVerse> getVerseOfTheDay() async {

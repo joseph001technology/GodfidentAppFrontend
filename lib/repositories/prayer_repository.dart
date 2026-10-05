@@ -81,14 +81,20 @@ class PrayerRepository {
     return PrayerStats.fromJson(readDataMap(res.data));
   }
 
+  Future<Map<String, dynamic>> getStreak() async {
+    final res = await _dio.get('/api/prayer/streak/');
+    return readDataMap(res.data);
+  }
+
   // ── Prayer Sessions (/api/prayer/sessions/) ─────────────────────
   Future<List<PrayerSession>> getSessions() async {
     final res = await _dio.get('/api/prayer/sessions/');
     return (readList(res.data)).map((j) => PrayerSession.fromJson(j)).toList();
   }
 
-  Future<PrayerSession> createSession({String title = '', String notes = ''}) async {
+  Future<PrayerSession> createSession({String title = '', String notes = '', int plannedMinutes = 0}) async {
     final res = await _dio.post('/api/prayer/sessions/', data: {
+      if (plannedMinutes > 0) 'planned_minutes': plannedMinutes,
       if (title.isNotEmpty) 'title': title,
       if (notes.isNotEmpty) 'notes': notes,
     });

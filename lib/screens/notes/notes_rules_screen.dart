@@ -58,7 +58,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
               children: [
                 Text(isNotes ? '📝 ' : '📜 ', style: const TextStyle(fontSize: 20)),
                 Text(
-                  isNotes ? 'Spiritual Notes' : 'Universal Rules',
+                  isNotes ? 'Spiritual Notes' : 'My Rules',
                   style: const TextStyle(
                     fontFamily: 'Lora',
                     fontSize: 22,
@@ -223,12 +223,53 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
   Widget _rulesSummary(List<Rule>? rules) {
     final n = rules?.length ?? 0;
     final done = rules?.where((r) => r.isCompletedToday).length ?? 0;
-    return _summaryCard(
-      icon: Icons.rule,
-      color: AppTheme.accentPurple,
-      title: n == 0 ? 'Your rules' : '$done of $n kept today',
-      sub: n == 0 ? 'Rules you hold to every day.' : (done == n ? 'Every rule kept today. Well done.' : 'Tap the circle on a rule when you keep it.'),
-      progress: n == 0 ? null : done / n,
+    final best = rules == null || rules.isEmpty ? 0 : rules.map((r) => r.currentStreak).reduce((a, b) => a > b ? a : b);
+    final p = n == 0 ? 0.0 : done / n;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFF1B2A4C), Color(0xFF2B3F6B)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(children: [
+        SizedBox(
+          width: 74,
+          height: 74,
+          child: Stack(alignment: Alignment.center, children: [
+            SizedBox(
+              width: 74,
+              height: 74,
+              child: CircularProgressIndicator(
+                value: p,
+                strokeWidth: 7,
+                color: AppTheme.goldLight,
+                backgroundColor: Colors.white24,
+              ),
+            ),
+            Text(n == 0 ? '-' : '$done/$n',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17)),
+          ]),
+        ),
+        const SizedBox(width: 18),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(n == 0 ? 'Your rules' : (done == n ? 'All rules kept today' : 'Today\u2019s rules'),
+                style: const TextStyle(fontFamily: 'Lora', fontSize: 19, fontWeight: FontWeight.bold, color: Colors.white)),
+            const SizedBox(height: 4),
+            Text(
+              n == 0
+                  ? 'Add the rules you want to keep every day.'
+                  : (done == n ? 'Well done. Come back tomorrow.' : '${n - done} left to keep. Tap the circle when you do.'),
+              style: const TextStyle(fontSize: 12.5, color: AppTheme.textOnDarkMuted, height: 1.35),
+            ),
+            if (best > 0) ...[
+              const SizedBox(height: 6),
+              Text('\u{1F525} Best streak: $best day${best == 1 ? '' : 's'}',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.goldLight)),
+            ],
+          ]),
+        ),
+      ]),
     );
   }
 
@@ -396,49 +437,6 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
           children: [
             _rulesSummary(rulesAsync.valueOrNull),
             const SizedBox(height: 14),
-            // Motivational banner
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                // was a dark [#2D1B69, #14142A] gradient — flattened,
-                // same reasoning as the other "motivational banner" cards
-                color: AppTheme.navySurface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.accentPurple.withValues(alpha: 0.3)),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'PERMANENT DISCIPLINE',
-                    style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.gold,
-                        letterSpacing: 1.2),
-                  ),
-                  SizedBox(height: 6),
-                  Text(
-                    '"He who heeds instruction is on the path to life."',
-                    style: TextStyle(
-                        fontFamily: 'Lora',
-                        fontSize: 14,
-                        fontStyle: FontStyle.italic,
-                        color: AppTheme.textPrimary),
-                  ),
-                  SizedBox(height: 4),
-                  Text('— Proverbs 10:17',
-                      style: TextStyle(
-                          fontFamily: 'Lora',
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.gold)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
             _buildSearchBar(
               hint: 'Search rules...',
               onChanged: (v) => setState(() => _rulesQuery = v.toLowerCase()),
@@ -458,6 +456,12 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
                       (r.description ?? '').toLowerCase().contains(_rulesQuery);
                   return matchesCat && matchesQuery;
                 }).toList();
+                // Keep the order you set, but show rules still to do before kept ones.
+                final todo = filtered.where((r) => !r.isCompletedToday).toList();
+                final kept = filtered.where((r) => r.isCompletedToday).toList();
+                filtered
+                  ..clear()
+                  ..addAll([...todo, ...kept]);
 
                 if (filtered.isEmpty) {
                   return EmptyView(
@@ -469,7 +473,15 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
                   );
                 }
                 return Column(
-                  children: [for (var i = 0; i < filtered.length; i++) _buildRuleItem(filtered[i], i + 1)],
+                  children: [
+                    for (var i = 0; i < filtered.length; i++) _buildRuleItem(filtered[i], i + 1),
+                    const SizedBox(height: 4),
+                    TextButton.icon(
+                      onPressed: () => context.push('/rules/new'),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add a rule'),
+                    ),
+                  ],
                 );
               },
             ),
@@ -514,7 +526,6 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
       clipBehavior: Clip.antiAlias,
       child: IntrinsicHeight(
         child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Container(width: 5, color: done ? AppTheme.emerald : AppTheme.accentPurple.withValues(alpha: 0.5)),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 14, 4, 14),
@@ -649,11 +660,11 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
         filled: true,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppTheme.navyOutline),
+          borderSide: const BorderSide(color: AppTheme.navyOutline),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppTheme.navyOutline),
+          borderSide: const BorderSide(color: AppTheme.navyOutline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),

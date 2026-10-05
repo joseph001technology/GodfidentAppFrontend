@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme.dart';
 import 'core/router.dart';
 import 'core/dio_client.dart';
@@ -8,6 +10,34 @@ import 'providers/auth_provider.dart';
 import 'providers/remaining_providers.dart';
 import 'providers/restriction_provider.dart';
 import 'providers/scheduled_focus_provider.dart';
+import 'services/native_alarm.dart';
+import 'services/focus_session_manager.dart';
+
+/// Opens the page a reminder points to. Routes carrying `focus=1` first start a
+/// quick normal Focus session (reading -> Bible tab, both -> Home).
+Future<void> handleReminderRoute(GoRouter router, String route) async {
+  try {
+    NativeAlarm.stopSound();
+  } catch (_) {}
+  try {
+    final uri = Uri.parse(route);
+    if (uri.queryParameters['focus'] == '1') {
+      final sm = SessionManager.instance;
+      if (!(await sm.info()).active) {
+        final prefs = await SharedPreferences.getInstance();
+        final mins = prefs.getInt('sm_minutes') ?? 0;
+        await sm.start(
+          minutes: mins > 0 ? mins : 30,
+          purpose: uri.queryParameters['purpose'] ?? '',
+          requireBlocking: false,
+        );
+      }
+      router.go(uri.path);
+      return;
+    }
+    router.go(route);
+  } catch (_) {}
+}
 
 // Global scaffold messenger key used for app-wide snackbars (e.g., session expired)
 final GlobalKey<ScaffoldMessengerState> appScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -26,7 +56,7 @@ class GodfidentApp extends ConsumerWidget {
       ref.read(notificationServiceProvider).init(onNotificationTap: (payload) {
         try {
           if (payload != null && payload.isNotEmpty) {
-            ref.read(routerProvider).go(payload);
+            handleReminderRoute(ref.read(routerProvider), payload);
           }
         } catch (e) {
           // ignore navigation errors
@@ -38,7 +68,7 @@ class GodfidentApp extends ConsumerWidget {
       // Set DioClient.onAuthExpired to perform logout + navigation
       // (We capture ref and context so the closure can perform UI actions)
       Future.microtask(() {
-        final handler = () async {
+        Future<void> handler() async {
           try {
             await ref.read(authActionProvider).logout();
           } catch (_) {}
@@ -50,7 +80,7 @@ class GodfidentApp extends ConsumerWidget {
               const SnackBar(content: Text('Your session has expired. Please sign in again.'), backgroundColor: Colors.orange),
             );
           } catch (_) {}
-        };
+        }
 
         DioClient.onAuthExpired = handler;
       });
@@ -98,11 +128,15 @@ class _SessionKeeperState extends ConsumerState<_SessionKeeper> with WidgetsBind
     Future.microtask(() => ref.read(scheduledFocusProvider.notifier).load());
     Future.microtask(() async {
       final payload = await ref.read(notificationServiceProvider).launchPayload();
-      if (payload != null && payload.startsWith('/focus')) {
-        try {
-          ref.read(routerProvider).go(payload);
-        } catch (_) {}
+      if (payload != null && payload.isNotEmpty) {
+        handleReminderRoute(ref.read(routerProvider), payload);
       }
+      final alarmRoute = await NativeAlarm.launchRoute();
+      if (alarmRoute != null && alarmRoute.isNotEmpty) {
+        handleReminderRoute(ref.read(routerProvider), alarmRoute);
+      }
+      NativeAlarm.listen((r) => handleReminderRoute(ref.read(routerProvider), r));
+      SessionManager.instance.reconcile();
     });
   }
 
@@ -122,6 +156,7 @@ class _SessionKeeperState extends ConsumerState<_SessionKeeper> with WidgetsBind
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      SessionManager.instance.reconcile();
       DioClient.ensureSession();
       _guardWebsites();
     }

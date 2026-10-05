@@ -3,12 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/scheduled_focus.dart';
 import '../../providers/restriction_provider.dart';
 import '../../providers/scheduled_focus_provider.dart';
-import '../../repositories/focus_repository.dart';
 import '../../services/focus_blocking_service.dart';
+import '../../services/focus_session_manager.dart';
 import '../../services/restriction_store.dart';
 import '../../services/permissions_service.dart';
 import '../../services/website_protection_service.dart';
@@ -44,9 +43,6 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
       if (mounted) setState(() => _allowOnly = v);
     });
     _refresh();
-    SharedPreferences.getInstance().then((p) {
-      if (mounted) setState(() => _purpose = p.getString(_kPurpose));
-    });
     final sid = widget.startScheduleId;
     if (sid != null) {
       ref.read(scheduledFocusProvider.notifier).byId(sid).then((f) {
@@ -90,37 +86,25 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
     }
   }
 
-  static const _kSessionId = 'focus_backend_session_id';
-  static const _kPurpose = 'focus_active_purpose';
+  final _sessions = SessionManager.instance;
 
   Future<void> _refresh() async {
+    // A session that ran out while the app was closed is recorded here.
+    await _sessions.reconcile();
     final info = await _focus.getSessionInfo();
+    final live = await _sessions.info();
     final perms = await PermissionsService.instance.snapshot();
     if (mounted) {
       setState(() {
-        _session = info;
+        _session = {
+          ...info,
+          'active': live.active,
+          'endAtMs': live.endAt?.millisecondsSinceEpoch ?? 0,
+        };
+        if (live.active) _purpose = live.purpose.isEmpty ? null : live.purpose;
         _perms = perms;
       });
     }
-    if (info['active'] != true) _closeBackendSession();
-  }
-
-  /// Best-effort online record of the session. Enforcement never depends on this.
-  Future<void> _openBackendSession() async {
-    try {
-      final s = await FocusRepository().startSession();
-      (await SharedPreferences.getInstance()).setInt(_kSessionId, s.id);
-    } catch (_) {/* offline: the session still runs on the device */}
-  }
-
-  Future<void> _closeBackendSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    final id = prefs.getInt(_kSessionId);
-    if (id == null) return;
-    try {
-      await FocusRepository().endSession(id, durationMinutes: prefs.getInt('focus_active_minutes') ?? _minutes);
-      await prefs.remove(_kSessionId);
-    } catch (_) {/* try again next time the screen opens */}
   }
 
   Future<void> _start({ScheduledFocus? from}) async {
@@ -146,35 +130,27 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
       if (mounted) context.push('/focus/permissions');
       return;
     }
-    final ok = await _focus.startFocusSession(
-      apps.map((a) => a.packageName).toList(),
-      endAt: DateTime.now().add(Duration(minutes: minutes)),
-      allowOnly: _allowOnly,
+    final r = await _sessions.start(
+      minutes: minutes,
+      purpose: from?.purpose ?? '',
+      requireBlocking: true,
+      title: from?.displayTitle ?? '',
     );
-    if (ok) {
-      _openBackendSession();
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('focus_active_minutes', minutes);
-      if (from != null) {
-        await prefs.setString(_kPurpose, from.purpose);
-        await ref.read(scheduledFocusProvider.notifier).started(from); // stops the ringing
-        _due = null;
-      } else {
-        await prefs.remove(_kPurpose);
-      }
-      _purpose = from?.purpose;
+    if (r.ok && from != null) {
+      await ref.read(scheduledFocusProvider.notifier).started(from); // stops the ringing
+      _due = null;
     }
     await _refresh();
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _message = ok ? null : 'Android did not start the restriction service, so no apps are being blocked.';
+      _message = r.ok ? null : r.message;
     });
   }
 
   Future<void> _stop() async {
     setState(() => _busy = true);
-    await _focus.stopFocusSession();
+    await _sessions.end(early: true);
     await _refresh();
     if (mounted) setState(() => _busy = false);
   }

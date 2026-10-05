@@ -6,7 +6,6 @@ import '../../models/reminder.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/bible_provider.dart';
 import '../../providers/focus_provider.dart';
-import '../../providers/reminders_provider.dart';
 import '../../providers/remaining_providers.dart';
 import '../../widgets/common/app_widgets.dart';
 

@@ -13,13 +13,14 @@ class FocusRepository {
     return (readList(res.data)).map((j) => FocusSession.fromJson(j)).toList();
   }
 
-  Future<FocusSession> startSession() async {
-    final res = await _dio.post('/api/focus/sessions/start/');
+  Future<FocusSession> startSession({String purpose = ''}) async {
+    final res = await _dio.post('/api/focus/sessions/start/', data: {if (purpose.isNotEmpty) 'purpose': purpose});
     return FocusSession.fromJson(res.data['data'] ?? res.data);
   }
 
-  Future<FocusSession> endSession(int id, {int? durationMinutes, int? focusScore}) async {
+  Future<FocusSession> endSession(int id, {int? durationMinutes, int? focusScore, String status = 'completed'}) async {
     final res = await _dio.post('/api/focus/sessions/$id/end/', data: {
+      'status': status,
       if (durationMinutes != null) 'duration_minutes': durationMinutes,
       if (focusScore != null) 'focus_score': focusScore,
     });

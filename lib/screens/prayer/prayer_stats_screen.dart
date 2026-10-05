@@ -158,7 +158,7 @@ class _BigStat extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.navySurface,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           children: [

@@ -1,6 +1,4 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../core/theme.dart';
 import '../../services/music_controller.dart';
@@ -18,7 +16,6 @@ class MusicScreen extends StatefulWidget {
 
 class _MusicScreenState extends State<MusicScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final _music = MusicController.instance;
-  AudioPlayer get _player => _music.player;
   late final TabController _tabs = TabController(length: 2, vsync: this);
 
   _DeviceState _state = _DeviceState.loading;
@@ -93,8 +90,6 @@ class _MusicScreenState extends State<MusicScreen> with SingleTickerProviderStat
   Future<void> _play(List<Song> list, Song song) =>
       _music.playList(list, list.indexWhere((s) => s.id == song.id));
 
-  Future<void> _next() => _music.next();
-
   String _fmt(Duration d) => '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
 
   @override
@@ -129,7 +124,6 @@ class _MusicScreenState extends State<MusicScreen> with SingleTickerProviderStat
             padding: const EdgeInsets.all(10),
             child: Text(_playError!, style: const TextStyle(color: AppTheme.danger, fontSize: 12)),
           ),
-        if (_current != null) _miniPlayer(),
       ]),
     );
   }
@@ -206,68 +200,6 @@ class _MusicScreenState extends State<MusicScreen> with SingleTickerProviderStat
           onTap: () => _play(songs, s),
         );
       },
-    );
-  }
-
-  Widget _miniPlayer() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppTheme.navySurface,
-        border: Border(top: BorderSide(color: AppTheme.navyOutline)),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-      child: SafeArea(
-        top: false,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Row(children: [
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(_current!.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-                Text(_current!.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-              ]),
-            ),
-            StreamBuilder<PlayerState>(
-              stream: _player.playerStateStream,
-              builder: (_, snap) {
-                final playing = snap.data?.playing ?? false;
-                final loading = snap.data?.processingState == ProcessingState.loading ||
-                    snap.data?.processingState == ProcessingState.buffering;
-                return IconButton(
-                  iconSize: 38,
-                  color: AppTheme.goldDark,
-                  icon: loading
-                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.gold))
-                      : Icon(playing ? Icons.pause_circle_filled : Icons.play_circle_filled),
-                  onPressed: _music.toggle,
-                );
-              },
-            ),
-            IconButton(icon: const Icon(Icons.skip_previous), onPressed: _music.previous),
-            IconButton(icon: const Icon(Icons.skip_next), onPressed: _next),
-          ]),
-          StreamBuilder<Duration>(
-            stream: _player.positionStream,
-            builder: (_, snap) {
-              final pos = snap.data ?? Duration.zero;
-              final dur = _player.duration ?? _current!.duration;
-              final max = dur.inMilliseconds <= 0 ? 1.0 : dur.inMilliseconds.toDouble();
-              return Row(children: [
-                Text(_fmt(pos), style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
-                Expanded(
-                  child: Slider(
-                    activeColor: AppTheme.gold,
-                    inactiveColor: AppTheme.navyVariant,
-                    value: pos.inMilliseconds.toDouble().clamp(0, max),
-                    max: max,
-                    onChanged: (v) => _player.seek(Duration(milliseconds: v.toInt())),
-                  ),
-                ),
-                Text(_fmt(dur), style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
-              ]);
-            },
-          ),
-        ]),
-      ),
     );
   }
 }

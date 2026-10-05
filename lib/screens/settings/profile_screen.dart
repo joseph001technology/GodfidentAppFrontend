@@ -119,16 +119,22 @@ class ProfileScreen extends ConsumerWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Container(
-            width: 66,
-            height: 66,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [AppTheme.gold, AppTheme.goldLight]),
-              borderRadius: BorderRadius.circular(22),
+          GestureDetector(
+            onTap: () => context.push('/profile/edit'),
+            child: Container(
+              width: 66,
+              height: 66,
+              alignment: Alignment.center,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [AppTheme.gold, AppTheme.goldLight]),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: u?.avatarBytes != null
+                  ? Image.memory(u!.avatarBytes!, width: 66, height: 66, fit: BoxFit.cover, gaplessPlayback: true)
+                  : Text(u?.initials ?? 'G',
+                      style: const TextStyle(fontFamily: 'Lora', fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.inkNavy)),
             ),
-            child: Text(u?.initials ?? 'G',
-                style: const TextStyle(fontFamily: 'Lora', fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.inkNavy)),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -150,6 +156,28 @@ class ProfileScreen extends ConsumerWidget {
             icon: const Icon(Icons.edit_outlined, color: AppTheme.goldLight),
           ),
         ]),
+        if ((u?.profile?.church ?? '').isNotEmpty || (u?.profile?.location ?? '').isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(spacing: 14, runSpacing: 6, children: [
+            if ((u?.profile?.church ?? '').isNotEmpty)
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.church_outlined, size: 15, color: AppTheme.goldLight),
+                const SizedBox(width: 5),
+                Text(u!.profile!.church, style: const TextStyle(fontSize: 12, color: AppTheme.textOnDarkMuted)),
+              ]),
+            if ((u?.profile?.location ?? '').isNotEmpty)
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.place_outlined, size: 15, color: AppTheme.goldLight),
+                const SizedBox(width: 5),
+                Text(u!.profile!.location, style: const TextStyle(fontSize: 12, color: AppTheme.textOnDarkMuted)),
+              ]),
+          ]),
+        ],
+        if ((u?.profile?.favoriteVerse ?? '').isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text('\u201c${u!.profile!.favoriteVerse}\u201d',
+              style: const TextStyle(fontFamily: 'Lora', fontStyle: FontStyle.italic, color: AppTheme.goldLight, fontSize: 13, height: 1.4)),
+        ],
         if (bio.trim().isNotEmpty) ...[
           const SizedBox(height: 14),
           Text(bio, style: const TextStyle(color: AppTheme.textOnDarkMuted, height: 1.4, fontSize: 13)),

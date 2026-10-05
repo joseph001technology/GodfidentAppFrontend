@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../models/bible.dart';
 import '../../providers/bible_provider.dart';
+import '../../services/reader_settings.dart';
 import '../../widgets/common/app_widgets.dart';
+import 'reader_settings_sheet.dart';
 
 class BibleScreen extends ConsumerStatefulWidget {
   const BibleScreen({super.key});
@@ -15,7 +17,111 @@ class BibleScreen extends ConsumerStatefulWidget {
 
 class _BibleScreenState extends ConsumerState<BibleScreen> {
   int _selectedTestament = 0; // 0: Old Testament, 1: New Testament
-  String? _selectedBookName = '1 Samuel';
+  String? _selectedBookName;
+  ReadingPosition? _last;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLast();
+  }
+
+  Future<void> _loadLast() async {
+    final p = await ReadingPositionStore.load();
+    if (mounted) setState(() => _last = p);
+  }
+
+  void _showMenu(BuildContext context) {
+    final translation = ref.read(selectedTranslationProvider);
+    Widget item(IconData icon, String title, String sub, VoidCallback onTap) => ListTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, color: AppTheme.goldDark, size: 22),
+          ),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: sub.isEmpty ? null : Text(sub, style: const TextStyle(fontSize: 12)),
+          onTap: onTap,
+        );
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.navySurface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (sheet) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(top: 10, bottom: 12),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (_last != null)
+              item(Icons.play_circle_outline, 'Continue reading', '${_last!.book} ${_last!.chapter}', () {
+                Navigator.pop(sheet);
+                context.push(
+                    '/bible/chapter?book=${Uri.encodeComponent(_last!.book)}&chapter=${_last!.chapter}&translation=${_last!.translation}');
+              }),
+            item(Icons.translate_rounded, 'Translation', translation, () {
+              Navigator.pop(sheet);
+              _pickTranslation(context);
+            }),
+            item(Icons.text_fields_rounded, 'Text size and theme', 'Font, spacing, paper / sepia / night', () {
+              Navigator.pop(sheet);
+              showReaderSettingsSheet(context);
+            }),
+            item(Icons.bookmark_outline, 'Bookmarks', 'Verses you saved', () {
+              Navigator.pop(sheet);
+              context.push('/bible/library?tab=0');
+            }),
+            item(Icons.border_color_outlined, 'Highlights', 'Verses you coloured', () {
+              Navigator.pop(sheet);
+              context.push('/bible/library?tab=1');
+            }),
+            item(Icons.edit_note_rounded, 'Verse notes', 'What you wrote while reading', () {
+              Navigator.pop(sheet);
+              context.push('/bible/library?tab=2');
+            }),
+            item(Icons.calendar_month_outlined, 'Reading plans', 'Read the Bible in order', () {
+              Navigator.pop(sheet);
+              context.push('/more/plans');
+            }),
+            item(Icons.auto_stories_outlined, 'Devotionals', 'Daily reflections', () {
+              Navigator.pop(sheet);
+              context.push('/more/devotionals');
+            }),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickTranslation(BuildContext context) async {
+    List<BibleTranslation> list = const [];
+    try {
+      list = await ref.read(translationsProvider.future);
+    } catch (_) {}
+    if (!context.mounted) return;
+    if (list.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Translations could not be loaded. Check your connection.')));
+      return;
+    }
+    final current = ref.read(selectedTranslationProvider);
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (d) => SimpleDialog(
+        backgroundColor: AppTheme.navySurface,
+        title: const Text('Choose translation'),
+        children: [
+          for (final t in list)
+            ListTile(
+              title: Text(t.code, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(t.fullName.isNotEmpty ? t.fullName : t.name),
+              trailing: t.code == current ? const Icon(Icons.check, color: AppTheme.goldDark) : null,
+              onTap: () => Navigator.pop(d, t.code),
+            ),
+        ],
+      ),
+    );
+    if (picked != null) ref.read(selectedTranslationProvider.notifier).state = picked;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +155,8 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.menu, color: AppTheme.textPrimary),
-            onPressed: () {},
+            tooltip: 'Bible menu',
+            onPressed: () => _showMenu(context),
           ),
         ],
       ),
@@ -66,7 +173,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               decoration: BoxDecoration(
                 gradient: Gradients.verseOfDay, // was inline Color(0xFF1A1040)->Color(0xFF2D1B69)
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.gold.withOpacity(0.35)),
+                border: Border.all(color: AppTheme.gold.withValues(alpha: 0.35)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,7 +187,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                           fontFamily: 'Inter',
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.gold.withOpacity(0.9),
+                          color: AppTheme.gold.withValues(alpha: 0.9),
                           letterSpacing: 1.2,
                         ),
                       ),
@@ -136,6 +243,35 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                 ],
               ),
             ),
+
+            if (_last != null) ...[
+              const SizedBox(height: 14),
+              InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => context.push(
+                    '/bible/chapter?book=${Uri.encodeComponent(_last!.book)}&chapter=${_last!.chapter}&translation=${_last!.translation}'),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.navySurface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.navyOutline),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.play_circle_fill_rounded, color: AppTheme.goldDark, size: 30),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('Continue reading', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                        Text('${_last!.book} ${_last!.chapter}',
+                            style: const TextStyle(fontFamily: 'Lora', fontSize: 17, fontWeight: FontWeight.bold)),
+                      ]),
+                    ),
+                    const Icon(Icons.chevron_right, color: AppTheme.textMuted),
+                  ]),
+                ),
+              ),
+            ],
 
             const SizedBox(height: 20),
 
@@ -267,7 +403,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               },
               child: Container(
                 decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.gold.withOpacity(0.16) : AppTheme.navyVariant,
+                  color: isSelected ? AppTheme.gold.withValues(alpha: 0.16) : AppTheme.navyVariant,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     // was Colors.white.withOpacity(0.08) — invisible on a
@@ -326,7 +462,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppTheme.gold.withOpacity(0.15),
+                    color: AppTheme.gold.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -364,7 +500,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                       Navigator.pop(context);
                       context.push(
                         '/bible/chapter?book=${Uri.encodeComponent(book.name)}&chapter=$ch&translation=$translation',
-                      );
+                      ).then((_) => _loadLast());
                     },
                     child: Container(
                       decoration: BoxDecoration(

@@ -29,20 +29,35 @@ class MainActivity : AudioServiceActivity() {
     companion object {
         const val CHANNEL = "com.godfident/focus_blocking"
         const val EXTRA_BLOCKED_APP_LABEL = "extra_blocked_app_label"
+        const val EXTRA_ALARM_ROUTE = "extra_alarm_route"
         private const val REQ_VPN = 7001
     }
 
     private var pendingBlockedAppLabel: String? = null
+    private var pendingAlarmRoute: String? = null
+    private var channel: MethodChannel? = null
     private var pendingVpnResult: MethodChannel.Result? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         consumeBlockedAppExtra(intent)
+        consumeAlarmRoute(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         consumeBlockedAppExtra(intent)
+        consumeAlarmRoute(intent)
+    }
+
+    /** Opened from a ringing alarm: stop the sound and tell Dart where to go. */
+    private fun consumeAlarmRoute(intent: Intent?) {
+        val route = intent?.getStringExtra(EXTRA_ALARM_ROUTE) ?: return
+        intent.removeExtra(EXTRA_ALARM_ROUTE)
+        try { AlarmRingService.stop(this) } catch (_: Exception) {}
+        val ch = channel
+        if (ch != null) ch.invokeMethod("onAlarmRoute", route) else pendingAlarmRoute = route
     }
 
     private fun consumeBlockedAppExtra(intent: Intent?) {
@@ -72,7 +87,9 @@ class MainActivity : AudioServiceActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+        val ch = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        channel = ch
+        ch.setMethodCallHandler { call, result ->
             when (call.method) {
                 // ───── app restriction / focus session ─────
                 "hasUsageAccess" -> result.success(hasUsageAccess())
@@ -135,6 +152,46 @@ class MainActivity : AudioServiceActivity() {
 
                 "getSdkInt" -> result.success(Build.VERSION.SDK_INT)
 
+                // ───── ringing alarms (reminder alarms, pre-set Focus sessions) ─────
+                "scheduleAlarm" -> {
+                    try {
+                        AlarmScheduler.schedule(
+                            this,
+                            AlarmScheduler.Alarm(
+                                id = call.argument<Int>("id") ?: 0,
+                                whenMs = (call.argument<Number>("whenMs") ?: 0).toLong(),
+                                repeatMs = (call.argument<Number>("repeatMs") ?: 0).toLong(),
+                                title = call.argument<String>("title") ?: "",
+                                body = call.argument<String>("body") ?: "",
+                                route = call.argument<String>("route") ?: "",
+                                soundUri = resolveSound(call.argument<String>("sound") ?: ""),
+                                maxSeconds = call.argument<Int>("maxSeconds") ?: 60,
+                                startLabel = call.argument<String>("startLabel") ?: ""
+                            )
+                        )
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
+                }
+                "cancelAlarm" -> {
+                    AlarmScheduler.cancel(this, call.argument<Int>("id") ?: 0)
+                    result.success(true)
+                }
+                "stopAlarmSound" -> {
+                    AlarmRingService.stop(this)
+                    result.success(true)
+                }
+                "getLaunchRoute" -> {
+                    val r = pendingAlarmRoute
+                    pendingAlarmRoute = null
+                    result.success(r)
+                }
+                "canScheduleExactAlarms" -> {
+                    val am = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                    result.success(Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms())
+                }
+
                 // ───── songs stored on the device (MediaStore) ─────
                 "getDeviceSongs" -> Thread {
                     val songs = try { queryDeviceSongs() } catch (_: Exception) { emptyList() }
@@ -194,6 +251,17 @@ class MainActivity : AudioServiceActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    /** "raw:godfident_bell" -> android.resource:// URI of the bundled tone; anything else is used as is. */
+    private fun resolveSound(s: String): String {
+        if (s.startsWith("raw:")) {
+            val name = s.removePrefix("raw:")
+            val id = resources.getIdentifier(name, "raw", packageName)
+            if (id != 0) return "android.resource://$packageName/$id"
+            return ""
+        }
+        return s
     }
 
     private fun sessionInfo(): Map<String, Any> {

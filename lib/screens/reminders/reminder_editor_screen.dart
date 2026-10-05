@@ -26,6 +26,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
   DateTime selectedDate = DateTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
   int? selectedCategoryId;
+  String selectedTarget = 'general';
   String selectedRepeat = 'none';
   bool isEnabled = true;
   bool isAlarmWithRingtone = true;
@@ -65,6 +66,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
         isEnabled = r.isEnabled;
         isAlarmWithRingtone = r.isAlarm;
         selectedCategoryId = r.category;
+        selectedTarget = r.kind;
       });
     } catch (e) {
       if (mounted) {
@@ -108,6 +110,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
       'is_enabled': isEnabled,
       'is_alarm': isAlarmWithRingtone,
       if (selectedCategoryId != null) 'category': selectedCategoryId,
+      'target_page': selectedTarget,
       'snooze_minutes': snoozeDuration.inMinutes,
     };
 
@@ -296,61 +299,57 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
     );
   }
 
-  Widget _buildCategorySelector() {
-    final categoriesAsync = ref.watch(reminderCategoriesProvider);
+  static const _kinds = <(String, String, String, String)>[
+    ('prayer', '\u{1F64F}', 'Prayer', 'Tap opens a Prayer Focus session'),
+    ('bible', '\u{1F4D6}', 'Reading', 'Tap starts Focus and opens the Bible'),
+    ('both', '\u2728', 'Both', 'Tap starts Focus and opens Home'),
+    ('general', '\u23F0', 'Other', 'Tap opens your Reminders'),
+  ];
 
+  Widget _buildCategorySelector() {
+    final current = _kinds.firstWhere((k) => k.$1 == selectedTarget, orElse: () => _kinds.last);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Category',
+          'Type of reminder',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppTheme.textSecondary,
-            fontWeight: FontWeight.w500,
-          ),
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
         ),
         const SizedBox(height: 12),
-        categoriesAsync.when(
-          data: (categories) => Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: categories.map((category) {
-              final isSelected = selectedCategoryId == category.id;
-              return GestureDetector(
-                onTap: () => setState(() => selectedCategoryId = isSelected ? null : category.id),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final k in _kinds)
+              GestureDetector(
+                onTap: () => setState(() => selectedTarget = k.$1),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppTheme.emerald : AppTheme.navySurface,
+                    color: selectedTarget == k.$1 ? AppTheme.emerald : AppTheme.navySurface,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isSelected ? AppTheme.emerald : Colors.transparent,
+                    border: Border.all(color: selectedTarget == k.$1 ? AppTheme.emerald : AppTheme.navyOutline),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text(k.$2, style: const TextStyle(fontSize: 16)),
+                    const SizedBox(width: 6),
+                    Text(
+                      k.$3,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: selectedTarget == k.$1 ? Colors.white : AppTheme.textPrimary,
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        category.icon ?? '📌',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        category.name.toUpperCase(),
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: isSelected ? Colors.white : AppTheme.textSecondary,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
+                  ]),
                 ),
-              );
-            }).toList(),
-          ),
-          loading: () => const CircularProgressIndicator(),
-          error: (_, __) => const Text('Could not load categories', style: TextStyle(color: AppTheme.textSecondary)),
+              ),
+          ],
         ),
+        const SizedBox(height: 8),
+        Text(current.$4, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
       ],
     );
   }

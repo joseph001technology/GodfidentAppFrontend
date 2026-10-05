@@ -57,6 +57,8 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
@@ -154,6 +156,14 @@
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
+
+        <!-- Ringing alarms: AlarmManager -> receiver -> foreground service that
+             plays the alarm sound until it is stopped. -->
+        <receiver android:name=".AlarmReceiver" android:exported="false" />
+        <service
+            android:name=".AlarmRingService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
         <!-- Re-applies protection after a reboot. -->
         <receiver

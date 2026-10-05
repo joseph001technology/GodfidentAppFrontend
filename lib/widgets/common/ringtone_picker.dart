@@ -43,7 +43,19 @@ class _RingtoneSheetState extends State<_RingtoneSheet> {
   bool _showSongs = false;
 
   @override
+  void initState() {
+    super.initState();
+    _music.addListener(_onMusic);
+  }
+
+  void _onMusic() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    _music.removeListener(_onMusic);
+    // Closing the sheet in any way (Use, Back, swipe down) stops the sound.
     _music.stopPreview();
     super.dispose();
   }
@@ -98,6 +110,30 @@ class _RingtoneSheetState extends State<_RingtoneSheet> {
           Text(_showSongs ? 'Songs on this phone' : 'Choose ringtone',
               style: const TextStyle(fontFamily: 'Lora', fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
+          if (_music.previewTitle != null || _music.previewError != null)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+              decoration: BoxDecoration(
+                color: (_music.previewError != null ? AppTheme.danger : AppTheme.gold).withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(children: [
+                Icon(_music.previewError != null ? Icons.error_outline : Icons.graphic_eq,
+                    color: _music.previewError != null ? AppTheme.danger : AppTheme.goldDark, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(_music.previewError ?? 'Playing: ${_music.previewTitle}',
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                ),
+                if (_music.previewError == null)
+                  IconButton(
+                    tooltip: 'Stop',
+                    icon: const Icon(Icons.stop_circle_outlined),
+                    onPressed: _music.stopPreview,
+                  ),
+              ]),
+            ),
           Expanded(
             child: _showSongs ? _songList() : ListView(children: [
               for (final t in Ringtone.builtIn)
@@ -120,7 +156,12 @@ class _RingtoneSheetState extends State<_RingtoneSheet> {
             padding: const EdgeInsets.all(16),
             child: Row(children: [
               if (_showSongs)
-                TextButton(onPressed: () => setState(() => _showSongs = false), child: const Text('Back')),
+                TextButton(
+                  onPressed: () {
+                    _music.stopPreview();
+                    setState(() => _showSongs = false);
+                  },
+                  child: const Text('Back')),
               const Spacer(),
               ElevatedButton(
                 onPressed: () {

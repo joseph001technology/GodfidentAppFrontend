@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../../providers/restriction_provider.dart';
-import '../../services/focus_blocking_service.dart';
 import '../../widgets/common/app_widgets.dart';
 
 /// Lists the REAL apps installed on this phone. Nothing here is hardcoded.

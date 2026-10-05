@@ -10,9 +10,9 @@ import '../screens/bible/bible_screen.dart';
 import '../screens/bible/chapter_screen.dart';
 import '../screens/bible/verse_detail_screen.dart';
 import '../screens/bible/search_screen.dart';
+import '../screens/bible/bible_library_screen.dart';
 import '../screens/devotionals/devotional_detail_screen.dart';
 import '../screens/devotionals/devotional_list_screen.dart';
-import '../screens/devotionals/saved_devotionals_screen.dart';
 import '../screens/reading_plans/plans_screen.dart';
 import '../screens/reading_plans/my_plans_screen.dart';
 import '../screens/reading_plans/plan_day_screen.dart';
@@ -20,13 +20,13 @@ import '../screens/prayer/prayer_list_screen.dart';
 import '../screens/prayer/prayer_form_screen.dart';
 import '../screens/prayer/prayer_detail_screen.dart';
 import '../screens/prayer/prayer_stats_screen.dart';
+import '../screens/prayer/prayer_focus_screen.dart';
 import '../screens/analytics/dashboard_screen.dart';
 import '../screens/search/global_search_screen.dart';
 import '../screens/notes/notes_rules_screen.dart';
 import '../screens/notes/note_editor_screen.dart';
 import '../screens/notes/note_detail_screen.dart';
 import '../screens/rules/rule_editor_screen.dart';
-import '../screens/notifications/notification_settings_screen.dart' as legacyNotificationSettingsScreen;
 import '../screens/reminders/reminders_screen.dart';
 import '../screens/reminders/reminder_editor_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
@@ -79,6 +79,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                   book: state.uri.queryParameters['book']!,
                   chapter: int.parse(state.uri.queryParameters['chapter']!),
                   translation: state.uri.queryParameters['translation'] ?? 'KJV',
+                  focusVerse: int.tryParse(state.uri.queryParameters['verse'] ?? ''),
+                ),
+              ),
+              GoRoute(
+                path: 'library',
+                builder: (_, state) => BibleLibraryScreen(
+                  initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0,
                 ),
               ),
               GoRoute(
@@ -118,6 +125,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const PrayerListScreen(),
             routes: [
               GoRoute(path: 'new', builder: (_, __) => const PrayerFormScreen()),
+              GoRoute(
+                path: 'focus',
+                builder: (_, state) => PrayerFocusScreen(autoStart: state.uri.queryParameters['auto'] == '1'),
+              ),
               GoRoute(
                 path: ':id',
                 builder: (_, state) => PrayerDetailScreen(id: int.parse(state.pathParameters['id']!)),

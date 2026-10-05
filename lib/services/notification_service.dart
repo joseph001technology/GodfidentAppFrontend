@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -8,6 +7,7 @@ import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 import '../models/reminder.dart';
 import '../models/scheduled_focus.dart';
+import 'native_alarm.dart';
 import 'ringtone_store.dart';
 
 class NotificationService {
@@ -152,6 +152,9 @@ class NotificationService {
       ? UriAndroidNotificationSound(t.uri!)
       : RawResourceAndroidNotificationSound('godfident_${t.id}');
 
+  /// Sound argument for [NativeAlarm]: bundled tone, phone song, or default alarm tone.
+  String _nativeSound(Ringtone t) => t.isDevice ? t.uri! : 'raw:godfident_${t.id}';
+
   // A channel's sound cannot change after it is created, so every
   // (kind, ringtone) pair gets its own channel.
   String _channelIdFor(Ringtone t, bool alarm) =>
@@ -214,6 +217,33 @@ class NotificationService {
       }
 
       final tone = await RingtoneStore.instance.load(reminder.id);
+
+      // Alarms ring from a native service so nothing can cut the sound short.
+      if (reminder.isAlarm && reminder.repeat != 'monthly') {
+        final ok = await NativeAlarm.schedule(
+          id: reminder.id,
+          when: when,
+          repeat: reminder.repeat == 'daily'
+              ? const Duration(days: 1)
+              : reminder.repeat == 'weekly'
+                  ? const Duration(days: 7)
+                  : Duration.zero,
+          title: reminder.title,
+          body: reminder.description?.isNotEmpty == true ? reminder.description! : 'Time for your spiritual check-in',
+          route: reminder.targetRoute,
+          sound: _nativeSound(tone),
+          maxSeconds: 120,
+        );
+        if (ok) {
+          try {
+            await _plugin.cancel(reminder.id); // drop a notification-style copy, if any
+          } catch (_) {}
+          return true;
+        }
+      } else {
+        await NativeAlarm.cancel(reminder.id); // no longer an alarm
+      }
+
       final details = NotificationDetails(
         android: _androidDetails(tone, reminder.isAlarm),
         iOS: DarwinNotificationDetails(
@@ -342,17 +372,32 @@ class NotificationService {
       for (final wd in slots) {
         final slot = wd ?? 0;
         final match = wd == null ? null : DateTimeComponents.dayOfWeekAndTime;
-        await _plugin.zonedSchedule(
-          _focusNotifId(f.id, slot),
-          'Your time with God is starting',
-          '${f.displayTitle} \u00b7 ${f.durationLabel}. Press Start to begin your Focus session.',
-          _nextFocusInstance(wd, f.hour, f.minute),
-          ring,
-          androidScheduleMode: mode,
-          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-          matchDateTimeComponents: match,
-          payload: focusRoute(f.id),
+        final first = _nextFocusInstance(wd, f.hour, f.minute);
+        // The ringing itself: native service, keeps ringing until Start / Stop.
+        final nativeOk = await NativeAlarm.schedule(
+          id: _focusNotifId(f.id, slot),
+          when: first,
+          repeat: wd == null ? Duration.zero : const Duration(days: 7),
+          title: 'Your time with God is starting',
+          body: '${f.displayTitle} \u00b7 ${f.durationLabel}. Press Start to begin your Focus session.',
+          route: focusRoute(f.id),
+          sound: _nativeSound(tone),
+          maxSeconds: 30 * 60,
+          startLabel: 'Start',
         );
+        if (!nativeOk) {
+          await _plugin.zonedSchedule(
+            _focusNotifId(f.id, slot),
+            'Your time with God is starting',
+            '${f.displayTitle} \u00b7 ${f.durationLabel}. Press Start to begin your Focus session.',
+            first,
+            ring,
+            androidScheduleMode: mode,
+            uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+            matchDateTimeComponents: match,
+            payload: focusRoute(f.id),
+          );
+        }
         // 5 minutes before. Its weekday may differ from [wd] when it crosses midnight.
         final before = _nextFocusInstance(wd, f.hour, f.minute, shiftMinutes: -5);
         await _plugin.zonedSchedule(
@@ -377,6 +422,7 @@ class NotificationService {
   /// Stops the ringing for [f] after Start is pressed, then re-arms its future
   /// occurrences (cancelling a notification id also removes its repeat).
   Future<void> silenceFocusRing(ScheduledFocus f) async {
+    await NativeAlarm.stopSound();
     await cancelFocusSession(f.id);
     if (f.days.isNotEmpty) await scheduleFocusSession(f);
   }
@@ -389,6 +435,51 @@ class NotificationService {
       if (d?.didNotificationLaunchApp ?? false) return d?.notificationResponse?.payload;
     } catch (_) {}
     return null;
+  }
+
+  // ── "Your session has ended" ────────────────────────────────────────
+  static const _focusEndId = 700001;
+
+  /// Schedules a notification for the moment a Focus / Prayer session ends,
+  /// so it arrives even if the app is closed. Cancel it if the session is
+  /// ended early.
+  Future<void> scheduleFocusEnd(DateTime endAt, {String purpose = '', String route = '/focus'}) async {
+    try {
+      await initialize();
+      await _plugin.cancel(_focusEndId);
+      if (!endAt.isAfter(DateTime.now())) return;
+      final what = purpose == 'prayer' ? 'prayer' : purpose == 'bible' ? 'Bible reading' : 'Focus';
+      final exact = await Permission.scheduleExactAlarm.isGranted;
+      await _plugin.zonedSchedule(
+        _focusEndId,
+        'Your $what session has ended',
+        'Well done. Your time with God is recorded.',
+        tz.TZDateTime.from(endAt, tz.local),
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'focus_end',
+            'Session finished',
+            channelDescription: 'Tells you when a Focus or Prayer session is over',
+            importance: Importance.high,
+            priority: Priority.high,
+            playSound: true,
+            enableVibration: true,
+          ),
+          iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
+        ),
+        androidScheduleMode: exact ? AndroidScheduleMode.exactAllowWhileIdle : AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        payload: route,
+      );
+    } catch (e) {
+      if (kDebugMode) print('scheduleFocusEnd failed: $e');
+    }
+  }
+
+  Future<void> cancelFocusEnd() async {
+    try {
+      await _plugin.cancel(_focusEndId);
+    } catch (_) {}
   }
 
   Future<int> pendingCount() async => (await _plugin.pendingNotificationRequests()).length;
@@ -414,6 +505,7 @@ class NotificationService {
   /// used to: one PlatformException here meant the delete request never ran).
   Future<bool> cancelReminder(int id) async {
     try {
+      await NativeAlarm.cancel(id);
       await _plugin.cancel(id);
       return true;
     } catch (e) {

@@ -37,6 +37,9 @@ class BootReceiver : BroadcastReceiver() {
             return
         }
 
+        // Ringing alarms (reminder alarms + pre-set Focus sessions) are lost on reboot otherwise.
+        try { AlarmScheduler.rearmAll(context) } catch (_: Exception) {}
+
         val web = context.getSharedPreferences(WebsiteBlockVpnService.PREFS, Context.MODE_PRIVATE)
         if (web.getBoolean(WebsiteBlockVpnService.KEY_ACTIVE, false) && VpnService.prepare(context) == null) {
             try {

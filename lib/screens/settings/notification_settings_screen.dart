@@ -1,204 +1,180 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
-import '../../services/notification_service.dart';
 import '../../models/reminder.dart';
+import '../../services/notification_service.dart';
+import '../../services/permissions_service.dart';
 
+/// Plain-language notifications page. Reminders themselves (time, type, sound)
+/// are created in the Reminders tab; this page only answers "will my reminders
+/// actually reach me?" and lets the user fix whatever Android is blocking.
 class NotificationSettingsScreen extends ConsumerStatefulWidget {
   const NotificationSettingsScreen({super.key});
-
   @override
   ConsumerState<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
 }
 
-class _NotificationSettingsScreenState extends ConsumerState<NotificationSettingsScreen> {
-  final Map<String, Map<String, dynamic>> _settings = {};
-  final List<Map<String, String>> _types = [
-    {'key': 'prayer', 'label': 'Prayer reminders'},
-    {'key': 'bible', 'label': 'Bible reminders'},
-    {'key': 'reading', 'label': 'Reading reminders'},
-    {'key': 'habit', 'label': 'Habit reminders'},
-    {'key': 'devotional', 'label': 'Devotionals'},
-    {'key': 'daily_verse', 'label': 'Daily verse'},
-  ];
+class _NotificationSettingsScreenState extends ConsumerState<NotificationSettingsScreen> with WidgetsBindingObserver {
+  List<PermissionItem> _items = const [];
+  bool _loading = true;
+
+  static const _ids = ['notifications', 'alarms', 'battery'];
 
   @override
   void initState() {
     super.initState();
-    _load();
+    WidgetsBinding.instance.addObserver(this);
+    _refresh();
   }
 
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('notification_settings') ?? '{}';
-    final map = jsonDecode(raw) as Map<String, dynamic>;
-    for (final t in _types) {
-      final key = t['key']!;
-      final value = map[key] as Map<String, dynamic>?;
-      _settings[key] = {
-        'enabled': value?['enabled'] ?? false,
-        'hour': value?['hour'] ?? 7,
-        'minute': value?['minute'] ?? 0,
-        'repeat': value?['repeat'] ?? 'daily',
-        'mode': value?['mode'] ?? 'notification',
-      };
-    }
-    setState(() {});
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
-  Future<void> _save() async {
-    final prefs = await SharedPreferences.getInstance();
-    final out = <String, dynamic>{};
-    _settings.forEach((k, v) => out[k] = v);
-    await prefs.setString('notification_settings', jsonEncode(out));
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    if (s == AppLifecycleState.resumed) _refresh();
   }
 
-  Future<void> _applySetting(String key) async {
-    final s = _settings[key]!;
-    final enabled = s['enabled'] as bool;
-    final hour = s['hour'] as int;
-    final minute = s['minute'] as int;
-    final repeat = s['repeat'] as String;
-    final mode = s['mode'] as String;
+  Future<void> _refresh() async {
+    final all = await PermissionsService.instance.snapshot();
+    if (!mounted) return;
+    setState(() {
+      _items = all.where((p) => _ids.contains(p.id)).toList();
+      _loading = false;
+    });
+  }
 
-    // Create a lightweight Reminder object to schedule
+  Future<void> _fix(String id) async {
+    await PermissionsService.instance.request(id);
+    await _refresh();
+  }
+
+  Future<void> _test() async {
     final now = DateTime.now();
-    final scheduleDate = DateTime(now.year, now.month, now.day, hour, minute);
-    final rid = key.hashCode & 0x7FFFFFFF; // positive id
-
-    final reminder = Reminder(
-      id: rid,
-      title: _types.firstWhere((t) => t['key'] == key)['label']!,
-      description: 'Auto reminder',
-      date: '${scheduleDate.year}-${scheduleDate.month.toString().padLeft(2, '0')}-${scheduleDate.day.toString().padLeft(2, '0')}',
-      time: '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}:00',
-      createdAt: DateTime.now().toIso8601String(),
+    final r = Reminder(
+      id: 987654,
+      title: 'Test from Godfident',
+      description: 'If you can see this, your reminders will reach you.',
+      date: '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
+      time: '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:00',
+      createdAt: now.toIso8601String(),
     );
-
-    final notif = NotificationService();
-    if (enabled) {
-      if (mode == 'alarm') {
-        await notif.scheduleAlarm(reminder);
-      } else {
-        await notif.scheduleReminder(reminder);
-      }
-    } else {
-      await notif.cancelReminder(rid);
+    await NotificationService().showNow(r);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Test notification sent')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final allOk = _items.isNotEmpty && _items.every((p) => p.granted);
     return Scaffold(
       backgroundColor: AppTheme.navy,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text('Notification Settings', style: TextStyle(fontFamily: 'Lora', fontSize: 22, color: AppTheme.textPrimary)),
-      ),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: _types.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, i) {
-          final t = _types[i];
-          final key = t['key']!;
-          final s = _settings[key] ?? {'enabled': false, 'hour': 7, 'minute': 0, 'repeat': 'daily', 'mode': 'notification'};
-          return Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppTheme.navySurface, borderRadius: BorderRadius.circular(12)),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(t['label']!, style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-                    const SizedBox(height: 6),
-                    Text('${(s['hour'] as int).toString().padLeft(2, '0')}:${(s['minute'] as int).toString().padLeft(2, '0')} · ${s['repeat']}', style: const TextStyle(color: AppTheme.textMuted)),
-                  ]),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit, color: AppTheme.textMuted),
-                  onPressed: () async {
-                    final result = await showDialog<Map<String, dynamic>>(context: context, builder: (_) => _editDialog(context, key));
-                    if (result != null) {
-                      _settings[key] = result;
-                      await _save();
-                      await _applySetting(key);
-                      setState(() {});
-                    }
-                  },
-                ),
-                Switch(
-                  value: s['enabled'] as bool,
-                  onChanged: (v) async {
-                    _settings[key] = {...s, 'enabled': v};
-                    await _save();
-                    await _applySetting(key);
-                    setState(() {});
-                  },
-                ),
-              ],
+      appBar: AppBar(title: const Text('Notifications')),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: (allOk ? AppTheme.emerald : AppTheme.gold).withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(children: [
+            Icon(allOk ? Icons.check_circle : Icons.info_outline, color: allOk ? AppTheme.emerald : AppTheme.goldDark),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                allOk
+                    ? 'Everything is set. Your reminders will reach you on time, even when Godfident is closed.'
+                    : 'A few switches below need to be allowed so your reminders arrive on time.',
+                style: const TextStyle(fontWeight: FontWeight.w600, height: 1.35),
+              ),
             ),
-          );
-        },
-      ),
+          ]),
+        ),
+        const SizedBox(height: 18),
+        if (_loading) const Center(child: CircularProgressIndicator(color: AppTheme.gold)),
+        for (final p in _items)
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.navySurface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppTheme.navyOutline),
+            ),
+            child: Row(children: [
+              Icon(p.granted ? Icons.check_circle : Icons.error_outline, color: p.granted ? AppTheme.emerald : AppTheme.danger),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(p.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(p.why, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35)),
+                ]),
+              ),
+              if (!p.granted)
+                TextButton(onPressed: () => _fix(p.id), child: const Text('Allow')),
+            ]),
+          ),
+        const SizedBox(height: 10),
+        const Text('How reminders work',
+            style: TextStyle(fontFamily: 'Lora', fontSize: 17, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        const _Help(Icons.alarm_add_outlined, 'Set them in the Reminders tab',
+            'Choose a time, a type (Prayer, Reading, Both or Other), how often it repeats and the sound.'),
+        const _Help(Icons.touch_app_outlined, 'Tapping a reminder takes you there',
+            'Prayer opens a Prayer Focus session. Reading starts Focus and opens the Bible. Both starts Focus on Home. Other opens Reminders.'),
+        const _Help(Icons.notifications_active_outlined, 'Notification or alarm',
+            'A notification rings once. An alarm keeps ringing until you stop it, like a clock alarm.'),
+        const _Help(Icons.flag_outlined, 'End of session',
+            'When a Focus or Prayer Focus session finishes, Godfident tells you, even if the app is closed.'),
+        const SizedBox(height: 14),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _test,
+              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+              icon: const Icon(Icons.send_outlined, size: 18),
+              label: const Text('Send a test'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () => context.go('/reminders'),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.gold, foregroundColor: AppTheme.inkNavy, minimumSize: const Size(0, 48)),
+              icon: const Icon(Icons.alarm, size: 18),
+              label: const Text('My reminders'),
+            ),
+          ),
+        ]),
+      ]),
     );
   }
+}
 
-  Widget _editDialog(BuildContext context, String key) {
-    final s = Map<String, dynamic>.from(_settings[key] ?? {'enabled': false, 'hour': 7, 'minute': 0, 'repeat': 'daily', 'mode': 'notification'});
-    TimeOfDay selected = TimeOfDay(hour: s['hour'] as int, minute: s['minute'] as int);
-    String repeat = s['repeat'] as String;
-    String mode = s['mode'] as String;
-
-    return AlertDialog(
-      backgroundColor: AppTheme.navySurface,
-      title: const Text('Edit Reminder', style: TextStyle(color: AppTheme.textPrimary)),
-      content: StatefulBuilder(builder: (context, st) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.access_time, color: AppTheme.textMuted),
-              title: Text('Time: ${selected.format(context)}', style: const TextStyle(color: AppTheme.textPrimary)),
-              onTap: () async {
-                final t = await showTimePicker(context: context, initialTime: selected);
-                if (t != null) st(() => selected = t);
-              },
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: repeat,
-              items: const [
-                DropdownMenuItem(value: 'none', child: Text('None')),
-                DropdownMenuItem(value: 'daily', child: Text('Daily')),
-                DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
-              ],
-              onChanged: (v) => st(() => repeat = v ?? 'daily'),
-              decoration: const InputDecoration(labelText: 'Repeat'),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: mode,
-              items: const [
-                DropdownMenuItem(value: 'notification', child: Text('Notification')),
-                DropdownMenuItem(value: 'alarm', child: Text('Alarm')),
-              ],
-              onChanged: (v) => st(() => mode = v ?? 'notification'),
-              decoration: const InputDecoration(labelText: 'Mode'),
-            ),
-          ],
-        );
-      }),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        TextButton(onPressed: () {
-          _settings[key] = {'enabled': true, 'hour': selected.hour, 'minute': selected.minute, 'repeat': repeat, 'mode': mode};
-          Navigator.pop(context, _settings[key]);
-        }, child: const Text('Save')),
-      ],
-    );
-  }
+class _Help extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String body;
+  const _Help(this.icon, this.title, this.body);
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, color: AppTheme.goldDark, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(body, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35)),
+            ]),
+          ),
+        ]),
+      );
 }

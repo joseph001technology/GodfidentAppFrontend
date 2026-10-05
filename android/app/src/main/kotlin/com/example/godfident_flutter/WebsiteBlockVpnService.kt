@@ -51,7 +51,7 @@ class WebsiteBlockVpnService : VpnService() {
         private const val NOTIFICATION_ID = 4202
         private const val VPN_ADDRESS = "10.99.0.1"
         private const val FAKE_DNS = "10.99.0.2"
-        private val UPSTREAM_DNS = arrayOf("8.8.8.8", "1.1.1.1")
+        private val UPSTREAM_DNS = arrayOf("8.8.8.8", "1.1.1.1", "9.9.9.9")
 
         @Volatile
         var isRunning: Boolean = false
@@ -100,13 +100,59 @@ class WebsiteBlockVpnService : VpnService() {
             }
         }
 
-        /** True if [host] equals a blocked domain or is a subdomain of one. */
+        /**
+         * Sites that load from several domains. Blocking the main name alone lets the
+         * rest of the site (or its app) keep working, which is why some sites seemed
+         * "half blocked". Blocking any name in a group blocks the whole group.
+         */
+        private val SITE_GROUPS: List<Set<String>> = listOf(
+            setOf("tiktok.com", "tiktokv.com", "tiktokcdn.com", "tiktokcdn-us.com", "tiktokcdn-eu.com", "ttwstatic.com", "byteoversea.com", "ibytedtos.com", "musical.ly"),
+            setOf("youtube.com", "youtu.be", "ytimg.com", "youtube-nocookie.com", "googlevideo.com", "youtubekids.com", "yt.be"),
+            setOf("instagram.com", "cdninstagram.com", "instagr.am", "ig.me"),
+            setOf("facebook.com", "fb.com", "fb.me", "fbcdn.net", "facebook.net", "fbsbx.com", "messenger.com", "m.me"),
+            setOf("twitter.com", "x.com", "t.co", "twimg.com"),
+            setOf("snapchat.com", "sc-cdn.net", "snap-dev.net", "snapkit.com"),
+            setOf("reddit.com", "redd.it", "redditmedia.com", "redditstatic.com"),
+            setOf("netflix.com", "nflxvideo.net", "nflximg.net", "nflxext.com", "nflxso.net"),
+            setOf("twitch.tv", "ttvnw.net", "jtvnw.net", "twitchcdn.net"),
+            setOf("pinterest.com", "pinimg.com", "pin.it"),
+            setOf("whatsapp.com", "whatsapp.net", "wa.me"),
+            setOf("telegram.org", "t.me", "telegram.me", "telesco.pe", "tdesktop.com"),
+            setOf("discord.com", "discordapp.com", "discord.gg", "discordapp.net", "discord.media"),
+        )
+
+        /**
+         * Names browsers use for their own encrypted DNS ("Secure DNS"). Answering NXDOMAIN
+         * for them makes the browser fall back to the phone's DNS (which we filter).
+         */
+        private val DOH_HOSTS = setOf(
+            "dns.google", "dns.google.com", "dns64.dns.google", "cloudflare-dns.com", "one.one.one.one",
+            "mozilla.cloudflare-dns.com", "chrome.cloudflare-dns.com", "security.cloudflare-dns.com",
+            "family.cloudflare-dns.com", "dns.quad9.net", "dns9.quad9.net", "dns10.quad9.net", "dns11.quad9.net",
+            "doh.opendns.com", "dns.opendns.com", "doh.cleanbrowsing.org", "dns.adguard.com", "dns.adguard-dns.com",
+            "dns-family.adguard.com", "doh.dns.sb", "dns.nextdns.io", "doh.mullvad.net", "dns.mullvad.net",
+            "use-application-dns.net",
+        )
+
+        private fun cleanDomain(raw: String): String =
+            raw.lowercase().trim().removePrefix("http://").removePrefix("https://")
+                .substringBefore('/').substringBefore('?').substringBefore(':').removePrefix("www.").trimEnd('.')
+
+        private fun matches(h: String, d: String) = h == d || h.endsWith(".$d")
+
+        /** True if [host] equals a blocked domain, is a subdomain of one, or belongs to the same site group. */
         fun isBlocked(host: String, domains: Set<String>): Boolean {
             val h = host.lowercase().trimEnd('.')
+            if (h.isEmpty()) return false
+            // Browser-level encrypted DNS would sidestep the filter entirely.
+            if (DOH_HOSTS.any { matches(h, it) }) return domains.isNotEmpty()
             for (raw in domains) {
-                val d = raw.lowercase().trim().removePrefix("www.")
+                val d = cleanDomain(raw)
                 if (d.isEmpty()) continue
-                if (h == d || h.endsWith(".$d")) return true
+                if (matches(h, d)) return true
+                for (g in SITE_GROUPS) {
+                    if (g.any { matches(d, it) } && g.any { matches(h, it) }) return true
+                }
             }
             return false
         }
@@ -253,7 +299,8 @@ class WebsiteBlockVpnService : VpnService() {
             writeReply(out, dstIp, srcIp, srcPort, reply)
         } else {
             pool?.execute {
-                val reply = forward(dns) ?: return@execute
+                // If no resolver answers, fail fast (SERVFAIL) instead of leaving the app hanging.
+                val reply = forward(dns) ?: buildServFail(dns, parsed.second)
                 writeReply(out, dstIp, srcIp, srcPort, reply)
             }
         }
@@ -331,6 +378,12 @@ class WebsiteBlockVpnService : VpnService() {
         r[6] = 0; r[7] = 0   // ANCOUNT
         r[8] = 0; r[9] = 0   // NSCOUNT
         r[10] = 0; r[11] = 0 // ARCOUNT
+        return r
+    }
+
+    private fun buildServFail(query: ByteArray, questionEnd: Int): ByteArray {
+        val r = buildNxDomain(query, questionEnd)
+        r[3] = 0x82.toByte() // RA=1, RCODE=2 (SERVFAIL)
         return r
     }
 

@@ -52,7 +52,7 @@ class RemindersScreen extends ConsumerWidget {
               }
               final svc = NotificationService();
               final tone = await RingtoneStore.instance.load(0);
-              await svc.showNow(Reminder(
+              await svc.showNow(const Reminder(
                 id: 0,
                 title: 'Test reminder',
                 description: 'If you can see and hear this, reminders will reach you.',
@@ -87,7 +87,7 @@ class RemindersScreen extends ConsumerWidget {
                   // same reasoning as the other "motivational banner" cards
                   color: AppTheme.navySurface,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppTheme.gold.withOpacity(0.3)),
+                  border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
                 ),
                 child: const Row(
                   children: [
@@ -187,9 +187,9 @@ class _ReminderCard extends ConsumerWidget {
         padding: const EdgeInsets.only(right: 20),
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.15),
+          color: Colors.red.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.red.withOpacity(0.3)),
+          border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
         ),
         child: const Icon(Icons.delete_outline, color: Colors.red, size: 24),
       ),
@@ -229,7 +229,7 @@ class _ReminderCard extends ConsumerWidget {
           color: AppTheme.navySurface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: isEnabled ? AppTheme.gold.withOpacity(0.3) : AppTheme.navyOutline,
+            color: isEnabled ? AppTheme.gold.withValues(alpha: 0.3) : AppTheme.navyOutline,
           ),
         ),
         child: Row(
@@ -237,7 +237,7 @@ class _ReminderCard extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.15),
+                color: accentColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(typeIcon, color: accentColor, size: 22),
@@ -262,7 +262,7 @@ class _ReminderCard extends ConsumerWidget {
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 12,
-                      color: isEnabled ? AppTheme.textMuted : AppTheme.textMuted.withOpacity(0.5),
+                      color: isEnabled ? AppTheme.textMuted : AppTheme.textMuted.withValues(alpha: 0.5),
                     ),
                   ),
                   if (r.isAlarm) ...[
@@ -270,7 +270,7 @@ class _ReminderCard extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppTheme.accentPurple.withOpacity(0.15),
+                        color: AppTheme.accentPurple.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Text(
@@ -306,7 +306,7 @@ class _ReminderCard extends ConsumerWidget {
             ),
             Switch(
               value: isEnabled,
-              activeColor: AppTheme.gold,
+              activeThumbColor: AppTheme.gold,
               onChanged: (val) async {
                 try {
                   await ref.read(remindersProvider.notifier).toggleEnabled(r.id);

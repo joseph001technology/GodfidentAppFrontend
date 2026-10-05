@@ -5,7 +5,6 @@ import '../../core/theme.dart';
 import '../../models/prayer.dart';
 import '../../providers/remaining_providers.dart';
 import '../../widgets/common/app_widgets.dart';
-import '../../widgets/common/prayer_timer_widget.dart';
 
 class PrayerListScreen extends ConsumerStatefulWidget {
   const PrayerListScreen({super.key});
@@ -43,10 +42,6 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.bar_chart, color: AppTheme.gold),
-            onPressed: () => context.push('/prayer/stats'),
-          ),
-          IconButton(
             icon: const Icon(Icons.add, color: AppTheme.gold),
             onPressed: () async {
               await context.push('/prayer/new');
@@ -64,8 +59,32 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Prayer Timer Quick Banner (functional)
-              PrayerTimerWidget(showCompact: true, initialSeconds: 300),
+              // Prayer Focus entry: a protected, timed prayer session
+              InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => context.push('/prayer/focus'),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.inkNavy,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Row(children: [
+                    Icon(Icons.self_improvement, color: AppTheme.goldLight, size: 30),
+                    SizedBox(width: 14),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Prayer Focus',
+                            style: TextStyle(color: AppTheme.textOnDark, fontWeight: FontWeight.w700, fontSize: 16)),
+                        SizedBox(height: 2),
+                        Text('Choose your time, silence distractions and pray.',
+                            style: TextStyle(color: AppTheme.textOnDarkMuted, fontSize: 12)),
+                      ]),
+                    ),
+                    Icon(Icons.chevron_right, color: AppTheme.goldLight),
+                  ]),
+                ),
+              ),
 
               const SizedBox(height: 20),
 
@@ -146,7 +165,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
           color: AppTheme.navySurface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: prayer.isAnswered ? AppTheme.emerald.withOpacity(0.4) : AppTheme.navyOutline,
+            color: prayer.isAnswered ? AppTheme.emerald.withValues(alpha: 0.4) : AppTheme.navyOutline,
           ),
         ),
         child: Column(
@@ -178,7 +197,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppTheme.emerald.withOpacity(0.2),
+                      color: AppTheme.emerald.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text('ANSWERED 🎉', style: TextStyle(fontFamily: 'Inter', fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
@@ -217,7 +236,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.gold.withOpacity(0.15),
+                    backgroundColor: AppTheme.gold.withValues(alpha: 0.15),
                     foregroundColor: AppTheme.gold,
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -250,7 +269,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
           decoration: BoxDecoration(
             color: AppTheme.navySurface,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: isAnswered ? AppTheme.emerald.withOpacity(0.4) : AppTheme.navyOutline),
+            border: Border.all(color: isAnswered ? AppTheme.emerald.withValues(alpha: 0.4) : AppTheme.navyOutline),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -268,7 +287,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
                   if (isAnswered)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: AppTheme.emerald.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                      decoration: BoxDecoration(color: AppTheme.emerald.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
                       child: const Text('ANSWERED 🎉', style: TextStyle(fontFamily: 'Inter', fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                     ),
                 ],
@@ -285,7 +304,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Prayer recorded! Amen. 🙏')));
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.gold.withOpacity(0.15),
+                      backgroundColor: AppTheme.gold.withValues(alpha: 0.15),
                       foregroundColor: AppTheme.gold,
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

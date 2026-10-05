@@ -1,7 +1,15 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 class UserProfile {
   final String preferredTranslation;
   final String bio;
   final String? avatar;
+  final String avatarData; // small data: URI photo
+  final String church;
+  final String location;
+  final String favoriteVerse;
+  final String phone;
   final String timezone;
   final bool dailyDevotionalReminder;
   final bool readingReminder;
@@ -12,6 +20,11 @@ class UserProfile {
     this.preferredTranslation = 'KJV',
     this.bio = '',
     this.avatar,
+    this.avatarData = '',
+    this.church = '',
+    this.location = '',
+    this.favoriteVerse = '',
+    this.phone = '',
     this.timezone = 'UTC',
     this.dailyDevotionalReminder = true,
     this.readingReminder = true,
@@ -23,6 +36,11 @@ class UserProfile {
         preferredTranslation: j['preferred_translation'] ?? 'KJV',
         bio: j['bio'] ?? '',
         avatar: j['avatar'],
+        avatarData: (j['avatar_data'] ?? '').toString(),
+        church: (j['church'] ?? '').toString(),
+        location: (j['location'] ?? '').toString(),
+        favoriteVerse: (j['favorite_verse'] ?? '').toString(),
+        phone: (j['phone'] ?? '').toString(),
         timezone: j['timezone'] ?? 'UTC',
         dailyDevotionalReminder: j['daily_devotional_reminder'] ?? true,
         readingReminder: j['reading_reminder'] ?? true,
@@ -33,6 +51,11 @@ class UserProfile {
   Map<String, dynamic> toJson() => {
         'preferred_translation': preferredTranslation,
         'bio': bio,
+        'avatar_data': avatarData,
+        'church': church,
+        'location': location,
+        'favorite_verse': favoriteVerse,
+        'phone': phone,
         if (avatar != null) 'avatar': avatar,
         'timezone': timezone,
         'daily_devotional_reminder': dailyDevotionalReminder,
@@ -45,6 +68,11 @@ class UserProfile {
     String? preferredTranslation,
     String? bio,
     String? avatar,
+    String? avatarData,
+    String? church,
+    String? location,
+    String? favoriteVerse,
+    String? phone,
     String? timezone,
     bool? dailyDevotionalReminder,
     bool? readingReminder,
@@ -55,6 +83,11 @@ class UserProfile {
         preferredTranslation: preferredTranslation ?? this.preferredTranslation,
         bio: bio ?? this.bio,
         avatar: avatar ?? this.avatar,
+        avatarData: avatarData ?? this.avatarData,
+        church: church ?? this.church,
+        location: location ?? this.location,
+        favoriteVerse: favoriteVerse ?? this.favoriteVerse,
+        phone: phone ?? this.phone,
         timezone: timezone ?? this.timezone,
         dailyDevotionalReminder: dailyDevotionalReminder ?? this.dailyDevotionalReminder,
         readingReminder: readingReminder ?? this.readingReminder,
@@ -94,6 +127,18 @@ class User {
         dateJoined: j['date_joined'] ?? '',
         profile: j['profile'] != null ? UserProfile.fromJson(j['profile']) : null,
       );
+
+  /// Decoded profile photo, or null.
+  Uint8List? get avatarBytes {
+    final d = profile?.avatarData ?? '';
+    final i = d.indexOf('base64,');
+    if (i < 0) return null;
+    try {
+      return base64Decode(d.substring(i + 7));
+    } catch (_) {
+      return null;
+    }
+  }
 
   String get displayName => fullName.isNotEmpty ? fullName : email;
   String get initials {

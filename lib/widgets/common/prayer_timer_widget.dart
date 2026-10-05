@@ -118,7 +118,7 @@ class _PrayerTimerWidgetState extends State<PrayerTimerWidget>
           colors: [Color(0xFF14243A), Color(0xFF1E1E3A)],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -131,7 +131,7 @@ class _PrayerTimerWidgetState extends State<PrayerTimerWidget>
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: _isCompleted ? AppTheme.gold.withOpacity(0.2) : AppTheme.emerald.withOpacity(0.2),
+                    color: _isCompleted ? AppTheme.gold.withValues(alpha: 0.2) : AppTheme.emerald.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -213,8 +213,8 @@ class _PrayerTimerWidgetState extends State<PrayerTimerWidget>
           colors: [Color(0xFF0D2618), Color(0xFF1A3A2A)],
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.emerald.withOpacity(0.25)),
-        boxShadow: [BoxShadow(color: AppTheme.emerald.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 8))],
+        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.25)),
+        boxShadow: [BoxShadow(color: AppTheme.emerald.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, 8))],
       ),
       child: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -226,7 +226,7 @@ class _PrayerTimerWidgetState extends State<PrayerTimerWidget>
                 return Transform.scale(scale: scale,
                   child: Container(padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: _isCompleted ? AppTheme.gold.withOpacity(0.15) : AppTheme.emerald.withOpacity(0.15),
+                      color: _isCompleted ? AppTheme.gold.withValues(alpha: 0.15) : AppTheme.emerald.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(_isCompleted ? Icons.check_circle : Icons.volunteer_activism,
@@ -253,9 +253,9 @@ class _PrayerTimerWidgetState extends State<PrayerTimerWidget>
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: (_isRunning ? AppTheme.emerald : AppTheme.gold).withOpacity(0.15)),
+                border: Border.all(color: (_isRunning ? AppTheme.emerald : AppTheme.gold).withValues(alpha: 0.15)),
               ),
               child: Column(children: [
                 Text(_formattedTime, style: TextStyle(fontFamily: 'Inter', fontSize: 52, fontWeight: FontWeight.bold,
@@ -270,7 +270,7 @@ class _PrayerTimerWidgetState extends State<PrayerTimerWidget>
                     // card stays dark on purpose (calm/immersive timer,
                     // same reasoning as the verse-of-day card), so a
                     // translucent white overlay is correct, not a bug.
-                    backgroundColor: Colors.white.withOpacity(0.1),
+                    backgroundColor: Colors.white.withValues(alpha: 0.1),
                     valueColor: AlwaysStoppedAnimation<Color>(_isCompleted ? AppTheme.gold : AppTheme.emerald),
                   ),
                 ),

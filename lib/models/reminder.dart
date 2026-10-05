@@ -150,7 +150,7 @@ class Reminder {
       final minute = int.parse(parts[1]);
       final period = hour >= 12 ? 'PM' : 'AM';
       final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-      return '${displayHour}:${minute.toString().padLeft(2, '0')} $period';
+      return '$displayHour:${minute.toString().padLeft(2, '0')} $period';
     } catch (_) {
       return time!;
     }
@@ -163,20 +163,35 @@ class Reminder {
     return '$date at $formattedTime';
   }
 
-  String get targetRoute {
+  /// The four kinds of reminder and what tapping the notification does:
+  ///  prayer  -> starts a Prayer Focus session
+  ///  bible   -> starts a normal Focus session and opens the Bible tab
+  ///  both    -> starts a normal Focus session and opens Home
+  ///  general -> opens the Reminders tab
+  String get kind {
     switch (targetPage.toLowerCase()) {
       case 'prayer':
-        return '/prayer';
+        return 'prayer';
       case 'bible':
-        return '/bible';
-      case 'notes':
-      case 'universal rule':
-      case 'rule':
-        return '/notes';
-      case 'devotional':
-        return '/more/devotionals';
+      case 'reading':
+        return 'bible';
+      case 'both':
+        return 'both';
       default:
-        return '/notes';
+        return 'general';
+    }
+  }
+
+  String get targetRoute {
+    switch (kind) {
+      case 'prayer':
+        return '/prayer/focus?auto=1';
+      case 'bible':
+        return '/bible?focus=1&purpose=bible';
+      case 'both':
+        return '/home?focus=1&purpose=both';
+      default:
+        return '/reminders';
     }
   }
 
@@ -189,11 +204,8 @@ class Reminder {
         return '📖';
       case 'notes':
         return '📝';
-      case 'universal rule':
-      case 'rule':
-        return '📜';
-      case 'devotional':
-        return '✨';
+      case 'both':
+        return '🙏';
       default:
         return '⏰';
     }

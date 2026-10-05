@@ -1,10 +1,16 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import '../../core/bible_books.dart';
 import '../../core/theme.dart';
+import '../../models/bible.dart';
 import '../../providers/bible_provider.dart';
 import '../../widgets/common/app_widgets.dart';
+import 'chapter_picker.dart';
 
+/// Bible search. Typing a book name ("jo", "1 cor", "psalm 23", "john 3:16")
+/// lists the matching BOOKS first, instantly and offline; the verses whose
+/// words match come after, from the server.
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
   @override
@@ -13,95 +19,151 @@ class SearchScreen extends ConsumerStatefulWidget {
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _ctrl = TextEditingController();
+  Timer? _debounce;
+  String _text = '';
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _ctrl.dispose();
     super.dispose();
   }
 
+  void _onChanged(String v) {
+    setState(() => _text = v.trim());
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) ref.read(searchQueryProvider.notifier).state = _text;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final results = ref.watch(searchResultsProvider);
     final translation = ref.watch(selectedTranslationProvider);
+    final matches = BibleBooks.parse(_text);
+    final directRef = matches.isNotEmpty && matches.first.hasChapter;
+    // Only look up verse TEXT when it is not a pure reference like "John 3".
+    final wantVerses = _text.length >= 2 && !directRef;
+    final AsyncValue<List<BibleVerse>> results =
+        wantVerses ? ref.watch(searchResultsProvider) : const AsyncValue<List<BibleVerse>>.data([]);
 
     return Scaffold(
+      backgroundColor: AppTheme.navy,
       appBar: AppBar(
         title: TextField(
           controller: _ctrl,
           autofocus: true,
+          textInputAction: TextInputAction.search,
           style: Theme.of(context).textTheme.bodyLarge,
           decoration: InputDecoration(
-            hintText: 'Search the Bible...',
+            hintText: 'Book, verse or word  (e.g. John 3:16)',
             border: InputBorder.none,
             enabledBorder: InputBorder.none,
             focusedBorder: InputBorder.none,
             filled: false,
-            suffixIcon: _ctrl.text.isNotEmpty
+            suffixIcon: _text.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.clear),
                     onPressed: () {
                       _ctrl.clear();
-                      ref.read(searchQueryProvider.notifier).state = '';
+                      _onChanged('');
                     })
                 : null,
           ),
-          onChanged: (v) => ref.read(searchQueryProvider.notifier).state = v,
+          onChanged: _onChanged,
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Center(
-              child: Text(translation,
-                  style: const TextStyle(color: AppTheme.gold, fontSize: 12)),
-            ),
+            padding: const EdgeInsets.only(right: 12),
+            child: Center(child: Text(translation, style: const TextStyle(color: AppTheme.goldDark, fontSize: 12, fontWeight: FontWeight.w700))),
           ),
         ],
       ),
-      body: results.when(
-        loading: () => const ShimmerList(count: 6),
-        error: (e, _) => ErrorView(message: friendlyError(e)),
-        data: (verses) {
-          if (_ctrl.text.isEmpty) {
-            return const EmptyView(
+      body: _text.isEmpty
+          ? const EmptyView(
               icon: Icons.search,
               title: 'Search the Bible',
-              subtitle: 'Enter a word or phrase to find verses',
-            );
+              subtitle: 'Type a book name, a reference like "Psalm 23", or any word.',
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+              children: [
+                if (matches.isNotEmpty) ...[
+                  _header('BOOKS'),
+                  for (final m in matches.take(12))
+                    _bookTile(context, m, translation),
+                ],
+                if (wantVerses) ...[
+                  _header('VERSES'),
+                  results.when(
+                    loading: () => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(child: CircularProgressIndicator(color: AppTheme.gold)),
+                    ),
+                    error: (e, _) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text(friendlyError(e), style: const TextStyle(color: AppTheme.textSecondary)),
+                    ),
+                    data: (verses) {
+                      if (verses.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Text(
+                            matches.isEmpty ? 'No verses found for "$_text".' : 'No verses contain "$_text".',
+                            style: const TextStyle(color: AppTheme.textSecondary),
+                          ),
+                        );
+                      }
+                      return Column(children: [
+                        for (final v in verses)
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                            title: Text(v.reference,
+                                style: const TextStyle(color: AppTheme.goldDark, fontSize: 13, fontWeight: FontWeight.w700)),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(v.text, maxLines: 3, overflow: TextOverflow.ellipsis),
+                            ),
+                            onTap: () => openChapter(context, v.bookName, v.chapter, v.translationCode, verse: v.verse),
+                          ),
+                      ]);
+                    },
+                  ),
+                ],
+              ],
+            ),
+    );
+  }
+
+  Widget _header(String t) => Padding(
+        padding: const EdgeInsets.only(top: 10, bottom: 6),
+        child: Text(t, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppTheme.textMuted)),
+      );
+
+  Widget _bookTile(BuildContext context, BookMatch m, String translation) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.navySurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.navyOutline),
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(10)),
+          child: const Icon(Icons.menu_book_rounded, color: AppTheme.goldDark, size: 20),
+        ),
+        title: Text(m.label, style: const TextStyle(fontFamily: 'Lora', fontWeight: FontWeight.bold)),
+        subtitle: Text('${m.book.testament == 'OT' ? 'Old' : 'New'} Testament · ${m.book.chapters} chapters'),
+        trailing: const Icon(Icons.chevron_right, color: AppTheme.textMuted),
+        onTap: () {
+          if (m.hasChapter) {
+            openChapter(context, m.book.name, m.chapter!, translation, verse: m.verse);
+          } else {
+            showChapterPickerFor(context, m.book, translation);
           }
-          if (verses.isEmpty) {
-            return EmptyView(
-              icon: Icons.find_in_page_outlined,
-              title: 'No results',
-              subtitle: 'No verses found for "${_ctrl.text}"',
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: verses.length,
-            separatorBuilder: (_, __) =>
-                const Divider(height: 1, color: AppTheme.navyOutline),
-            itemBuilder: (_, i) {
-              final v = verses[i];
-              return ListTile(
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                title: Text(v.reference,
-                    style: const TextStyle(
-                        color: AppTheme.gold,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600)),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(v.text,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis),
-                ),
-                onTap: () => context.push(
-                    '/bible/verse?book=${Uri.encodeComponent(v.bookName)}&chapter=${v.chapter}&verse=${v.verse}&translation=${v.translationCode}'),
-              );
-            },
-          );
         },
       ),
     );
