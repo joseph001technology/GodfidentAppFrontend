@@ -11,6 +11,7 @@ import 'providers/remaining_providers.dart';
 import 'providers/restriction_provider.dart';
 import 'providers/scheduled_focus_provider.dart';
 import 'services/native_alarm.dart';
+import 'services/theme_controller.dart';
 import 'services/focus_session_manager.dart';
 
 /// Opens the page a reminder points to. Routes carrying `focus=1` first start a
@@ -19,6 +20,20 @@ Future<void> handleReminderRoute(GoRouter router, String route) async {
   try {
     NativeAlarm.stopSound();
   } catch (_) {}
+  // A blocked website / word was closed: point the person back to God's Word.
+  if (route == '/blocked-redirect') {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasRules = prefs.getBool('has_rules') ?? false;
+      router.go(hasRules ? '/rules' : '/bible');
+      appScaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text(hasRules
+            ? 'That was blocked. Here are your rules \u2014 spend this moment with God.'
+            : 'That was blocked. Here is the Bible \u2014 spend this moment with God.')),
+      );
+    } catch (_) {}
+    return;
+  }
   try {
     final uri = Uri.parse(route);
     if (uri.queryParameters['focus'] == '1') {
@@ -48,6 +63,8 @@ class GodfidentApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final mode = ref.watch(themeModeProvider);
+    ThemeController.apply(mode); // palette must be chosen before any screen builds
 
     // Initialize notification service once and hook navigation callback
     // Also register a global auth-expired handler to handle 401 token expirations
@@ -91,11 +108,14 @@ class GodfidentApp extends ConsumerWidget {
       title: 'Godfident',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(), // dark() is now just a shim that calls light() — see theme.dart
-      themeMode: ThemeMode.light, // was ThemeMode.dark — this line is the actual reason the old dark palette was rendering at all; theme.dart's color values were never the only thing controlling it
+      darkTheme: AppTheme.dark(),
+      themeMode: mode,
       routerConfig: router,
       scaffoldMessengerKey: appScaffoldMessengerKey,
-      builder: (context, child) => _SessionKeeper(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) => ThemeRebuilder(
+        isDark: AppTheme.isDark,
+        child: _SessionKeeper(child: child ?? const SizedBox.shrink()),
+      ),
     );
   }
 }
@@ -137,6 +157,8 @@ class _SessionKeeperState extends ConsumerState<_SessionKeeper> with WidgetsBind
       }
       NativeAlarm.listen((r) => handleReminderRoute(ref.read(routerProvider), r));
       SessionManager.instance.reconcile();
+      // Phone was off at an alarm's time? Ring (if < 1h late) or show "Missed".
+      NativeAlarm.rearm();
     });
   }
 
@@ -151,6 +173,14 @@ class _SessionKeeperState extends ConsumerState<_SessionKeeper> with WidgetsBind
     _timer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    // "System" theme: follow the phone when it switches between light and dark.
+    if (ref.read(themeModeProvider) == ThemeMode.system) {
+      ref.read(themeModeProvider.notifier).set(ThemeMode.system);
+    }
   }
 
   @override

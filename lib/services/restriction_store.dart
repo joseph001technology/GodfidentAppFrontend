@@ -40,6 +40,7 @@ class RestrictionStore {
   static const _kDeleteApps = 'pending_delete_apps_v1';
   static const _kDeleteSites = 'pending_delete_sites_v1';
   static const _kAllowOnly = 'focus_allow_only_v1';
+  static const _kKeywords = 'restricted_keywords_v1';
 
   static final _domainRe = RegExp(r'^(?!-)([a-z0-9-]{1,63}(?<!-)\.)+[a-z]{2,}$');
 
@@ -51,6 +52,20 @@ class RestrictionStore {
     s = s.split('/').first.split('?').first.split('#').first.split(':').first;
     if (s.startsWith('www.')) s = s.substring(4);
     return _domainRe.hasMatch(s) ? s : null;
+  }
+
+  /// Words that must not appear in a web address or search (kept on this phone only).
+  Future<List<String>> loadKeywords() async =>
+      (await SharedPreferences.getInstance()).getStringList(_kKeywords) ?? <String>[];
+
+  Future<void> saveKeywords(List<String> v) async =>
+      (await SharedPreferences.getInstance()).setStringList(_kKeywords, v);
+
+  /// "  Free Movies " -> "free movies"; null if shorter than 3 letters or too long.
+  static String? normalizeKeyword(String input) {
+    final s = input.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    if (s.replaceAll(' ', '').length < 3 || s.length > 40) return null;
+    return s;
   }
 
   Future<List<RestrictedApp>> loadApps() async {

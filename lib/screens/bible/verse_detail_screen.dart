@@ -87,7 +87,7 @@ class _VerseDetailScreenState extends ConsumerState<VerseDetailScreen> {
             loading: () => const LoadingShimmer(height: 60),
             error: (_, __) => const Text('Could not load cross references.'),
             data: (refs) => refs.isEmpty
-                ? const Text('No cross references found.',
+                ? Text('No cross references found.',
                     style: TextStyle(color: AppTheme.textMuted))
                 : Column(
                     children: refs

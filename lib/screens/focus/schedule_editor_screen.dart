@@ -171,7 +171,7 @@ class _ScheduleEditorScreenState extends ConsumerState<ScheduleEditorScreen> {
                       child: Text(_time.format(context),
                           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
                     ),
-                    const Icon(Icons.chevron_right, color: AppTheme.textMuted),
+                    Icon(Icons.chevron_right, color: AppTheme.textMuted),
                   ])),
                 ),
                 const SizedBox(height: 20),
@@ -225,7 +225,7 @@ class _ScheduleEditorScreenState extends ConsumerState<ScheduleEditorScreen> {
                     const Icon(Icons.music_note, color: AppTheme.goldDark),
                     const SizedBox(width: 12),
                     Expanded(child: Text(_ringtone.title, style: const TextStyle(fontWeight: FontWeight.w600))),
-                    const Icon(Icons.chevron_right, color: AppTheme.textMuted),
+                    Icon(Icons.chevron_right, color: AppTheme.textMuted),
                   ])),
                 ),
                 const SizedBox(height: 8),
@@ -265,7 +265,7 @@ class _ScheduleEditorScreenState extends ConsumerState<ScheduleEditorScreen> {
   Widget _label(String t) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(t,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: AppTheme.textMuted)),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: AppTheme.textMuted)),
       );
 
   Widget _box(Widget child) => Container(

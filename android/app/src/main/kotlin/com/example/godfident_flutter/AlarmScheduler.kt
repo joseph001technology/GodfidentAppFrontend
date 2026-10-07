@@ -25,6 +25,22 @@ object AlarmScheduler {
 
     const val EXTRA_ID = "alarm_id"
 
+    /** Phone was off / app was dead: ring still if it is less than this late, otherwise say it was missed. */
+    const val CATCHUP_WINDOW_MS = 60L * 60L * 1000L
+    const val SNOOZE_MINUTES = 10
+
+    /** Id of the one-shot copy used for snoozes and catch-up rings (never collides with a real alarm id). */
+    fun derivedId(id: Int): Int = 1_500_000_000 + (Math.abs(id.toLong()) % 100_000_000L).toInt()
+
+    /** Next occurrence after [t]. repeatMs == -1 means "monthly". */
+    private fun advance(t: Long, repeatMs: Long): Long {
+        if (repeatMs > 0) return t + repeatMs
+        val cal = java.util.Calendar.getInstance()
+        cal.timeInMillis = t
+        cal.add(java.util.Calendar.MONTH, 1)
+        return cal.timeInMillis
+    }
+
     class Alarm(
         val id: Int,
         var whenMs: Long,
@@ -34,19 +50,22 @@ object AlarmScheduler {
         val route: String,
         val soundUri: String, // content:// or android.resource:// ; empty = default alarm tone
         val maxSeconds: Int,
-        val startLabel: String // "" = no Start button
+        val startLabel: String, // "" = no Start button
+        val ring: Boolean = true // false = a normal notification (reminder), true = ringing alarm
     ) {
         fun toJson() = JSONObject().apply {
             put("id", id); put("when", whenMs); put("repeat", repeatMs)
             put("title", title); put("body", body); put("route", route)
             put("sound", soundUri); put("max", maxSeconds); put("start", startLabel)
+            put("ring", ring)
         }
 
         companion object {
             fun fromJson(o: JSONObject) = Alarm(
                 o.getInt("id"), o.getLong("when"), o.optLong("repeat", 0),
                 o.optString("title"), o.optString("body"), o.optString("route"),
-                o.optString("sound"), o.optInt("max", 60), o.optString("start")
+                o.optString("sound"), o.optInt("max", 60), o.optString("start"),
+                o.optBoolean("ring", true)
             )
         }
     }
@@ -115,29 +134,65 @@ object AlarmScheduler {
         if (list.removeAll { it.id == id }) save(c, list)
     }
 
-    /** After a reboot / app update: arm everything again (past one-time alarms are dropped). */
+    /**
+     * After a reboot / app update / app start: arm everything again, and deal
+     * with alarms whose time passed while the phone was off:
+     *  - less than an hour late  -> ring (a few seconds from now)
+     *  - an hour or more late    -> a "missed" notification (name + what it was for)
+     * Repeating alarms are moved on to their next future time either way.
+     */
     fun rearmAll(c: Context) {
         val now = System.currentTimeMillis()
         val keep = mutableListOf<Alarm>()
+        val late = mutableListOf<Pair<Alarm, Long>>()
         for (a in load(c)) {
-            if (a.repeatMs > 0) {
-                while (a.whenMs <= now) a.whenMs += a.repeatMs
-            } else if (a.whenMs <= now) {
+            if (a.whenMs > now) {
+                keep.add(a)
+                arm(c, a)
                 continue
             }
-            keep.add(a)
-            arm(c, a)
+            val missedAt: Long
+            if (a.repeatMs != 0L) {
+                // Only the most recent missed occurrence matters.
+                var t = a.whenMs
+                var next = advance(t, a.repeatMs)
+                while (next <= now) { t = next; next = advance(t, a.repeatMs) }
+                missedAt = t
+                val moved = Alarm(a.id, next, a.repeatMs, a.title, a.body, a.route, a.soundUri, a.maxSeconds, a.startLabel, a.ring)
+                keep.add(moved)
+                arm(c, moved)
+            } else {
+                missedAt = a.whenMs
+            }
+            late.add(Pair(a, missedAt))
         }
         save(c, keep)
+        for ((a, t) in late) handleLate(c, a, t, now)
+    }
+
+    private fun handleLate(c: Context, a: Alarm, missedAt: Long, now: Long) {
+        if (now - missedAt < CATCHUP_WINDOW_MS) {
+            // Re-schedule as a normal alarm a few seconds from now: an alarm-clock
+            // alarm may start the sound service even straight after boot.
+            schedule(c, Alarm(derivedId(a.id), now + 4000L, 0L, a.title, a.body, a.route, a.soundUri, a.maxSeconds, a.startLabel, a.ring))
+        } else {
+            AlarmRingService.postMissed(c, a.id, a.title, a.body, a.route, missedAt)
+        }
+    }
+
+    /** Rings [a] again in [minutes] (survives a reboot because it is stored like any other alarm). */
+    fun snooze(c: Context, a: Alarm, minutes: Int = SNOOZE_MINUTES) {
+        schedule(c, Alarm(derivedId(a.id), System.currentTimeMillis() + minutes * 60_000L, 0L,
+            a.title, a.body, a.route, a.soundUri, a.maxSeconds, a.startLabel, true))
     }
 
     /** Called when an alarm fires: re-arms repeating ones, forgets one-time ones. */
     fun onFired(c: Context, id: Int) {
         val list = load(c)
         val a = list.firstOrNull { it.id == id } ?: return
-        if (a.repeatMs > 0) {
+        if (a.repeatMs != 0L) {
             val now = System.currentTimeMillis()
-            while (a.whenMs <= now) a.whenMs += a.repeatMs
+            while (a.whenMs <= now) a.whenMs = advance(a.whenMs, a.repeatMs)
             save(c, list)
             arm(c, a)
         } else {

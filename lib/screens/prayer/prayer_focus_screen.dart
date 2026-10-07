@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../providers/restriction_provider.dart';
 import '../../repositories/prayer_repository.dart';
 import '../../services/focus_session_manager.dart';
+import '../../widgets/common/session_music_card.dart';
 
 /// Prayer Focus: works like Focus Mode, for prayer. Choose how long you want
 /// to pray, your chosen apps are blocked, a notification tells you when the
@@ -90,7 +91,7 @@ class _PrayerFocusScreenState extends ConsumerState<PrayerFocusScreen> with Widg
   }
 
   void _onTick() {
-    if (!mounted || !_info.active) return;
+    if (!mounted || !_info.active || _info.frozen) return;
     if (_info.endAt != null && !_info.endAt!.isAfter(DateTime.now())) {
       _refresh();
     } else {
@@ -125,31 +126,62 @@ class _PrayerFocusScreenState extends ConsumerState<PrayerFocusScreen> with Widg
     });
   }
 
-  Future<void> _end() async {
+  Future<void> _freeze() async {
+    setState(() => _busy = true);
+    await _sessions.freeze();
+    await _refresh();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text("Prayer frozen. You haven't finished \u2014 we'll remind you every 10 minutes."),
+    ));
+  }
+
+  Future<void> _resume() async {
+    setState(() => _busy = true);
+    await _sessions.resume();
+    await _refresh();
+    if (mounted) setState(() => _busy = false);
+  }
+
+  /// Only offered while frozen, needs a typed word, and an unfinished prayer is not recorded.
+  Future<void> _giveUp() async {
+    final ctrl = TextEditingController();
     final yes = await showDialog<bool>(
       context: context,
-      builder: (d) => AlertDialog(
-        title: const Text('End your prayer time?'),
-        content: const Text('Time already prayed is kept if it was at least a minute.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Keep praying')),
-          TextButton(onPressed: () => Navigator.pop(d, true), child: const Text('End')),
-        ],
+      builder: (d) => StatefulBuilder(
+        builder: (d, setD) => AlertDialog(
+          title: const Text('Give up this prayer time?'),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('An unfinished prayer session is not recorded in your activity.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              onChanged: (_) => setD(() {}),
+              decoration: const InputDecoration(hintText: 'Type END to confirm'),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Keep praying')),
+            TextButton(
+              onPressed: ctrl.text.trim().toUpperCase() == 'END' ? () => Navigator.pop(d, true) : null,
+              child: const Text('End'),
+            ),
+          ],
+        ),
       ),
     );
     if (yes != true) return;
     setState(() => _busy = true);
-    final started = _info.startedAt;
-    final mins = started == null ? 0 : DateTime.now().difference(started).inMinutes;
     await _sessions.end(early: true);
     await _refresh();
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _done = mins >= 1;
-      _doneMinutes = mins;
+      _done = false;
     });
-    _loadStreak();
   }
 
   String _fmt(Duration d) {
@@ -219,8 +251,8 @@ class _PrayerFocusScreenState extends ConsumerState<PrayerFocusScreen> with Widg
         ),
         const SizedBox(width: 18),
         Column(children: [
-          Text('$_minutes', style: const TextStyle(fontSize: 54, fontWeight: FontWeight.w700, color: AppTheme.inkNavy, height: 1)),
-          const Text('minutes', style: TextStyle(color: AppTheme.textSecondary)),
+          Text('$_minutes', style: TextStyle(fontSize: 54, fontWeight: FontWeight.w700, color: AppTheme.ink, height: 1)),
+          Text('minutes', style: TextStyle(color: AppTheme.textSecondary)),
         ]),
         const SizedBox(width: 18),
         IconButton.filledTonal(
@@ -298,14 +330,38 @@ class _PrayerFocusScreenState extends ConsumerState<PrayerFocusScreen> with Widg
                 backgroundColor: AppTheme.navyVariant,
               ),
             ),
-            Text(_fmt(left), style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w700, color: AppTheme.inkNavy)),
+            Text(_fmt(left), style: TextStyle(fontSize: 42, fontWeight: FontWeight.w700, color: AppTheme.ink)),
           ]),
         ),
         const SizedBox(height: 14),
-        Text(_info.blocking ? 'Your chosen apps are blocked.' : 'Timer only. No apps are being blocked.',
-            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+        Text(
+            _info.frozen
+                ? "Frozen \u2014 you haven't finished. We'll remind you every 10 minutes."
+                : (_info.blocking ? 'Your chosen apps are blocked.' : 'Timer only. No apps are being blocked.'),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
         const SizedBox(height: 14),
-        OutlinedButton(onPressed: _busy ? null : _end, child: const Text('End prayer')),
+        const SessionMusicCard(),
+        const SizedBox(height: 14),
+        if (_info.frozen) ...[
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _busy ? null : _resume,
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('Resume prayer'),
+            ),
+          ),
+          TextButton(
+            onPressed: _busy ? null : _giveUp,
+            child: Text('Give up this prayer time', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+          ),
+        ] else
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _freeze,
+            icon: const Icon(Icons.ac_unit_rounded),
+            label: const Text('Freeze'),
+          ),
       ]),
       border: AppTheme.gold,
     );
@@ -318,7 +374,7 @@ class _PrayerFocusScreenState extends ConsumerState<PrayerFocusScreen> with Widg
           const Text('Amen', style: TextStyle(fontFamily: 'Lora', fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text('You prayed for $_doneMinutes minute${_doneMinutes == 1 ? '' : 's'}. Today is recorded as a day you prayed.',
-              textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.textSecondary)),
+              textAlign: TextAlign.center, style: TextStyle(color: AppTheme.textSecondary)),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -338,8 +394,8 @@ class _PrayerFocusScreenState extends ConsumerState<PrayerFocusScreen> with Widg
     final days = (_streak['total_days_prayed'] as num?)?.toInt() ?? 0;
     Widget cell(String v, String l) => Expanded(
           child: Column(children: [
-            Text(v, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppTheme.inkNavy)),
-            Text(l, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+            Text(v, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppTheme.ink)),
+            Text(l, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
           ]),
         );
     return _card(Row(children: [cell('$cur', 'day streak'), cell('$best', 'best streak'), cell('$days', 'days prayed')]));

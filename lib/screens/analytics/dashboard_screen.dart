@@ -42,8 +42,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       backgroundColor: AppTheme.navy,
       appBar: AppBar(
         backgroundColor: AppTheme.navy,
-        title: const Text('My Activity',
-            style: TextStyle(fontFamily: 'Lora', fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.inkNavy)),
+        title: Text('My Activity',
+            style: TextStyle(fontFamily: 'Lora', fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.ink)),
         actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _refresh)],
       ),
       body: RefreshIndicator(
@@ -73,7 +73,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _title(String t) => Text(t,
-      style: const TextStyle(fontFamily: 'Lora', fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.inkNavy));
+      style: TextStyle(fontFamily: 'Lora', fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.ink));
 
   // ── last 7 days ────────────────────────────────────────────────────
   Widget _weekCard() {
@@ -81,7 +81,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return _card(
       child: async.when(
         loading: () => const SizedBox(height: 150, child: Center(child: CircularProgressIndicator(color: AppTheme.gold))),
-        error: (e, _) => Text(friendlyError(e), style: const TextStyle(color: AppTheme.textSecondary)),
+        error: (e, _) => Text(friendlyError(e), style: TextStyle(color: AppTheme.textSecondary)),
         data: (map) {
           final now = DateTime.now();
           final today = DateTime(now.year, now.month, now.day);
@@ -89,7 +89,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           final values = [for (final d in days) (map[_key(d)]?.total ?? 0).toDouble()];
           final total = values.fold<double>(0, (a, b) => a + b);
           if (total == 0) {
-            return const Padding(
+            return Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(
                 child: Text('Nothing recorded this week yet.\nRead a chapter or start a Focus session and it will show here.',
@@ -108,7 +108,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 show: true,
                 drawVerticalLine: false,
                 horizontalInterval: maxY <= 4 ? 1 : (maxY / 4).ceilToDouble(),
-                getDrawingHorizontalLine: (_) => const FlLine(color: AppTheme.navyOutline, strokeWidth: 0.6),
+                getDrawingHorizontalLine: (_) => FlLine(color: AppTheme.navyOutline, strokeWidth: 0.6),
               ),
               borderData: FlBorderData(show: false),
               barTouchData: BarTouchData(
@@ -128,7 +128,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     reservedSize: 26,
                     interval: maxY <= 4 ? 1 : (maxY / 4).ceilToDouble(),
                     getTitlesWidget: (v, _) =>
-                        Text(v.toInt().toString(), style: const TextStyle(fontSize: 10, color: AppTheme.textMuted)),
+                        Text(v.toInt().toString(), style: TextStyle(fontSize: 10, color: AppTheme.textMuted)),
                   ),
                 ),
                 bottomTitles: AxisTitles(
@@ -216,7 +216,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         for (final n in const ['M', 'T', 'W', 'T', 'F', 'S', 'S'])
           Expanded(
             child: Center(
-              child: Text(n, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.textMuted)),
+              child: Text(n, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.textMuted)),
             ),
           ),
       ]),
@@ -242,7 +242,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ? 'No activity recorded this month.'
             : '$activeDays active day${activeDays == 1 ? '' : 's'} · $monthTotal ${monthTotal == 1 ? 'activity' : 'activities'}'
                 '${focusMin > 0 ? ' · ${Overview.minutes(focusMin)} protected for God' : ''}',
-        style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+        style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
       ),
     ]);
   }
@@ -252,7 +252,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 8, height: 8, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
           const SizedBox(width: 5),
-          Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+          Text(label, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
         ]),
       );
 
@@ -278,14 +278,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         decoration: BoxDecoration(
           color: fill,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isToday ? AppTheme.inkNavy : Colors.transparent, width: 1.6),
+          border: Border.all(color: isToday ? AppTheme.ink : Colors.transparent, width: 1.6),
         ),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text('${day.day}',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: total > 0 || isToday ? FontWeight.w800 : FontWeight.w500,
-                color: future ? AppTheme.textMuted.withValues(alpha: 0.5) : AppTheme.inkNavy,
+                color: future ? AppTheme.textMuted.withValues(alpha: 0.5) : AppTheme.ink,
               )),
           const SizedBox(height: 3),
           SizedBox(
@@ -330,7 +330,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 style: const TextStyle(fontFamily: 'Lora', fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             if (rows.isEmpty)
-              const Text('Nothing was recorded on this day.', style: TextStyle(color: AppTheme.textSecondary))
+              Text('Nothing was recorded on this day.', style: TextStyle(color: AppTheme.textSecondary))
             else
               for (final r in rows)
                 Padding(
@@ -404,9 +404,9 @@ class _Summary extends StatelessWidget {
               child: Icon(icon, color: color, size: 20),
             ),
             const SizedBox(height: 12),
-            Text(value, style: const TextStyle(fontFamily: 'Lora', fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.inkNavy)),
+            Text(value, style: TextStyle(fontFamily: 'Lora', fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.ink)),
             const SizedBox(height: 2),
-            Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            Text(label, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ]),
         ),
       );

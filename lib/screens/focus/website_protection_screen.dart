@@ -46,6 +46,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
     _keyCtrl.dispose();
     _confirmCtrl.dispose();
     _siteCtrl.dispose();
+    _wordCtrl.dispose();
     super.dispose();
   }
 
@@ -210,7 +211,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
             textAlign: TextAlign.center,
             style: TextStyle(fontFamily: 'Lora', fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'You will need this key to see, change or switch off your protected websites. Choose something you will not give away to yourself in a weak moment - consider letting a friend set it.',
           textAlign: TextAlign.center,
           style: TextStyle(color: AppTheme.textSecondary),
@@ -223,7 +224,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
         const SizedBox(height: 16),
         _primary(_busy ? 'Saving\u2026' : 'Save key', _busy ? null : _createKey),
         const SizedBox(height: 8),
-        const Text('You only create this once. It is saved to your account as a one-way hash, so clearing the app or signing in on a new phone does not remove it - you just enter it.',
+        Text('You only create this once. It is saved to your account as a one-way hash, so clearing the app or signing in on a new phone does not remove it - you just enter it.',
             textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
       ]);
 
@@ -233,7 +234,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
         const Text('Connect to continue',
             style: TextStyle(fontFamily: 'Lora', fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Godfident needs to check your account once to see whether your Website Protection Key already exists. Your protected sites keep blocking in the meantime.',
           textAlign: TextAlign.center,
           style: TextStyle(color: AppTheme.textSecondary),
@@ -256,7 +257,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
       const SizedBox(height: 6),
       Text(
         '${(status?.running ?? false) ? 'Protection is on' : 'Protection is off'} · $count site${count == 1 ? '' : 's'}',
-        style: const TextStyle(color: AppTheme.textSecondary),
+        style: TextStyle(color: AppTheme.textSecondary),
       ),
       const SizedBox(height: 18),
       TextField(
@@ -303,7 +304,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
                       : (domains.isEmpty
                           ? 'Add a website below. Protection then stays on automatically.'
                           : 'Android needs your permission to block websites.'),
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
               ]),
             ),
@@ -323,7 +324,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
             Align(
               alignment: Alignment.centerLeft,
               child: Text('${status.blockedLookups} blocked request(s) so far',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
             ),
           if (status != null && !running && status.wanted)
             _err('Protection was turned off outside Godfident (Android VPN settings). Tap "Turn on protection".'),
@@ -342,7 +343,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
             Text(
               'Lookups seen: ${status?.totalQueries ?? 0}'
               '${(status?.lastHost ?? '').isEmpty ? '' : '  ·  last: ${status!.lastHost}'}',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
             if ((status?.lastError ?? '').isNotEmpty)
               Text('Last error: ${status!.lastError}', style: const TextStyle(fontSize: 12, color: AppTheme.danger)),
@@ -409,7 +410,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
         loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.gold)),
         error: (_, __) => _err('Could not read the saved list.'),
         data: (list) => list.isEmpty
-            ? const Padding(
+            ? Padding(
                 padding: EdgeInsets.all(24),
                 child: Text('No websites yet. Add one above.',
                     textAlign: TextAlign.center, style: TextStyle(color: AppTheme.textSecondary)),
@@ -448,12 +449,12 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
         style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
       ),
       const SizedBox(height: 6),
-      const Text(
+      Text(
         'In Android\u2019s VPN settings, tap the gear next to Godfident and switch on "Always-on VPN". Android then restarts protection by itself, even after a crash or reboot.',
         style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
       ),
       const SizedBox(height: 10),
-      const Text(
+      Text(
         'Subdomains are blocked too (youtube.com also blocks m.youtube.com). Browsers with their own "Secure DNS" setting can bypass this - turn that off in the browser.',
         style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
       ),
@@ -483,7 +484,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(p.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                    Text(p.why, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    Text(p.why, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                   ]),
                 ),
                 const SizedBox(width: 8),
@@ -496,7 +497,68 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
             ),
         ]),
       ),
+      _wordsSection(),
     ];
+  }
+
+  final _wordCtrl = TextEditingController();
+  String? _wordError;
+
+  Future<void> _addWord() async {
+    final err = await ref.read(restrictedKeywordsProvider.notifier).add(_wordCtrl.text);
+    if (err == null) _wordCtrl.clear();
+    setState(() => _wordError = err);
+    if (err != null) return;
+    final domains = (ref.read(restrictedSitesProvider).valueOrNull ?? []).map((x) => x.domain).toList();
+    final st = await _svc.status();
+    if (!st.running) await _turnOn(domains);
+    ref.invalidate(websiteStatusProvider);
+  }
+
+  Widget _wordsSection() {
+    final words = ref.watch(restrictedKeywordsProvider);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SizedBox(height: 22),
+      Text('BLOCKED WORDS',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppTheme.textMuted)),
+      const SizedBox(height: 4),
+      Text(
+        'Any website address or search containing one of these words is blocked. You are taken out of the page and sent to your Universal Rules or the Bible.',
+        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+      ),
+      const SizedBox(height: 10),
+      Row(children: [
+        Expanded(
+          child: TextField(
+            controller: _wordCtrl,
+            autocorrect: false,
+            decoration: const InputDecoration(hintText: 'a word, e.g. casino'),
+            onSubmitted: (_) => _addWord(),
+          ),
+        ),
+        const SizedBox(width: 10),
+        ElevatedButton(
+          onPressed: _addWord,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.gold,
+            foregroundColor: AppTheme.inkNavy,
+            minimumSize: const Size(84, 52),
+          ),
+          child: const Text('Add'),
+        ),
+      ]),
+      if (_wordError != null) _err(_wordError!),
+      const SizedBox(height: 10),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final w in words)
+          InputChip(
+            label: Text(w),
+            onDeleted: () => ref.read(restrictedKeywordsProvider.notifier).remove(w),
+          ),
+      ]),
+      if (words.isEmpty)
+        Text('No words yet.', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+    ]);
   }
 
   Future<void> _addSite() async {

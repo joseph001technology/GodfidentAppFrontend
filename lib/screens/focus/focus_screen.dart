@@ -11,6 +11,7 @@ import '../../services/focus_session_manager.dart';
 import '../../services/restriction_store.dart';
 import '../../services/permissions_service.dart';
 import '../../services/website_protection_service.dart';
+import '../../widgets/common/session_music_card.dart';
 
 /// Focus Mode: pick a duration, then start a REAL Android restriction session.
 /// The screen only shows "active" after the native service confirms it.
@@ -28,6 +29,8 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
   bool _busy = false;
   String? _message;
   Map<String, dynamic> _session = const {'active': false};
+  bool _frozen = false;
+  Duration _frozenLeft = Duration.zero;
   List<PermissionItem> _perms = const [];
   Timer? _tick;
   ScheduledFocus? _due; // the scheduled session whose alarm brought us here
@@ -52,6 +55,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       final endAt = (_session['endAtMs'] as num?)?.toInt() ?? 0;
+      if (_frozen) return;
       if (_session['active'] == true && endAt != 0 && endAt <= DateTime.now().millisecondsSinceEpoch) {
         _refresh();
       } else if (_session['active'] == true) {
@@ -101,6 +105,8 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
           'active': live.active,
           'endAtMs': live.endAt?.millisecondsSinceEpoch ?? 0,
         };
+        _frozen = live.frozen;
+        _frozenLeft = live.frozenLeft;
         if (live.active) _purpose = live.purpose.isEmpty ? null : live.purpose;
         _perms = perms;
       });
@@ -148,7 +154,57 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
     });
   }
 
-  Future<void> _stop() async {
+  Future<void> _freeze() async {
+    setState(() => _busy = true);
+    await _sessions.freeze();
+    await _refresh();
+    if (mounted) {
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("Session frozen. You haven't finished \u2014 we'll remind you every 10 minutes."),
+      ));
+    }
+  }
+
+  Future<void> _resume() async {
+    setState(() => _busy = true);
+    await _sessions.resume();
+    await _refresh();
+    if (mounted) setState(() => _busy = false);
+  }
+
+  /// Ending early is deliberately hard: it needs a typed word, it is only
+  /// offered while the session is frozen, and an unfinished session is not recorded.
+  Future<void> _giveUp() async {
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (d) => StatefulBuilder(
+        builder: (d, setD) => AlertDialog(
+          backgroundColor: AppTheme.navySurface,
+          title: const Text('Give up this session?'),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('It will NOT be counted in your activity. Your time with God is worth finishing.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              onChanged: (_) => setD(() {}),
+              decoration: const InputDecoration(hintText: 'Type END to confirm'),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Keep going')),
+            TextButton(
+              onPressed: ctrl.text.trim().toUpperCase() == 'END' ? () => Navigator.pop(d, true) : null,
+              child: const Text('End session', style: TextStyle(color: AppTheme.danger)),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
     setState(() => _busy = true);
     await _sessions.end(early: true);
     await _refresh();
@@ -168,10 +224,10 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
           children: [
-            const Text('Focus Mode',
-                style: TextStyle(fontFamily: 'Lora', fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.inkNavy)),
+            Text('Focus Mode',
+                style: TextStyle(fontFamily: 'Lora', fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.ink)),
             const SizedBox(height: 4),
-            const Text('Protect your time with God.', style: TextStyle(color: AppTheme.textSecondary)),
+            Text('Protect your time with God.', style: TextStyle(color: AppTheme.textSecondary)),
             const SizedBox(height: 20),
             if (_due != null) ...[_dueCard(_due!, active), const SizedBox(height: 14)],
             if (active) _activeCard() else _setupCard(apps),
@@ -191,7 +247,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
             const SizedBox(height: 22),
             _scheduledSection(),
             const SizedBox(height: 22),
-            const Text('PROTECTION',
+            Text('PROTECTION',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppTheme.textMuted)),
             const SizedBox(height: 10),
             _row(
@@ -226,7 +282,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
       padding: const EdgeInsets.all(18),
       decoration: _cardDeco(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Duration', style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+        Text('Duration', style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
         const SizedBox(height: 10),
         Wrap(spacing: 10, children: [
           for (final m in const [15, 30, 60, 120])
@@ -275,7 +331,9 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
 
   Widget _activeCard() {
     final endAt = (_session['endAtMs'] as num?)?.toInt() ?? 0;
-    final left = endAt == 0 ? null : Duration(milliseconds: (endAt - DateTime.now().millisecondsSinceEpoch).clamp(0, 1 << 40));
+    final left = _frozen
+        ? _frozenLeft
+        : (endAt == 0 ? null : Duration(milliseconds: (endAt - DateTime.now().millisecondsSinceEpoch).clamp(0, 1 << 40)));
     String fmt(Duration d) {
       final m = d.inMinutes, s = d.inSeconds % 60;
       return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
@@ -283,12 +341,12 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: _cardDeco(border: AppTheme.gold),
+      decoration: _cardDeco(border: _frozen ? AppTheme.accentTeal : AppTheme.gold),
       child: Column(children: [
-        const Icon(Icons.shield_rounded, color: AppTheme.gold, size: 36),
+        Icon(_frozen ? Icons.ac_unit_rounded : Icons.shield_rounded, color: _frozen ? AppTheme.accentTeal : AppTheme.gold, size: 36),
         const SizedBox(height: 8),
-        const Text('Focus session active',
-            style: TextStyle(fontFamily: 'Lora', fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(_frozen ? 'Session frozen' : 'Focus session active',
+            style: const TextStyle(fontFamily: 'Lora', fontSize: 20, fontWeight: FontWeight.bold)),
         if (_purpose != null && ScheduledFocus.purposes[_purpose] != null)
           Padding(
             padding: const EdgeInsets.only(top: 2),
@@ -298,19 +356,49 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(fmt(left),
-                style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w700, color: AppTheme.inkNavy)),
+                style: TextStyle(
+                    fontSize: 40, fontWeight: FontWeight.w700, color: _frozen ? AppTheme.textMuted : AppTheme.ink)),
           ),
-        Text(
-          _session['allowOnly'] == true
-              ? 'Only Godfident is allowed.'
-              : 'Blocked apps are being sent back here.',
-          style: const TextStyle(color: AppTheme.textSecondary),
-        ),
-        const SizedBox(height: 6),
-        Text('${_session['attempts'] ?? 0} blocked attempt(s)',
-            style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+        if (_frozen)
+          Text(
+            "You haven't finished yet. Nothing is blocked while frozen, and we'll remind you every 10 minutes.",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppTheme.textSecondary),
+          )
+        else ...[
+          Text(
+            _session['allowOnly'] == true ? 'Only Godfident is allowed.' : 'Blocked apps are being sent back here.',
+            style: TextStyle(color: AppTheme.textSecondary),
+          ),
+          const SizedBox(height: 6),
+          Text('${_session['attempts'] ?? 0} blocked attempt(s)',
+              style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+        ],
         const SizedBox(height: 14),
-        OutlinedButton(onPressed: _busy ? null : _stop, child: const Text('End session')),
+        const SessionMusicCard(),
+        const SizedBox(height: 14),
+        if (_frozen) ...[
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _busy ? null : _resume,
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('Resume session'),
+            ),
+          ),
+          TextButton(
+            onPressed: _busy ? null : _giveUp,
+            child: Text('Give up this session', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+          ),
+        ] else
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _busy ? null : _freeze,
+              icon: const Icon(Icons.ac_unit_rounded),
+              label: const Text('Freeze'),
+            ),
+          ),
       ]),
     );
   }
@@ -324,7 +412,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
             style: TextStyle(fontFamily: 'Lora', fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         Text('${f.displayTitle} \u00b7 ${f.purposeLabel} \u00b7 ${f.durationLabel}',
-            style: const TextStyle(color: AppTheme.textSecondary)),
+            style: TextStyle(color: AppTheme.textSecondary)),
         const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
@@ -356,7 +444,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
     final list = ref.watch(scheduledFocusProvider).valueOrNull ?? const <ScheduledFocus>[];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        const Expanded(
+        Expanded(
           child: Text('SCHEDULED SESSIONS',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppTheme.textMuted)),
         ),
@@ -371,7 +459,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: _cardDeco(),
-          child: const Text(
+          child: Text(
             'Pre-set a time with God, e.g. 6:00 AM every day. Your phone will ring at that time and the session starts when you press Start.',
             style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
           ),
@@ -394,7 +482,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
                             color: f.enabled ? AppTheme.textPrimary : AppTheme.textMuted)),
                     const SizedBox(height: 2),
                     Text('${f.durationLabel} \u00b7 ${f.purposeLabel} \u00b7 ${f.repeatLabel}',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ]),
                 ),
                 Switch(
@@ -403,7 +491,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
                   onChanged: (v) => ref.read(scheduledFocusProvider.notifier).toggle(f, v),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, color: AppTheme.textMuted),
+                  icon: Icon(Icons.delete_outline, color: AppTheme.textMuted),
                   tooltip: 'Delete',
                   onPressed: () => ref.read(scheduledFocusProvider.notifier).delete(f.id),
                 ),
@@ -425,7 +513,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 2),
-            Text(body, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            Text(body, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ]),
         ),
         TextButton(onPressed: onTap, child: Text(action)),
@@ -439,7 +527,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
           color: (error ? AppTheme.danger : AppTheme.gold).withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Text(text, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
+        child: Text(text, style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
       );
 
   Widget _row({required IconData icon, required String title, required String sub, required VoidCallback onTap}) {
@@ -461,12 +549,12 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
             const SizedBox(width: 14),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                Text(title, style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
                 const SizedBox(height: 2),
-                Text(sub, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                Text(sub, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ]),
             ),
-            const Icon(Icons.chevron_right, color: AppTheme.textMuted),
+            Icon(Icons.chevron_right, color: AppTheme.textMuted),
           ]),
         ),
       ),

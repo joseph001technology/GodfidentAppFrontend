@@ -47,7 +47,8 @@ class ReadingPosition {
   final String book;
   final int chapter;
   final String translation;
-  const ReadingPosition(this.book, this.chapter, this.translation);
+  final int verse; // roughly the verse at the top of the screen when the person left
+  const ReadingPosition(this.book, this.chapter, this.translation, [this.verse = 1]);
 }
 
 class ReaderSettingsNotifier extends StateNotifier<ReaderSettings> {
@@ -94,9 +95,9 @@ final readerSettingsProvider =
 class ReadingPositionStore {
   static const _k = 'last_read_v1';
 
-  static Future<void> save(String book, int chapter, String translation) async {
+  static Future<void> save(String book, int chapter, String translation, {int verse = 1}) async {
     try {
-      (await SharedPreferences.getInstance()).setStringList(_k, [book, '$chapter', translation]);
+      (await SharedPreferences.getInstance()).setStringList(_k, [book, '$chapter', translation, '$verse']);
     } catch (_) {}
   }
 
@@ -104,7 +105,7 @@ class ReadingPositionStore {
     try {
       final v = (await SharedPreferences.getInstance()).getStringList(_k);
       if (v == null || v.length < 3) return null;
-      return ReadingPosition(v[0], int.tryParse(v[1]) ?? 1, v[2]);
+      return ReadingPosition(v[0], int.tryParse(v[1]) ?? 1, v[2], v.length > 3 ? (int.tryParse(v[3]) ?? 1) : 1);
     } catch (_) {
       return null;
     }

@@ -43,7 +43,7 @@ class NotificationsScreen extends ConsumerWidget {
             return ListView.separated(
               itemCount: notifications.length,
               separatorBuilder: (_, __) =>
-                  const Divider(height: 1, color: AppTheme.navyOutline),
+                  Divider(height: 1, color: AppTheme.navyOutline),
               itemBuilder: (_, i) => _NotificationTile(notification: notifications[i]),
             );
           },

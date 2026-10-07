@@ -102,7 +102,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ),
                     error: (e, _) => Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: Text(friendlyError(e), style: const TextStyle(color: AppTheme.textSecondary)),
+                      child: Text(friendlyError(e), style: TextStyle(color: AppTheme.textSecondary)),
                     ),
                     data: (verses) {
                       if (verses.isEmpty) {
@@ -110,7 +110,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           child: Text(
                             matches.isEmpty ? 'No verses found for "$_text".' : 'No verses contain "$_text".',
-                            style: const TextStyle(color: AppTheme.textSecondary),
+                            style: TextStyle(color: AppTheme.textSecondary),
                           ),
                         );
                       }
@@ -137,7 +137,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _header(String t) => Padding(
         padding: const EdgeInsets.only(top: 10, bottom: 6),
-        child: Text(t, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppTheme.textMuted)),
+        child: Text(t, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppTheme.textMuted)),
       );
 
   Widget _bookTile(BuildContext context, BookMatch m, String translation) {
@@ -157,7 +157,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ),
         title: Text(m.label, style: const TextStyle(fontFamily: 'Lora', fontWeight: FontWeight.bold)),
         subtitle: Text('${m.book.testament == 'OT' ? 'Old' : 'New'} Testament · ${m.book.chapters} chapters'),
-        trailing: const Icon(Icons.chevron_right, color: AppTheme.textMuted),
+        trailing: Icon(Icons.chevron_right, color: AppTheme.textMuted),
         onTap: () {
           if (m.hasChapter) {
             openChapter(context, m.book.name, m.chapter!, translation, verse: m.verse);

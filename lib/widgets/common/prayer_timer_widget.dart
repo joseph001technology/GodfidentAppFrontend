@@ -160,7 +160,7 @@ class _PrayerTimerWidgetState extends State<PrayerTimerWidget>
                       : _isRunning
                           ? 'Praying... $_formattedTime remaining'
                           : 'Focused silent prayer',
-                  style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
+                  style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -240,11 +240,11 @@ class _PrayerTimerWidgetState extends State<PrayerTimerWidget>
               Text(_isCompleted ? 'Prayer Complete' : 'Prayer Session',
                 style: const TextStyle(fontFamily: 'Lora', fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
               Text(_isCompleted ? 'God listened to your heart' : 'Be still in His presence',
-                style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted)),
+                style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted)),
             ]),
           ]),
           if (_isRunning || _isCompleted)
-            IconButton(icon: const Icon(Icons.refresh, color: AppTheme.textMuted, size: 20), onPressed: _resetTimer),
+            IconButton(icon: Icon(Icons.refresh, color: AppTheme.textMuted, size: 20), onPressed: _resetTimer),
         ]),
         const SizedBox(height: 24),
         AnimatedBuilder(

@@ -25,7 +25,7 @@ class _ReaderSettingsSheet extends ConsumerWidget {
     Widget label(String t) => Padding(
           padding: const EdgeInsets.only(top: 14, bottom: 4),
           child: Text(t.toUpperCase(),
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppTheme.textMuted)),
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppTheme.textMuted)),
         );
 
     Widget themeChip(String id, String name, Color bg, Color fg) => Expanded(

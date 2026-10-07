@@ -20,6 +20,7 @@ class NativeAlarm {
     required String sound,
     int maxSeconds = 120,
     String startLabel = '',
+    bool ring = true,
   }) async {
     try {
       final ok = await _ch.invokeMethod<bool>('scheduleAlarm', {
@@ -32,12 +33,21 @@ class NativeAlarm {
         'sound': sound,
         'maxSeconds': maxSeconds,
         'startLabel': startLabel,
+        'ring': ring,
       });
       return ok ?? false;
     } catch (e) {
       if (kDebugMode) print('NativeAlarm.schedule failed: $e');
       return false;
     }
+  }
+
+  /// Re-arms every stored alarm. Alarms that came due while the phone was off
+  /// ring if they are under an hour late, otherwise a "Missed" notification is shown.
+  static Future<void> rearm() async {
+    try {
+      await _ch.invokeMethod('rearmAlarms');
+    } catch (_) {}
   }
 
   static Future<void> cancel(int id) async {

@@ -30,6 +30,8 @@ class MainActivity : AudioServiceActivity() {
         const val CHANNEL = "com.godfident/focus_blocking"
         const val EXTRA_BLOCKED_APP_LABEL = "extra_blocked_app_label"
         const val EXTRA_ALARM_ROUTE = "extra_alarm_route"
+        /** A blocked website was closed: open the page that points back to God (Universal Rules or Bible). */
+        const val EXTRA_REDIRECT_ROUTE = "extra_redirect_route"
         private const val REQ_VPN = 7001
     }
 
@@ -42,6 +44,7 @@ class MainActivity : AudioServiceActivity() {
         super.onCreate(savedInstanceState)
         consumeBlockedAppExtra(intent)
         consumeAlarmRoute(intent)
+        consumeRedirect(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -49,6 +52,14 @@ class MainActivity : AudioServiceActivity() {
         setIntent(intent)
         consumeBlockedAppExtra(intent)
         consumeAlarmRoute(intent)
+        consumeRedirect(intent)
+    }
+
+    private fun consumeRedirect(intent: Intent?) {
+        val route = intent?.getStringExtra(EXTRA_REDIRECT_ROUTE) ?: return
+        intent.removeExtra(EXTRA_REDIRECT_ROUTE)
+        val ch = channel
+        if (ch != null) ch.invokeMethod("onAlarmRoute", route) else pendingAlarmRoute = route
     }
 
     /** Opened from a ringing alarm: stop the sound and tell Dart where to go. */
@@ -166,13 +177,20 @@ class MainActivity : AudioServiceActivity() {
                                 route = call.argument<String>("route") ?: "",
                                 soundUri = resolveSound(call.argument<String>("sound") ?: ""),
                                 maxSeconds = call.argument<Int>("maxSeconds") ?: 60,
-                                startLabel = call.argument<String>("startLabel") ?: ""
+                                startLabel = call.argument<String>("startLabel") ?: "",
+                                ring = call.argument<Boolean>("ring") ?: true
                             )
                         )
                         result.success(true)
                     } catch (e: Exception) {
                         result.success(false)
                     }
+                }
+                "rearmAlarms" -> {
+                    // App started: make sure every stored alarm is armed, ring ones that
+                    // are less than an hour late and report older ones as missed.
+                    try { AlarmScheduler.rearmAll(this) } catch (_: Exception) {}
+                    result.success(true)
                 }
                 "cancelAlarm" -> {
                     AlarmScheduler.cancel(this, call.argument<Int>("id") ?: 0)
@@ -218,6 +236,11 @@ class MainActivity : AudioServiceActivity() {
                     }
                 }
 
+                "setBlockedKeywords" -> {
+                    val words = call.argument<List<String>>("keywords") ?: emptyList()
+                    webPrefs().edit().putStringSet(WebsiteBlockVpnService.KEY_KEYWORDS, words.toSet()).apply()
+                    result.success(true)
+                }
                 "setBlockedDomains" -> {
                     val domains = call.argument<List<String>>("domains") ?: emptyList()
                     webPrefs().edit().putStringSet(WebsiteBlockVpnService.KEY_DOMAINS, domains.toSet()).apply()

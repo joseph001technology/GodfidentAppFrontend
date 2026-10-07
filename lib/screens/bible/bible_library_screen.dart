@@ -5,7 +5,7 @@ import '../../core/theme.dart';
 import '../../models/bible.dart';
 import '../../providers/bible_provider.dart';
 import '../../widgets/common/app_widgets.dart';
-import 'chapter_screen.dart' show kHighlightColors;
+import 'chapter_screen.dart' show kHighlightColors, showVerseNoteSheet;
 
 /// Everything the person saved while reading: bookmarks, highlights, notes.
 class BibleLibraryScreen extends ConsumerWidget {
@@ -75,8 +75,11 @@ class BibleLibraryScreen extends ConsumerWidget {
               title: '${n.bookName} ${n.chapter}:${n.verse}',
               subtitle: n.content,
               leading: const Icon(Icons.edit_note_rounded, color: AppTheme.goldDark),
-              onTap: () => open(n.bookName, n.chapter, n.verse),
-              onDelete: null,
+              onTap: () => showVerseNoteSheet(context, ref, n, onOpenVerse: () => open(n.bookName, n.chapter, n.verse)),
+              onDelete: () async {
+                await ref.read(bibleRepositoryProvider).deleteNote(n.id);
+                ref.invalidate(verseNotesProvider);
+              },
             ),
           ),
         ]),
@@ -98,7 +101,7 @@ class BibleLibraryScreen extends ConsumerWidget {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(32),
-              child: Text(empty, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.textSecondary)),
+              child: Text(empty, textAlign: TextAlign.center, style: TextStyle(color: AppTheme.textSecondary)),
             ),
           );
         }
@@ -138,9 +141,9 @@ class _Card extends StatelessWidget {
         subtitle: subtitle.isEmpty ? null : Text(subtitle, maxLines: 3, overflow: TextOverflow.ellipsis),
         onTap: onTap,
         trailing: onDelete == null
-            ? const Icon(Icons.chevron_right, color: AppTheme.textMuted)
+            ? Icon(Icons.chevron_right, color: AppTheme.textMuted)
             : IconButton(
-                icon: const Icon(Icons.delete_outline, color: AppTheme.textMuted),
+                icon: Icon(Icons.delete_outline, color: AppTheme.textMuted),
                 tooltip: 'Remove',
                 onPressed: () async {
                   try {

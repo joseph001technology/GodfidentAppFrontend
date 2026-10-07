@@ -26,7 +26,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Row(
+        title: Row(
           children: [
             Text('🙏 ', style: TextStyle(fontSize: 20)),
             Text(
@@ -187,7 +187,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
                         child: Text(
                           prayer.title,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontFamily: 'Lora', fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                          style: TextStyle(fontFamily: 'Lora', fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                         ),
                       ),
                     ],
@@ -204,7 +204,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
                   )
                 else
                   IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.textMuted),
+                    icon: Icon(Icons.edit_outlined, size: 18, color: AppTheme.textMuted),
                     onPressed: () async {
                       await context.push('/prayer/${prayer.id}/edit');
                       ref.read(prayerListProvider.notifier).load();
@@ -217,7 +217,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
               prayer.content,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+              style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
             ),
             const SizedBox(height: 12),
             Row(
@@ -281,7 +281,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
                     children: [
                       Icon(isAnswered ? Icons.check_circle : Icons.volunteer_activism, color: isAnswered ? AppTheme.emerald : AppTheme.gold, size: 20),
                       const SizedBox(width: 10),
-                      Text(p['title'] as String, style: const TextStyle(fontFamily: 'Lora', fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                      Text(p['title'] as String, style: TextStyle(fontFamily: 'Lora', fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                     ],
                   ),
                   if (isAnswered)
@@ -293,7 +293,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              Text(p['desc'] as String, style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textSecondary)),
+              Text(p['desc'] as String, style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textSecondary)),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,

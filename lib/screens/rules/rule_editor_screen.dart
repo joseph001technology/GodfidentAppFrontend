@@ -181,7 +181,7 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
                       Expanded(
                         child: TextField(
                           controller: _titleController,
-                          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
                           decoration: InputDecoration(
                             hintText: 'Rule title',
                             hintStyle: TextStyle(color: AppTheme.warmGray.withValues(alpha: 0.5)),
@@ -203,7 +203,7 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
                     ),
                     child: TextField(
                       controller: _descriptionController,
-                      style: const TextStyle(color: AppTheme.textPrimary, height: 1.6),
+                      style: TextStyle(color: AppTheme.textPrimary, height: 1.6),
                       decoration: InputDecoration(
                         hintText: 'Describe your rule...',
                         hintStyle: TextStyle(color: AppTheme.warmGray.withValues(alpha: 0.5)),

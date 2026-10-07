@@ -25,7 +25,7 @@ void showChapterPickerFor(BuildContext context, BookInfo book, String translatio
           Text(book.name, style: const TextStyle(fontFamily: 'Lora', fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text('Choose a chapter (1 - ${book.chapters})',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+              style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
           const SizedBox(height: 14),
           Flexible(
             child: GridView.builder(

@@ -77,9 +77,9 @@ class _AppRestrictionsScreenState extends ConsumerState<AppRestrictionsScreen> {
                     secondary: a.icon == null
                         ? const Icon(Icons.android)
                         : Image.memory(a.icon!, width: 36, height: 36, gaplessPlayback: true),
-                    title: Text(a.label, style: const TextStyle(color: AppTheme.textPrimary)),
+                    title: Text(a.label, style: TextStyle(color: AppTheme.textPrimary)),
                     subtitle: Text(a.packageName,
-                        style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                        style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
                     controlAffinity: ListTileControlAffinity.trailing,
                   );
                 },
@@ -110,7 +110,7 @@ class _AppRestrictionsScreenState extends ConsumerState<AppRestrictionsScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
+                  Text(
                     'Selected apps are blocked only while a Focus session is running. Outside Focus Mode they work normally.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 11, color: AppTheme.textMuted),

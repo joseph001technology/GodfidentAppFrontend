@@ -170,7 +170,7 @@ class _MusicScreenState extends State<MusicScreen> with SingleTickerProviderStat
             const SizedBox(height: 12),
             Text(title, style: const TextStyle(fontFamily: 'Lora', fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
-            Text(body, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.textSecondary)),
+            Text(body, textAlign: TextAlign.center, style: TextStyle(color: AppTheme.textSecondary)),
             const SizedBox(height: 14),
             ElevatedButton(
               onPressed: onTap,
@@ -196,7 +196,7 @@ class _MusicScreenState extends State<MusicScreen> with SingleTickerProviderStat
               style: TextStyle(fontWeight: FontWeight.w600, color: playing ? AppTheme.goldDark : AppTheme.textPrimary)),
           subtitle: Text('${s.artist}${s.album.isEmpty ? '' : ' \u00b7 ${s.album}'}',
               maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
-          trailing: Text(_fmt(s.duration), style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+          trailing: Text(_fmt(s.duration), style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
           onTap: () => _play(songs, s),
         );
       },

@@ -59,7 +59,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
                 Text(isNotes ? '📝 ' : '📜 ', style: const TextStyle(fontSize: 20)),
                 Text(
                   isNotes ? 'Spiritual Notes' : 'My Rules',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Lora',
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -193,9 +193,9 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
         const SizedBox(width: 14),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: const TextStyle(fontFamily: 'Lora', fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            Text(title, style: TextStyle(fontFamily: 'Lora', fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
             const SizedBox(height: 2),
-            Text(sub, style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textSecondary)),
+            Text(sub, style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textSecondary)),
             if (progress != null) ...[
               const SizedBox(height: 8),
               ClipRRect(
@@ -370,12 +370,12 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
                           note.title.isEmpty ? 'Untitled note' : note.title,
                           maxLines: compact ? 2 : 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontFamily: 'Lora', fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                         ),
                         const SizedBox(height: 2),
                         Text(_shortDate(note.updatedAt),
-                            style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted)),
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted)),
                       ]),
                     ),
                     if (note.isPinned) const Icon(Icons.push_pin, color: AppTheme.gold, size: 16),
@@ -390,7 +390,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
                       note.content,
                       maxLines: compact ? 3 : 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textSecondary, height: 1.45),
+                      style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textSecondary, height: 1.45),
                     ),
                   ],
                   if (topics.isNotEmpty) ...[
@@ -547,7 +547,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
                     if (rule.description != null && rule.description!.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(rule.description!,
-                          style: const TextStyle(fontFamily: 'Inter', fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4)),
+                          style: TextStyle(fontFamily: 'Inter', fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4)),
                     ],
                     const SizedBox(height: 8),
                     Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
@@ -589,7 +589,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
                   ),
                   IconButton(
                     visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.more_vert, color: AppTheme.textMuted, size: 18),
+                    icon: Icon(Icons.more_vert, color: AppTheme.textMuted, size: 18),
                     onPressed: () => _showRuleActions(rule),
                   ),
                 ]),
@@ -614,7 +614,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
           children: [
             ListTile(
               leading: const Icon(Icons.edit_outlined, color: AppTheme.gold),
-              title: const Text('Edit Rule', style: TextStyle(color: AppTheme.textPrimary)),
+              title: Text('Edit Rule', style: TextStyle(color: AppTheme.textPrimary)),
               onTap: () {
                 Navigator.pop(context);
                 context.push('/rules/${rule.id}/edit');
@@ -626,7 +626,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
                 color: AppTheme.accentPink,
               ),
               title: Text(rule.isFavorite ? 'Remove Favorite' : 'Mark Favorite',
-                  style: const TextStyle(color: AppTheme.textPrimary)),
+                  style: TextStyle(color: AppTheme.textPrimary)),
               onTap: () {
                 ref.read(rulesProvider.notifier).toggleFavorite(rule.id);
                 Navigator.pop(context);
@@ -654,17 +654,17 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
       onChanged: onChanged,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 14),
-        prefixIcon: const Icon(Icons.search, color: AppTheme.textMuted),
+        hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 14),
+        prefixIcon: Icon(Icons.search, color: AppTheme.textMuted),
         fillColor: AppTheme.navySurface,
         filled: true,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppTheme.navyOutline),
+          borderSide: BorderSide(color: AppTheme.navyOutline),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppTheme.navyOutline),
+          borderSide: BorderSide(color: AppTheme.navyOutline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),

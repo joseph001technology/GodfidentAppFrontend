@@ -135,7 +135,7 @@ class StatCard extends StatelessWidget {
             Container(
               width: 44,
               height: 44,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppTheme.navySurface,
                 borderRadius: DesignUtils.mediumRadius,
               ),

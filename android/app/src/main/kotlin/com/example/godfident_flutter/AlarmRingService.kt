@@ -36,7 +36,12 @@ class AlarmRingService : Service() {
 
     companion object {
         const val ACTION_STOP = "com.example.godfident_flutter.ALARM_STOP"
+        const val ACTION_SNOOZE = "com.example.godfident_flutter.ALARM_SNOOZE"
         private const val CHANNEL = "godfident_alarm_ring"
+        private const val CHANNEL_MISSED = "godfident_missed"
+
+        /** Notification ids must be positive; offline-created reminders have negative ids. */
+        fun nid(id: Int): Int = if (id > 0) id else 1_000_000_000 + (Math.abs(id.toLong()) % 400_000_000L).toInt()
         @Volatile var running = false
 
         fun stop(c: Context) {
@@ -67,9 +72,9 @@ class AlarmRingService : Service() {
 
         fun build(c: Context, id: Int, title: String, body: String, route: String, startLabel: String): Notification {
             ensureChannel(c)
-            val stopPi = PendingIntent.getService(
-                c, 900000 + id,
-                Intent(c, AlarmRingService::class.java).setAction(ACTION_STOP),
+            val snoozePi = PendingIntent.getService(
+                c, 900000 + nid(id) % 100_000_000,
+                Intent(c, AlarmRingService::class.java).setAction(ACTION_SNOOZE),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             val open = openApp(c, id, route)
@@ -86,14 +91,84 @@ class AlarmRingService : Service() {
                 .setFullScreenIntent(open, true)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             if (startLabel.isNotEmpty()) b.addAction(0, startLabel, open)
-            b.addAction(0, "Stop", stopPi)
+            b.addAction(0, "Snooze ${AlarmScheduler.SNOOZE_MINUTES} min", snoozePi)
             return b.build()
         }
 
         /** Used only when the service could not be started. */
         fun postPlainNotification(c: Context, id: Int, title: String, body: String, route: String) {
             val nm = c.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            nm.notify(id, build(c, id, title, body, route, ""))
+            nm.notify(nid(id), build(c, id, title, body, route, ""))
+        }
+
+        /** A normal (non-ringing) reminder notification, posted natively so it works offline / after reboot. */
+        fun postReminder(c: Context, id: Int, title: String, body: String, route: String, sound: String) {
+            val nm = c.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val chId = "gf_rem_" + Math.abs(sound.hashCode())
+            if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(chId) == null) {
+                val ch = NotificationChannel(chId, "Reminders", NotificationManager.IMPORTANCE_HIGH)
+                val uri: Uri = if (sound.isNotEmpty()) Uri.parse(sound) else Settings.System.DEFAULT_NOTIFICATION_URI
+                ch.setSound(
+                    uri,
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                ch.enableVibration(true)
+                ch.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                nm.createNotificationChannel(ch)
+            }
+            val n = NotificationCompat.Builder(c, chId)
+                .setSmallIcon(c.applicationInfo.icon)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(openApp(c, id, route))
+                .build()
+            nm.notify(nid(id), n)
+        }
+
+        /** What kind of thing an alarm was for, from the page it opens. */
+        private fun kindOf(route: String): String = when {
+            route.startsWith("/prayer") -> "prayer"
+            route.startsWith("/bible") -> "bible"
+            route.startsWith("/home") -> "both"
+            route.startsWith("/focus") -> "focus"
+            else -> "general"
+        }
+
+        /** "Missed: <name>" with a line that depends on the type of alarm. */
+        fun postMissed(c: Context, id: Int, title: String, body: String, route: String, missedAtMs: Long) {
+            val nm = c.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(CHANNEL_MISSED) == null) {
+                val ch = NotificationChannel(CHANNEL_MISSED, "Missed alarms", NotificationManager.IMPORTANCE_HIGH)
+                ch.enableVibration(true)
+                nm.createNotificationChannel(ch)
+            }
+            val at = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(missedAtMs))
+            val intro = when (kindOf(route)) {
+                "prayer" -> "You missed your prayer time at $at."
+                "bible" -> "You missed your Bible reading time at $at."
+                "both" -> "You missed your time with God at $at."
+                "focus" -> "Your scheduled Focus session was due at $at."
+                else -> "You missed this reminder at $at."
+            }
+            val detail = if (body.isNotBlank() && kindOf(route) != "focus") "$intro\n$body" else intro
+            val n = NotificationCompat.Builder(c, CHANNEL_MISSED)
+                .setSmallIcon(c.applicationInfo.icon)
+                .setContentTitle("Missed: $title")
+                .setContentText(intro)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(detail))
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(openApp(c, id, route))
+                .build()
+            nm.notify(2_000_000_000 - (Math.abs(id.toLong()) % 100_000_000L).toInt(), n)
         }
     }
 
@@ -101,11 +176,25 @@ class AlarmRingService : Service() {
     private var focusReq: AudioFocusRequest? = null
     private val handler = Handler(Looper.getMainLooper())
     private var currentId = 0
+    private var cur: AlarmScheduler.Alarm? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            shutdown()
+            return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_SNOOZE) {
+            cur?.let {
+                try { AlarmScheduler.snooze(this, it) } catch (_: Exception) {}
+                try {
+                    android.widget.Toast.makeText(
+                        this, "Snoozed for ${AlarmScheduler.SNOOZE_MINUTES} minutes", android.widget.Toast.LENGTH_LONG
+                    ).show()
+                } catch (_: Exception) {}
+            }
+            cur = null
             shutdown()
             return START_NOT_STICKY
         }
@@ -124,12 +213,13 @@ class AlarmRingService : Service() {
         val maxSec = intent.getIntExtra("max", 60)
         val startLabel = intent.getStringExtra("start") ?: ""
 
+        cur = AlarmScheduler.Alarm(currentId, System.currentTimeMillis(), 0L, title, body, route, sound, maxSec, startLabel, true)
         val n = build(this, currentId, title, body, route, startLabel)
         try {
             if (Build.VERSION.SDK_INT >= 29) {
-                startForeground(currentId, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+                startForeground(nid(currentId), n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
             } else {
-                startForeground(currentId, n)
+                startForeground(nid(currentId), n)
             }
         } catch (_: Exception) {
             stopSelf()
@@ -139,7 +229,12 @@ class AlarmRingService : Service() {
         startSound(sound)
         startVibration()
         handler.removeCallbacksAndMessages(null)
-        handler.postDelayed({ shutdown() }, maxSec.coerceIn(10, 3600) * 1000L)
+        handler.postDelayed({
+            // Nobody answered: leave a "missed" note instead of vanishing silently.
+            cur?.let { AlarmRingService.postMissed(this, it.id, it.title, it.body, it.route, it.whenMs) }
+            cur = null
+            shutdown()
+        }, maxSec.coerceIn(10, 3600) * 1000L)
         return START_NOT_STICKY
     }
 

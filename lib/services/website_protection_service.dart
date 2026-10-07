@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../core/dio_client.dart';
+import 'restriction_store.dart';
 
 /// Live status of the Android-side website protection (local VPN/DNS filter).
 class WebsiteProtectionStatus {
@@ -95,11 +96,19 @@ class WebsiteProtectionService {
     } on PlatformException {/* surfaced by status() */}
   }
 
+  Future<void> setBlockedKeywords(List<String> keywords) async {
+    if (!supported) return;
+    try {
+      await _ch.invokeMethod('setBlockedKeywords', {'keywords': keywords});
+    } on PlatformException {/* surfaced by status() */}
+  }
+
   /// Starts the filter and VERIFIES it is really running before returning true.
   Future<bool> start(List<String> domains) async {
     if (!supported) return false;
     try {
       await setBlockedDomains(domains);
+      await setBlockedKeywords(await RestrictionStore.instance.loadKeywords());
       if (!await requestVpnPermission()) return false;
       final requested = await _ch.invokeMethod<bool>('startWebsiteProtection') ?? false;
       if (!requested) return false;
@@ -127,8 +136,10 @@ class WebsiteProtectionService {
   Future<void> ensureRunning(List<String> domains) async {
     if (!supported) return;
     await setBlockedDomains(domains);
+    final words = await RestrictionStore.instance.loadKeywords();
+    await setBlockedKeywords(words);
     final s = await status();
-    if (domains.isEmpty) {
+    if (domains.isEmpty && words.isEmpty) {
       if (s.running || s.wanted) await stop();
       return;
     }

@@ -22,7 +22,7 @@ class RemindersScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Row(
+        title: Row(
           children: [
             Text('🔔 ', style: TextStyle(fontSize: 20)),
             Text(
@@ -89,7 +89,7 @@ class RemindersScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Icon(Icons.alarm_on_outlined, color: AppTheme.gold, size: 32),
                     SizedBox(width: 16),
@@ -122,7 +122,7 @@ class RemindersScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
+              Text(
                 'Active Timers & Notifications',
                 style: TextStyle(
                   fontFamily: 'Lora',
@@ -198,12 +198,12 @@ class _ReminderCard extends ConsumerWidget {
           context: context,
           builder: (dialogContext) => AlertDialog(
             backgroundColor: AppTheme.navySurface,
-            title: const Text('Delete reminder', style: TextStyle(color: AppTheme.textPrimary)),
-            content: Text('Delete "${r.title}"?', style: const TextStyle(color: AppTheme.textSecondary)),
+            title: Text('Delete reminder', style: TextStyle(color: AppTheme.textPrimary)),
+            content: Text('Delete "${r.title}"?', style: TextStyle(color: AppTheme.textSecondary)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+                child: Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext, true),

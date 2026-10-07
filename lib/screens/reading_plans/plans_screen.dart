@@ -97,7 +97,7 @@ class _PlanCard extends ConsumerWidget {
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.gold,
-                    side: const BorderSide(color: AppTheme.navyOutline),
+                    side: BorderSide(color: AppTheme.navyOutline),
                   ),
                   onPressed: () => _showDetails(context, ref, plan),
                   child: const Text('View Plan'),

@@ -190,6 +190,10 @@ class BibleRepository {
     return VerseNote.fromJson(readDataMap(res.data));
   }
 
+  Future<void> deleteNote(int id) async {
+    await _dio.delete('/api/bible/notes/$id/');
+  }
+
   Future<BibleVerse> getVerseOfTheDay() async {
     final res = await _dio.get('/api/bible/verse-of-the-day/');
     final data = res.data['data'] ?? res.data;

@@ -142,7 +142,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           children: [
             TextField(
               controller: _titleController,
-              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
               decoration: InputDecoration(
                 hintText: 'Note title',
                 hintStyle: TextStyle(color: AppTheme.warmGray.withValues(alpha: 0.5)),
@@ -165,7 +165,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
               ),
               child: TextField(
                 controller: _bodyController,
-                style: const TextStyle(color: AppTheme.textPrimary, height: 1.6),
+                style: TextStyle(color: AppTheme.textPrimary, height: 1.6),
                 decoration: InputDecoration(
                   hintText: 'Write your thoughts, prayers, insights...',
                   hintStyle: TextStyle(color: AppTheme.warmGray.withValues(alpha: 0.5)),
@@ -216,7 +216,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         value: _selectedTopicId,
         isExpanded: true,
         underline: const SizedBox(),
-        style: const TextStyle(color: AppTheme.textPrimary),
+        style: TextStyle(color: AppTheme.textPrimary),
         dropdownColor: AppTheme.navyVariant,
         items: [
           const DropdownMenuItem<int?>(

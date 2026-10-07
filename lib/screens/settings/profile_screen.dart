@@ -6,6 +6,7 @@ import '../../models/activity.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/remaining_providers.dart';
+import '../../services/theme_controller.dart';
 import '../../widgets/common/app_widgets.dart';
 
 /// The Profile tab: who you are, your REAL numbers, and every setting that
@@ -15,6 +16,43 @@ class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   static const _months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  void _pickTheme(BuildContext context, WidgetRef ref) {
+    Widget opt(BuildContext sheet, ThemeMode m, IconData icon, String title, String sub) {
+      final selected = ref.read(themeModeProvider) == m;
+      return ListTile(
+        leading: Icon(icon, color: AppTheme.goldDark),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text(sub, style: const TextStyle(fontSize: 12)),
+        trailing: selected ? const Icon(Icons.check_circle, color: AppTheme.gold) : null,
+        onTap: () {
+          Navigator.pop(sheet);
+          ref.read(themeModeProvider.notifier).set(m);
+        },
+      );
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.navySurface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (sheet) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Appearance', style: TextStyle(fontFamily: 'Lora', fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+          ),
+          opt(sheet, ThemeMode.light, Icons.light_mode_outlined, 'Light', 'Warm ivory pages, easy in daylight'),
+          opt(sheet, ThemeMode.dark, Icons.nights_stay_outlined, 'Classic Dark', 'Deep midnight navy with gold, gentle at night'),
+          opt(sheet, ThemeMode.system, Icons.phone_android_outlined, 'Follow my phone', 'Switches with Android\'s own setting'),
+          const SizedBox(height: 10),
+        ]),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,8 +72,8 @@ class ProfileScreen extends ConsumerWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
             children: [
-              const Text('Profile',
-                  style: TextStyle(fontFamily: 'Lora', fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.inkNavy)),
+              Text('Profile',
+                  style: TextStyle(fontFamily: 'Lora', fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.ink)),
               const SizedBox(height: 16),
               userAsync.when(
                 loading: () => const LoadingShimmer(height: 150),
@@ -64,10 +102,23 @@ class ProfileScreen extends ConsumerWidget {
                 _Row(Icons.edit_note, 'Notes & rules', null, AppTheme.softBlue, () => context.push('/notes')),
                 _Row(Icons.library_music_outlined, 'Music', null, AppTheme.accentPurple, () => context.push('/music')),
               ]),
+              _group('Appearance', [
+                _Row(
+                  Icons.dark_mode_outlined,
+                  'Theme',
+                  switch (ref.watch(themeModeProvider)) {
+                    ThemeMode.dark => 'Classic Dark',
+                    ThemeMode.system => 'Follow my phone',
+                    ThemeMode.light => 'Light',
+                  },
+                  AppTheme.goldDark,
+                  () => _pickTheme(context, ref),
+                ),
+              ]),
               _group('Account', [
-                _Row(Icons.person_outline, 'Edit profile', null, AppTheme.inkNavy, () => context.push('/profile/edit')),
-                _Row(Icons.lock_outlined, 'Change password', null, AppTheme.inkNavy, () => context.push('/profile/change-password')),
-                _Row(Icons.notifications_outlined, 'Notification settings', null, AppTheme.inkNavy, () => context.push('/notification-settings')),
+                _Row(Icons.person_outline, 'Edit profile', null, AppTheme.ink, () => context.push('/profile/edit')),
+                _Row(Icons.lock_outlined, 'Change password', null, AppTheme.ink, () => context.push('/profile/change-password')),
+                _Row(Icons.notifications_outlined, 'Notification settings', null, AppTheme.ink, () => context.push('/notification-settings')),
               ]),
               const SizedBox(height: 6),
               OutlinedButton.icon(
@@ -82,7 +133,7 @@ class ProfileScreen extends ConsumerWidget {
                 label: const Text('Sign out', style: TextStyle(fontWeight: FontWeight.w700)),
               ),
               const SizedBox(height: 16),
-              const Center(child: Text('Godfident · Make Time for God', style: TextStyle(fontSize: 12, color: AppTheme.textMuted))),
+              Center(child: Text('Godfident · Make Time for God', style: TextStyle(fontSize: 12, color: AppTheme.textMuted))),
             ],
           ),
         ),
@@ -133,7 +184,7 @@ class ProfileScreen extends ConsumerWidget {
               child: u?.avatarBytes != null
                   ? Image.memory(u!.avatarBytes!, width: 66, height: 66, fit: BoxFit.cover, gaplessPlayback: true)
                   : Text(u?.initials ?? 'G',
-                      style: const TextStyle(fontFamily: 'Lora', fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.inkNavy)),
+                      style: TextStyle(fontFamily: 'Lora', fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.ink)),
             ),
           ),
           const SizedBox(width: 16),
@@ -206,8 +257,8 @@ class ProfileScreen extends ConsumerWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Icon(i, color: c, size: 20),
               const SizedBox(height: 8),
-              Text(v, style: const TextStyle(fontFamily: 'Lora', fontSize: 21, fontWeight: FontWeight.bold, color: AppTheme.inkNavy)),
-              Text(l, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+              Text(v, style: TextStyle(fontFamily: 'Lora', fontSize: 21, fontWeight: FontWeight.bold, color: AppTheme.ink)),
+              Text(l, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
             ]),
           ),
         );
@@ -232,7 +283,7 @@ class ProfileScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 8),
             child: Text(title.toUpperCase(),
-                style: const TextStyle(fontSize: 11, letterSpacing: 1.1, fontWeight: FontWeight.w700, color: AppTheme.textMuted)),
+                style: TextStyle(fontSize: 11, letterSpacing: 1.1, fontWeight: FontWeight.w700, color: AppTheme.textMuted)),
           ),
           Container(
             decoration: BoxDecoration(
@@ -268,8 +319,8 @@ class _Row extends StatelessWidget {
           decoration: BoxDecoration(color: color.withValues(alpha: 0.13), borderRadius: BorderRadius.circular(11)),
           child: Icon(icon, color: color, size: 20),
         ),
-        title: Text(label, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-        subtitle: sub == null ? null : Text(sub!, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
-        trailing: const Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 20),
+        title: Text(label, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+        subtitle: sub == null ? null : Text(sub!, style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+        trailing: Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 20),
       );
 }

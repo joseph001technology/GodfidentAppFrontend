@@ -121,10 +121,10 @@ class NotificationSettingsScreen extends ConsumerWidget {
         backgroundColor: AppTheme.navySurface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppTheme.textPrimary),
           onPressed: () => context.pop(),
         ),
-        title: const Text(
+        title: Text(
           'Notification Settings',
           style: TextStyle(
             fontFamily: 'Lora',
@@ -162,7 +162,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                         color: AppTheme.gold, size: 24),
                   ),
                   const SizedBox(width: 14),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -245,7 +245,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Lora',
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -282,7 +282,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                               ),
                               title: Text(
                                 item['label'] as String,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -291,7 +291,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                               ),
                               subtitle: Text(
                                 item['subtitle'] as String,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 11,
                                   color: AppTheme.textMuted,
@@ -327,7 +327,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: AppTheme.navyOutline),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Icon(Icons.alarm_outlined, color: AppTheme.gold, size: 22),
                     SizedBox(width: 14),

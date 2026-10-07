@@ -43,6 +43,7 @@ class WebsiteBlockVpnService : VpnService() {
     companion object {
         const val PREFS = "godfident_website_prefs"
         const val KEY_DOMAINS = "blocked_domains"
+        const val KEY_KEYWORDS = "blocked_keywords"
         const val KEY_ACTIVE = "protection_active"
         const val KEY_BLOCKED_COUNT = "blocked_lookup_count"
         const val ACTION_STOP = "com.example.godfident_flutter.STOP_WEB_PROTECTION"
@@ -140,12 +141,42 @@ class WebsiteBlockVpnService : VpnService() {
 
         private fun matches(h: String, d: String) = h == d || h.endsWith(".$d")
 
+        /** Lower-case and drop separators, so "free-movies", "free movies" and "freemovies" all match "free movies". */
+        private fun squash(t: String): String =
+            t.lowercase().replace("%20", "").filter { it.isLetterOrDigit() }
+
+        /** True if [text] (a host name, a typed address or a search) contains any blocked word. */
+        fun hasBlockedWord(text: String, keywords: Set<String>): Boolean {
+            if (keywords.isEmpty() || text.isBlank()) return false
+            val t = squash(text)
+            for (k in keywords) {
+                val w = squash(k)
+                if (w.length >= 3 && t.contains(w)) return true
+            }
+            return false
+        }
+
+        /**
+         * What was typed / opened in a browser address bar: blocked if it is (or lies on) a
+         * blocked site, or contains a blocked word anywhere in the address or search text.
+         */
+        fun addressBlocked(text: String, domains: Set<String>, keywords: Set<String>): Boolean {
+            val raw = text.trim().lowercase()
+            if (raw.isEmpty()) return false
+            if (hasBlockedWord(raw, keywords)) return true
+            val host = raw.removePrefix("http://").removePrefix("https://").substringBefore('/')
+                .substringBefore('?').substringBefore('#').substringBefore(':')
+            if (host.contains('.') && !host.contains(' ') && isBlocked(host, domains)) return true
+            return false
+        }
+
         /** True if [host] equals a blocked domain, is a subdomain of one, or belongs to the same site group. */
-        fun isBlocked(host: String, domains: Set<String>): Boolean {
+        fun isBlocked(host: String, domains: Set<String>, keywords: Set<String> = emptySet()): Boolean {
             val h = host.lowercase().trimEnd('.')
             if (h.isEmpty()) return false
             // Browser-level encrypted DNS would sidestep the filter entirely.
-            if (DOH_HOSTS.any { matches(h, it) }) return domains.isNotEmpty()
+            if (DOH_HOSTS.any { matches(h, it) }) return domains.isNotEmpty() || keywords.isNotEmpty()
+            if (hasBlockedWord(h, keywords)) return true
             for (raw in domains) {
                 val d = cleanDomain(raw)
                 if (d.isEmpty()) continue
@@ -292,9 +323,12 @@ class WebsiteBlockVpnService : VpnService() {
         totalQueries++
         lastHost = parsed.first
         val domains = prefs.getStringSet(KEY_DOMAINS, emptySet()) ?: emptySet()
+        val keywords = prefs.getStringSet(KEY_KEYWORDS, emptySet()) ?: emptySet()
 
-        if (isBlocked(parsed.first, domains)) {
+        if (isBlocked(parsed.first, domains, keywords)) {
             prefs.edit().putInt(KEY_BLOCKED_COUNT, prefs.getInt(KEY_BLOCKED_COUNT, 0) + 1).apply()
+            // If a browser is on screen, close the page and send the person back to God's Word.
+            try { FocusAccessibilityService.onBlockedLookup() } catch (_: Exception) {}
             val reply = buildNxDomain(dns, parsed.second)
             writeReply(out, dstIp, srcIp, srcPort, reply)
         } else {

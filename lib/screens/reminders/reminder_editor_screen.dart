@@ -191,7 +191,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppTheme.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
@@ -349,7 +349,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        Text(current.$4, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        Text(current.$4, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
       ],
     );
   }
@@ -591,10 +591,10 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('Ringtone', style: TextStyle(fontWeight: FontWeight.w600)),
-              Text(_ringtone.title, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              Text(_ringtone.title, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ]),
           ),
-          const Icon(Icons.chevron_right, color: AppTheme.textMuted),
+          Icon(Icons.chevron_right, color: AppTheme.textMuted),
         ]),
       ),
     );

@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
+  /// Set by the theme controller (see theme_controller.dart) BEFORE the app builds.
+  /// Colour tokens that differ between Light and Dark read this flag.
+  static bool isDark = false;
+
+  /// Text / icons that sit on the PAGE background: dark navy in Light, warm cream in Dark.
+  /// (inkNavy stays dark navy: it is the text on gold buttons in both modes.)
+  static Color get ink => isDark ? const Color(0xFFF4E9D0) : const Color(0xFF1B2A4C);
+
   // ────────────────────────────────────────────────────────────────────────
   // Brand colors — "Godfident Light" palette
   // NOTE: token NAMES are unchanged from the old dark theme on purpose, so
@@ -23,15 +31,15 @@ class AppTheme {
   // inline with a comment), but do a project-wide search for
   // `AppTheme.navy` used as a `color:`/`foregroundColor:` on top of a gold
   // background before you copy this into the other ~25 screens.
-  static const Color navy = Color(0xFFFAF6EC); // page background (was #0A0A1A)
+  static Color get navy => isDark ? const Color(0xFF0B1020) : const Color(0xFFFAF6EC);
   static const Color inkNavy = Color(0xFF1B2A4C); // NEW — dark ink/on-gold text
 
   // Surface ramp: in dark mode "lighter navy" meant "more elevated". In
   // light mode elevation instead goes from warm ivory -> white card ->
   // soft ivory-gray for inputs/inactive chips -> a hairline border color.
-  static const Color navySurface = Color(0xFFFFFFFF); // cards, dialogs, bottom nav (was #14142A)
-  static const Color navyVariant = Color(0xFFF2ECDD); // inputs, inactive chips/tabs, stat boxes (was #1E1E3A)
-  static const Color navyOutline = Color(0xFFE8E1D0); // borders, dividers (was #2D2D4A)
+  static Color get navySurface => isDark ? const Color(0xFF141B2F) : const Color(0xFFFFFFFF);
+  static Color get navyVariant => isDark ? const Color(0xFF1D2744) : const Color(0xFFF2ECDD);
+  static Color get navyOutline => isDark ? const Color(0xFF2B3658) : const Color(0xFFE8E1D0);
 
   static const Color emerald = Color(0xFF4F8C5D);
   static const Color emeraldLight = Color(0xFF6FA87C);
@@ -39,9 +47,9 @@ class AppTheme {
   static const Color accentTeal = Color(0xFF3E8E96);
   static const Color accentPink = Color(0xFFC15B6B);
 
-  static const Color textPrimary = Color(0xFF1E2030); // was #EDEDF5 (near-white)
-  static const Color textSecondary = Color(0xFF666B7C); // was #9E9EB8
-  static const Color textMuted = Color(0xFF8A8D9C); // was #6B6B8A
+  static Color get textPrimary => isDark ? const Color(0xFFF2EDE0) : const Color(0xFF1E2030);
+  static Color get textSecondary => isDark ? const Color(0xFFB4BACB) : const Color(0xFF666B7C);
+  static Color get textMuted => isDark ? const Color(0xFF8791AA) : const Color(0xFF8A8D9C);
 
   // NEW — a handful of hero cards (verse-of-day, focus mode, the home
   // header) intentionally KEEP a dark navy/gradient fill even in the light
@@ -98,28 +106,45 @@ class AppTheme {
   // ThemeData
   // ────────────────────────────────────────────────────────────────────────
 
-  /// The app's single theme going forward. Kept the name `light()` from the
-  /// original file (it used to be an unused ColorScheme.fromSeed stub —
-  /// convenient, since that's exactly the slot this belongs in).
-  static ThemeData light() {
+  static ThemeData light() => _build(Brightness.light);
+  static ThemeData dark() => _build(Brightness.dark);
+
+  static ThemeData _build(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    final scheme = dark
+        ? ColorScheme.dark(
+            primary: gold,
+            onPrimary: inkNavy,
+            primaryContainer: const Color(0x33C79A45),
+            onPrimaryContainer: goldLight,
+            secondary: const Color(0xFF9A8BCB),
+            surface: navySurface,
+            surfaceContainerHighest: navyVariant,
+            onSurface: textPrimary,
+            outline: navyOutline,
+            error: const Color(0xFFE07A63),
+            tertiary: emeraldLight,
+          )
+        : ColorScheme.light(
+            primary: gold,
+            onPrimary: inkNavy,
+            primaryContainer: const Color(0x26C79A45),
+            onPrimaryContainer: goldDark,
+            secondary: accentPurple,
+            surface: navySurface,
+            surfaceContainerHighest: navyVariant,
+            onSurface: textPrimary,
+            outline: navyOutline,
+            error: danger,
+            tertiary: emerald,
+          );
     final base = ThemeData(
       useMaterial3: true,
-      brightness: Brightness.light,
-      colorScheme: const ColorScheme.light(
-        primary: gold,
-        onPrimary: inkNavy,
-        primaryContainer: Color(0x26C79A45),
-        onPrimaryContainer: goldDark,
-        secondary: accentPurple,
-        surface: navySurface,
-        surfaceContainerHighest: navyVariant,
-        onSurface: textPrimary,
-        outline: navyOutline,
-        error: danger,
-        tertiary: emerald,
-      ),
+      brightness: brightness,
+      colorScheme: scheme,
       scaffoldBackgroundColor: navy,
-      appBarTheme: const AppBarTheme(
+      canvasColor: navy,
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         foregroundColor: textPrimary,
         elevation: 0,
@@ -131,28 +156,28 @@ class AppTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: navyOutline, width: 1),
+          side: BorderSide(color: navyOutline, width: 1),
         ),
       ),
-      dividerTheme: const DividerThemeData(color: navyOutline, thickness: 0.5),
+      dividerTheme: DividerThemeData(color: navyOutline, thickness: 0.5),
       textTheme: _textTheme,
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: navyVariant,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: navyOutline),
+          borderSide: BorderSide(color: navyOutline),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: navyOutline),
+          borderSide: BorderSide(color: navyOutline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: gold, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        hintStyle: const TextStyle(color: textMuted),
+        hintStyle: TextStyle(color: textMuted),
       ),
     );
 
@@ -160,30 +185,37 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: gold,
-          foregroundColor: inkNavy, // was `navy` — needed the NEW dark-ink token, see top of file
+          foregroundColor: inkNavy,
           minimumSize: const Size(double.infinity, 52),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, fontFamily: 'Inter'),
           elevation: 0,
         ),
       ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: dark ? goldLight : textPrimary,
+          side: BorderSide(color: dark ? goldDark : navyOutline),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+      ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: gold,
+          foregroundColor: dark ? goldLight : gold,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: navyVariant,
-        selectedColor: gold.withValues(alpha: 0.18),
-        labelStyle: const TextStyle(fontSize: 12, color: textPrimary, fontFamily: 'Inter'),
-        side: const BorderSide(color: navyOutline, width: 0.5),
+        selectedColor: gold.withValues(alpha: dark ? 0.30 : 0.18),
+        labelStyle: TextStyle(fontSize: 12, color: textPrimary, fontFamily: 'Inter'),
+        side: BorderSide(color: navyOutline, width: 0.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: navySurface,
-        selectedItemColor: gold,
+        selectedItemColor: dark ? goldLight : gold,
         unselectedItemColor: textMuted,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
@@ -192,7 +224,7 @@ class AppTheme {
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: gold,
-        foregroundColor: inkNavy, // was `navy`
+        foregroundColor: inkNavy,
         elevation: 0,
         shape: CircleBorder(),
       ),
@@ -200,35 +232,35 @@ class AppTheme {
         color: navySurface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: navyOutline, width: 1),
+          side: BorderSide(color: navyOutline, width: 1),
         ),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: navySurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
+      bottomSheetTheme: BottomSheetThemeData(backgroundColor: navySurface, surfaceTintColor: Colors.transparent),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: dark ? const Color(0xFF26304F) : const Color(0xFF1B2A4C),
+        contentTextStyle: const TextStyle(color: Color(0xFFF4F1E8), fontFamily: 'Inter'),
+        behavior: SnackBarBehavior.floating,
+      ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) return gold;
-          return const Color(0xFFFFFFFF);
+          return dark ? const Color(0xFFB4BACB) : const Color(0xFFFFFFFF);
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) return gold.withValues(alpha: 0.35);
           return navyOutline;
         }),
       ),
+      listTileTheme: ListTileThemeData(textColor: textPrimary, iconColor: textSecondary),
+      iconTheme: IconThemeData(color: textPrimary),
     );
   }
 
-  /// Kept as a shim so it doesn't matter which method your `main.dart`
-  /// currently calls — both now produce the light theme. This is a
-  /// temporary bridge, not a real fix: please tell me (or grep for)
-  /// whichever of `AppTheme.dark()` / `AppTheme.light()` your
-  /// MaterialApp actually references, then we delete this method and
-  /// rename `light()` back to a neutral name. Flagged on the reminder list.
-  static ThemeData dark() => light();
-
-  static const TextTheme _textTheme = TextTheme(
+  static TextTheme get _textTheme => TextTheme(
     displayLarge: TextStyle(fontFamily: 'Lora', fontSize: 32, fontWeight: FontWeight.bold, color: textPrimary, height: 1.2),
     displayMedium: TextStyle(fontFamily: 'Lora', fontSize: 28, fontWeight: FontWeight.bold, color: textPrimary, height: 1.2),
     displaySmall: TextStyle(fontFamily: 'Lora', fontSize: 24, fontWeight: FontWeight.bold, color: textPrimary, height: 1.3),

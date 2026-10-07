@@ -108,6 +108,44 @@ class RestrictedSitesNotifier extends StateNotifier<AsyncValue<List<RestrictedSi
   }
 }
 
+// ── Blocked words (web addresses / searches containing them are blocked) ──
+final restrictedKeywordsProvider =
+    StateNotifierProvider<RestrictedKeywordsNotifier, List<String>>((ref) => RestrictedKeywordsNotifier());
+
+class RestrictedKeywordsNotifier extends StateNotifier<List<String>> {
+  RestrictedKeywordsNotifier() : super(const []) {
+    load();
+  }
+  final _store = RestrictionStore.instance;
+  final _web = WebsiteProtectionService.instance;
+
+  Future<void> load() async => state = await _store.loadKeywords();
+
+  /// Returns null on success, or a message to show.
+  Future<String?> add(String input) async {
+    final w = RestrictionStore.normalizeKeyword(input);
+    if (w == null) return 'Use a word or phrase of at least 3 letters.';
+    if (state.contains(w)) return '"$w" is already blocked.';
+    final next = [...state, w];
+    await _store.saveKeywords(next);
+    state = next;
+    await _push();
+    return null;
+  }
+
+  Future<void> remove(String w) async {
+    final next = state.where((x) => x != w).toList();
+    await _store.saveKeywords(next);
+    state = next;
+    await _push();
+  }
+
+  Future<void> _push() async {
+    final sites = await _store.loadSites();
+    await _web.ensureRunning(sites.map((s) => s.domain).toList());
+  }
+}
+
 final websiteStatusProvider = FutureProvider.autoDispose<WebsiteProtectionStatus>((ref) {
   return WebsiteProtectionService.instance.status();
 });

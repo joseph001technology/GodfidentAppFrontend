@@ -122,7 +122,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 radius: 52,
                 backgroundColor: AppTheme.gold,
                 backgroundImage: _photoBytes != null ? MemoryImage(_photoBytes!) : null,
-                child: _photoBytes == null ? const Icon(Icons.add_a_photo_outlined, size: 32, color: AppTheme.inkNavy) : null,
+                child: _photoBytes == null ? Icon(Icons.add_a_photo_outlined, size: 32, color: AppTheme.ink) : null,
               ),
             ),
             Row(mainAxisSize: MainAxisSize.min, children: [
@@ -152,7 +152,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         const SizedBox(height: 14),
         TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone (optional)', prefixIcon: Icon(Icons.phone_outlined))),
         const SizedBox(height: 10),
-        Text('Email: $email (cannot be changed here)', style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+        Text('Email: $email (cannot be changed here)', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
         if (_error != null)
           Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: AppTheme.danger))),
         const SizedBox(height: 20),

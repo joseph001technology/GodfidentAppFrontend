@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/rule.dart';
 import '../repositories/rules_repository.dart';
 
@@ -33,6 +34,10 @@ class RulesNotifier extends StateNotifier<AsyncValue<List<Rule>>> {
     try {
       final list = await _repo.getList(categoryId: _categoryId);
       state = AsyncValue.data(list);
+      try {
+        // Remembered so a blocked-site redirect knows whether to open Rules or the Bible.
+        (await SharedPreferences.getInstance()).setBool('has_rules', list.any((r) => !r.isArchived));
+      } catch (_) {}
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }

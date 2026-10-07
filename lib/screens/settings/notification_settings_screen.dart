@@ -113,7 +113,7 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(p.title, style: const TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
-                  Text(p.why, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35)),
+                  Text(p.why, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35)),
                 ]),
               ),
               if (!p.granted)
@@ -172,7 +172,7 @@ class _Help extends StatelessWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-              Text(body, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35)),
+              Text(body, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35)),
             ]),
           ),
         ]),

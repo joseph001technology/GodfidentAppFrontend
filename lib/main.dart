@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'app.dart';
 import 'services/notification_service.dart';
+import 'services/theme_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,6 +16,7 @@ void main() async {
       androidNotificationOngoing: true,
     );
   } catch (_) {}
+  await ThemeController.load(); // before the first frame: no wrong-theme flash
   await NotificationService().initialize();
   runApp(const ProviderScope(child: GodfidentApp()));
 }

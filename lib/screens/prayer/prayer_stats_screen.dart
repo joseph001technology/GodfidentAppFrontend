@@ -16,7 +16,7 @@ class PrayerStatsScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Prayer Statistics',
           style: TextStyle(
             fontFamily: 'Lora',
@@ -56,7 +56,7 @@ class PrayerStatsScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Answer Rate',
                     style: TextStyle(
                       fontFamily: 'Lora',
@@ -101,7 +101,7 @@ class PrayerStatsScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Prayers by Type',
                     style: TextStyle(
                       fontFamily: 'Lora',
@@ -112,7 +112,7 @@ class PrayerStatsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 14),
                   if (stats.byType.isEmpty)
-                    const Text(
+                    Text(
                       'No prayers recorded yet',
                       style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textMuted),
                     )
@@ -124,7 +124,7 @@ class PrayerStatsScreen extends ConsumerWidget {
                               Expanded(
                                 child: Text(
                                   e.key.isEmpty ? 'General' : e.key[0].toUpperCase() + e.key.substring(1),
-                                  style: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppTheme.textPrimary),
+                                  style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppTheme.textPrimary),
                                 ),
                               ),
                               Text(
@@ -169,7 +169,7 @@ class _BigStat extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label,
-              style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
+              style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
             ),
           ],
         ),

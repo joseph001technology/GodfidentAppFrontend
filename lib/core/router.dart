@@ -71,7 +71,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/music', builder: (_, __) => const MusicScreen()),
           GoRoute(
             path: '/bible',
-            builder: (_, __) => const BibleScreen(),
+            builder: (_, state) => BibleScreen(browse: state.uri.queryParameters['browse'] == '1'),
             routes: [
               GoRoute(
                 path: 'chapter',
@@ -80,6 +80,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                   chapter: int.parse(state.uri.queryParameters['chapter']!),
                   translation: state.uri.queryParameters['translation'] ?? 'KJV',
                   focusVerse: int.tryParse(state.uri.queryParameters['verse'] ?? ''),
+                  resume: state.uri.queryParameters['resume'] == '1',
                 ),
               ),
               GoRoute(

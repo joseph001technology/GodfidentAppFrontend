@@ -9,7 +9,10 @@ import '../../widgets/common/app_widgets.dart';
 import 'reader_settings_sheet.dart';
 
 class BibleScreen extends ConsumerStatefulWidget {
-  const BibleScreen({super.key});
+  /// `/bible?browse=1` shows the list of books; plain `/bible` takes you back
+  /// to the chapter (and verse) you were reading last time.
+  final bool browse;
+  const BibleScreen({super.key, this.browse = false});
 
   @override
   ConsumerState<BibleScreen> createState() => _BibleScreenState();
@@ -19,6 +22,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
   int _selectedTestament = 0; // 0: Old Testament, 1: New Testament
   String? _selectedBookName;
   ReadingPosition? _last;
+  late bool _checking = !widget.browse; // true until we know whether to jump to the last place
 
   @override
   void initState() {
@@ -28,7 +32,18 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
 
   Future<void> _loadLast() async {
     final p = await ReadingPositionStore.load();
-    if (mounted) setState(() => _last = p);
+    if (!mounted) return;
+    setState(() {
+      _last = p;
+      _checking = false;
+    });
+    if (p != null && !widget.browse) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.push('/bible/chapter?book=${Uri.encodeComponent(p.book)}&chapter=${p.chapter}'
+            '&translation=${p.translation}&verse=${p.verse}&resume=1');
+      });
+    }
   }
 
   void _showMenu(BuildContext context) {
@@ -57,7 +72,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               item(Icons.play_circle_outline, 'Continue reading', '${_last!.book} ${_last!.chapter}', () {
                 Navigator.pop(sheet);
                 context.push(
-                    '/bible/chapter?book=${Uri.encodeComponent(_last!.book)}&chapter=${_last!.chapter}&translation=${_last!.translation}');
+                    '/bible/chapter?book=${Uri.encodeComponent(_last!.book)}&chapter=${_last!.chapter}&translation=${_last!.translation}&verse=${_last!.verse}&resume=1');
               }),
             item(Icons.translate_rounded, 'Translation', translation, () {
               Navigator.pop(sheet);
@@ -125,6 +140,9 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_checking) {
+      return Scaffold(backgroundColor: AppTheme.navy, body: Center(child: CircularProgressIndicator(color: AppTheme.gold)));
+    }
     final otAsync = ref.watch(otBooksProvider);
     final ntAsync = ref.watch(ntBooksProvider);
     final verseAsync = ref.watch(verseOfTheDayProvider);
@@ -134,7 +152,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Row(
+        title: Row(
           children: [
             Text('📖 ', style: TextStyle(fontSize: 20)),
             Text(
@@ -150,11 +168,11 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search, color: AppTheme.textPrimary),
+            icon: Icon(Icons.search, color: AppTheme.textPrimary),
             onPressed: () => context.push('/bible/search'),
           ),
           IconButton(
-            icon: const Icon(Icons.menu, color: AppTheme.textPrimary),
+            icon: Icon(Icons.menu, color: AppTheme.textPrimary),
             tooltip: 'Bible menu',
             onPressed: () => _showMenu(context),
           ),
@@ -249,7 +267,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: () => context.push(
-                    '/bible/chapter?book=${Uri.encodeComponent(_last!.book)}&chapter=${_last!.chapter}&translation=${_last!.translation}'),
+                    '/bible/chapter?book=${Uri.encodeComponent(_last!.book)}&chapter=${_last!.chapter}&translation=${_last!.translation}&verse=${_last!.verse}&resume=1'),
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -262,12 +280,12 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Continue reading', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                        Text('Continue reading', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
                         Text('${_last!.book} ${_last!.chapter}',
                             style: const TextStyle(fontFamily: 'Lora', fontSize: 17, fontWeight: FontWeight.bold)),
                       ]),
                     ),
-                    const Icon(Icons.chevron_right, color: AppTheme.textMuted),
+                    Icon(Icons.chevron_right, color: AppTheme.textMuted),
                   ]),
                 ),
               ),
@@ -451,7 +469,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
               children: [
                 Text(
                   book.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Lora',
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -480,7 +498,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
             const SizedBox(height: 6),
             Text(
               'Select Chapter (1 - ${book.chapterCount})',
-              style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted),
+              style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted),
             ),
             const SizedBox(height: 16),
             Flexible(

@@ -218,30 +218,31 @@ class NotificationService {
 
       final tone = await RingtoneStore.instance.load(reminder.id);
 
-      // Alarms ring from a native service so nothing can cut the sound short.
-      if (reminder.isAlarm && reminder.repeat != 'monthly') {
-        final ok = await NativeAlarm.schedule(
-          id: reminder.id,
-          when: when,
-          repeat: reminder.repeat == 'daily'
-              ? const Duration(days: 1)
-              : reminder.repeat == 'weekly'
-                  ? const Duration(days: 7)
-                  : Duration.zero,
-          title: reminder.title,
-          body: reminder.description?.isNotEmpty == true ? reminder.description! : 'Time for your spiritual check-in',
-          route: reminder.targetRoute,
-          sound: _nativeSound(tone),
-          maxSeconds: 120,
-        );
-        if (ok) {
-          try {
-            await _plugin.cancel(reminder.id); // drop a notification-style copy, if any
-          } catch (_) {}
-          return true;
-        }
-      } else {
-        await NativeAlarm.cancel(reminder.id); // no longer an alarm
+      // Everything is scheduled by the phone itself (AlarmManager), so it works
+      // with no internet, with the app closed and after a restart. Alarms ring
+      // from a native service; plain reminders are native notifications.
+      final ok = await NativeAlarm.schedule(
+        id: reminder.id,
+        when: when,
+        repeat: reminder.repeat == 'daily'
+            ? const Duration(days: 1)
+            : reminder.repeat == 'weekly'
+                ? const Duration(days: 7)
+                : reminder.repeat == 'monthly'
+                    ? const Duration(milliseconds: -1) // native side: "monthly"
+                    : Duration.zero,
+        title: reminder.title,
+        body: reminder.description?.isNotEmpty == true ? reminder.description! : 'Time for your spiritual check-in',
+        route: reminder.targetRoute,
+        sound: reminder.isAlarm ? _nativeSound(tone) : (tone.isDevice ? tone.uri! : 'raw:godfident_${tone.id}'),
+        maxSeconds: 120,
+        ring: reminder.isAlarm,
+      );
+      if (ok) {
+        try {
+          await _plugin.cancel(reminder.id); // drop any old plugin copy so it never fires twice
+        } catch (_) {}
+        return true;
       }
 
       final details = NotificationDetails(
@@ -474,6 +475,52 @@ class NotificationService {
     } catch (e) {
       if (kDebugMode) print('scheduleFocusEnd failed: $e');
     }
+  }
+
+  // ── "You haven't finished your session" every 10 minutes while frozen ──
+  static const _focusNagBase = 700100;
+  static const _nagCount = 12; // two hours of nudges
+
+  Future<void> scheduleFocusNags({required Duration left, String route = '/focus'}) async {
+    try {
+      await initialize();
+      await cancelFocusNags();
+      final exact = await Permission.scheduleExactAlarm.isGranted;
+      final mins = left.inMinutes < 1 ? 1 : left.inMinutes;
+      for (var i = 1; i <= _nagCount; i++) {
+        await _plugin.zonedSchedule(
+          _focusNagBase + i,
+          'Your Focus session is frozen',
+          "You haven't finished yet \u2014 about $mins min still to go. Come back and resume your time with God.",
+          tz.TZDateTime.now(tz.local).add(Duration(minutes: 10 * i)),
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'focus_nag',
+              'Unfinished Focus session',
+              channelDescription: 'Every 10 minutes while a Focus session is frozen',
+              importance: Importance.high,
+              priority: Priority.high,
+              playSound: true,
+              enableVibration: true,
+            ),
+            iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
+          ),
+          androidScheduleMode: exact ? AndroidScheduleMode.exactAllowWhileIdle : AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+          payload: route,
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) print('scheduleFocusNags failed: $e');
+    }
+  }
+
+  Future<void> cancelFocusNags() async {
+    try {
+      for (var i = 1; i <= _nagCount; i++) {
+        await _plugin.cancel(_focusNagBase + i);
+      }
+    } catch (_) {}
   }
 
   Future<void> cancelFocusEnd() async {

@@ -73,7 +73,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
       body: items == null
           ? const Center(child: CircularProgressIndicator(color: AppTheme.gold))
           : ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 40), children: [
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(bottom: 12),
                 child: Text(
                   'Android decides what Godfident may do. Each item below shows what is really switched on right now.',
@@ -99,7 +99,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                         Text('${p.feature}${p.required ? '' : ' · optional'}',
                             style: const TextStyle(fontSize: 11, color: AppTheme.goldDark)),
                         const SizedBox(height: 4),
-                        Text(p.why, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        Text(p.why, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                       ]),
                     ),
                     if (!p.granted)

@@ -7,13 +7,13 @@ Future<bool> confirmDeleteReminder(BuildContext context, String title) async {
         context: context,
         builder: (c) => AlertDialog(
           backgroundColor: AppTheme.navySurface,
-          title: const Text('Delete reminder', style: TextStyle(color: AppTheme.textPrimary)),
+          title: Text('Delete reminder', style: TextStyle(color: AppTheme.textPrimary)),
           content: Text('Delete "$title"? This cannot be undone.',
-              style: const TextStyle(color: AppTheme.textSecondary)),
+              style: TextStyle(color: AppTheme.textSecondary)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(c, false),
-              child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+              child: Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(c, true),

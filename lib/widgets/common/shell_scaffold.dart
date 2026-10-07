@@ -38,7 +38,7 @@ class ShellScaffold extends StatelessWidget {
         const _MiniPlayer(),
       ]),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppTheme.navySurface,
           border: Border(top: BorderSide(color: AppTheme.navyOutline)),
         ),

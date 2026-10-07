@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'music_service.dart';
+import 'ringtone_store.dart';
 
 /// The ONE audio player of the whole app.
 ///
@@ -22,6 +25,7 @@ class MusicController extends ChangeNotifier {
       if (_isPreview) return;
       if (i != null && i >= 0 && i < _queue.length && _queue[i] != _current) {
         _current = _queue[i];
+        _remember(_current!);
         notifyListeners();
       }
     });
@@ -69,16 +73,18 @@ class MusicController extends ChangeNotifier {
 
   /// Plays [songs][index] and queues the rest of the list, so it carries on
   /// to the next song by itself - also with the app in the background.
-  Future<void> playList(List<Song> songs, int index) async {
+  Future<void> playList(List<Song> songs, int index, {bool loopAll = false}) async {
     if (songs.isEmpty || index < 0 || index >= songs.length) return;
+    _sessionStarted = false; // the person chose this themselves
     _isPreview = false;
     _previewTitle = null;
     _error = null;
     _queue = List.unmodifiable(songs);
     _current = songs[index];
+    _remember(songs[index]);
     notifyListeners();
     try {
-      await player.setLoopMode(LoopMode.off);
+      await player.setLoopMode(loopAll ? LoopMode.all : LoopMode.off);
       await player.setAudioSource(
         // ignore: deprecated_member_use
         ConcatenatingAudioSource(children: [for (final s in songs) _sourceFor(s)]),
@@ -90,6 +96,102 @@ class MusicController extends ChangeNotifier {
       _error = '"${songs[index].title}" could not be played (the file may be damaged or unsupported).';
       notifyListeners();
     }
+  }
+
+  // ── "last played" + Focus-session music ──────────────────────────────
+  static const _kLast = 'music_last_song_v1';
+  bool _sessionStarted = false;
+
+  Future<void> _remember(Song s) async {
+    try {
+      (await SharedPreferences.getInstance()).setString(
+        _kLast,
+        jsonEncode({
+          'id': s.id,
+          'title': s.title,
+          'artist': s.artist,
+          'album': s.album,
+          'ms': s.duration.inMilliseconds,
+          if (s.uri != null) 'uri': s.uri,
+          if (s.asset != null) 'asset': s.asset,
+        }),
+      );
+    } catch (_) {}
+  }
+
+  Future<Song?> lastSong() async {
+    try {
+      final raw = (await SharedPreferences.getInstance()).getString(_kLast);
+      if (raw == null) return null;
+      final m = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      return Song(
+        id: m['id'] as String,
+        title: m['title'] as String? ?? 'Song',
+        artist: m['artist'] as String? ?? '',
+        album: m['album'] as String? ?? '',
+        duration: Duration(milliseconds: (m['ms'] as num?)?.toInt() ?? 0),
+        uri: m['uri'] as String?,
+        asset: m['asset'] as String?,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The alarm ringtone the person last chose, as a playable song.
+  Future<Song?> _ringtoneSong() async {
+    try {
+      final raw = (await SharedPreferences.getInstance()).getString('ringtone_default');
+      if (raw == null) return null;
+      final t = Ringtone.fromJson(Map<String, dynamic>.from(jsonDecode(raw) as Map));
+      if (t.isDevice) {
+        return Song(id: 'rt_${t.uri.hashCode}', title: t.title, artist: 'Ringtone', duration: Duration.zero, uri: t.uri);
+      }
+      return Song(
+          id: 'rt_${t.id}',
+          title: t.title,
+          artist: 'Ringtone',
+          duration: Duration.zero,
+          asset: 'assets/audio/ringtones/${t.id}.mp3');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// A Focus / Prayer session just began: play something calm. If music is
+  /// already playing it is left alone. Otherwise: the song played last, else
+  /// the alarm ringtone, else a bundled track. It loops until the session ends.
+  Future<void> startForSession() async {
+    try {
+      if (player.playing && current != null) return;
+      final song = await lastSong() ?? await _ringtoneSong() ?? bundledSongs.first;
+      final bundledIdx = bundledSongs.indexWhere((b) => b.id == song.id);
+      if (bundledIdx >= 0) {
+        await playList(bundledSongs, bundledIdx, loopAll: true);
+      } else {
+        await playList([song], 0, loopAll: true);
+      }
+      _sessionStarted = true;
+    } catch (_) {}
+  }
+
+  /// Session over: stop the music only if the session started it.
+  Future<void> endSessionMusic() async {
+    if (!_sessionStarted) return;
+    _sessionStarted = false;
+    await stop();
+  }
+
+  Future<void> pauseForFreeze() async {
+    try {
+      if (player.playing) await player.pause();
+    } catch (_) {}
+  }
+
+  Future<void> resumeAfterFreeze() async {
+    try {
+      if (current != null && !player.playing) await player.play();
+    } catch (_) {}
   }
 
   Future<void> toggle() async {

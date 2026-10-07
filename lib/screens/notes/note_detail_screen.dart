@@ -91,9 +91,9 @@ class NoteDetailScreen extends ConsumerWidget {
               ],
               Row(
                 children: [
-                  const Icon(Icons.access_time, size: 14, color: AppTheme.textMuted),
+                  Icon(Icons.access_time, size: 14, color: AppTheme.textMuted),
                   const SizedBox(width: 6),
-                  Text(_formatDate(note.updatedAt), style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted)),
+                  Text(_formatDate(note.updatedAt), style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textMuted)),
                   if (note.isPinned) ...[
                     const SizedBox(width: 16),
                     const Icon(Icons.push_pin, size: 14, color: AppTheme.gold),
@@ -117,7 +117,7 @@ class NoteDetailScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppTheme.navyOutline),
                 ),
-                child: Text(note.content, style: const TextStyle(fontFamily: 'Inter', fontSize: 15, color: AppTheme.textPrimary, height: 1.8)),
+                child: Text(note.content, style: TextStyle(fontFamily: 'Inter', fontSize: 15, color: AppTheme.textPrimary, height: 1.8)),
               ),
               if (note.bibleReferences.isNotEmpty) ...[
                 const SizedBox(height: 16),
@@ -147,9 +147,9 @@ class NoteDetailScreen extends ConsumerWidget {
               if (note.folderName != null) ...[
                 const SizedBox(height: 20),
                 Row(children: [
-                  const Icon(Icons.folder_outlined, size: 16, color: AppTheme.textMuted),
+                  Icon(Icons.folder_outlined, size: 16, color: AppTheme.textMuted),
                   const SizedBox(width: 8),
-                  Text('Folder: ${note.folderName}', style: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textMuted)),
+                  Text('Folder: ${note.folderName}', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textMuted)),
                 ]),
               ],
               const SizedBox(height: 24),

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../repositories/focus_repository.dart';
 import '../repositories/prayer_repository.dart';
 import 'focus_blocking_service.dart';
+import 'music_controller.dart';
 import 'notification_service.dart';
 import 'restriction_store.dart';
 
@@ -22,6 +23,11 @@ class SessionInfo {
   final int plannedMinutes;
   final String purpose; // '' | bible | prayer | both
   final bool blocking;
+
+  /// Frozen = paused by the person. The clock does not run and nothing is
+  /// blocked, but the session is NOT finished and nags every 10 minutes.
+  final bool frozen;
+  final Duration frozenLeft;
   const SessionInfo({
     this.active = false,
     this.endAt,
@@ -29,9 +35,11 @@ class SessionInfo {
     this.plannedMinutes = 0,
     this.purpose = '',
     this.blocking = false,
+    this.frozen = false,
+    this.frozenLeft = Duration.zero,
   });
 
-  Duration get left => endAt == null ? Duration.zero : endAt!.difference(DateTime.now());
+  Duration get left => frozen ? frozenLeft : (endAt == null ? Duration.zero : endAt!.difference(DateTime.now()));
 }
 
 /// One place that starts and ends Focus sessions - used by the Focus screen,
@@ -50,6 +58,9 @@ class SessionManager {
   static const _kFocusId = 'focus_backend_session_id';
   static const _kPrayerId = 'sm_prayer_session_id';
   static const _kPending = 'sm_pending_v1';
+  static const _kFrozenLeft = 'sm_frozen_left_ms';
+  static const _kFrozenBlocking = 'sm_frozen_blocking';
+  static const _kElapsed = 'sm_elapsed_before_ms';
 
   final _focus = FocusBlockingService.instance;
 
@@ -58,6 +69,18 @@ class SessionManager {
     final started = p.getInt(_kStartedAt);
     final minutes = p.getInt(_kMinutes) ?? 0;
     final purpose = p.getString(_kPurpose) ?? '';
+    final frozenMs = p.getInt(_kFrozenLeft);
+    if (frozenMs != null && started != null) {
+      return SessionInfo(
+        active: true,
+        startedAt: DateTime.fromMillisecondsSinceEpoch(started),
+        plannedMinutes: minutes,
+        purpose: purpose,
+        blocking: false,
+        frozen: true,
+        frozenLeft: Duration(milliseconds: frozenMs),
+      );
+    }
     Map<String, dynamic> native = const {'active': false};
     try {
       native = await _focus.getSessionInfo();
@@ -125,6 +148,9 @@ class SessionManager {
           message: 'Android did not start the restriction service, so no apps are being blocked.');
     }
 
+    await p.remove(_kFrozenLeft);
+    await p.remove(_kFrozenBlocking);
+    await p.setInt(_kElapsed, 0);
     await p.setInt(_kStartedAt, DateTime.now().millisecondsSinceEpoch);
     await p.setInt(_kMinutes, minutes);
     await p.setString(_kPurpose, purpose);
@@ -151,7 +177,68 @@ class SessionManager {
         await p.setInt(_kPrayerId, ps.id);
       } catch (_) {}
     }
+    // Calm music for the session (last song played, else the ringtone, else a bundled track).
+    MusicController.instance.startForSession();
     return SessionStart(true, blocking: blocking);
+  }
+
+  /// Pauses the session. It is NOT finished: the clock stops, blocking is
+  /// lifted, and every 10 minutes a notification says it is still unfinished.
+  Future<bool> freeze() async {
+    final i = await info();
+    if (!i.active || i.frozen) return false;
+    final p = await SharedPreferences.getInstance();
+    final left = i.left.isNegative ? Duration.zero : i.left;
+    final started = p.getInt(_kStartedAt) ?? DateTime.now().millisecondsSinceEpoch;
+    final elapsed = (p.getInt(_kElapsed) ?? 0) + (DateTime.now().millisecondsSinceEpoch - started);
+    try {
+      await _focus.stopFocusSession();
+    } catch (_) {}
+    await p.setInt(_kElapsed, elapsed);
+    await p.setBool(_kFrozenBlocking, i.blocking);
+    await p.setInt(_kFrozenLeft, left.inMilliseconds);
+    await p.setInt(_kSoftEnd, 0);
+    await NotificationService().cancelFocusEnd();
+    await NotificationService().scheduleFocusNags(
+      left: left,
+      route: i.purpose == 'prayer' ? '/prayer/focus' : '/focus',
+    );
+    MusicController.instance.pauseForFreeze();
+    return true;
+  }
+
+  /// Continues a frozen session with the time that was left.
+  Future<bool> resume() async {
+    final p = await SharedPreferences.getInstance();
+    final leftMs = p.getInt(_kFrozenLeft);
+    if (leftMs == null) return false;
+    final purpose = p.getString(_kPurpose) ?? '';
+    final wasBlocking = p.getBool(_kFrozenBlocking) ?? false;
+    final endAt = DateTime.now().add(Duration(milliseconds: leftMs));
+    var blocking = false;
+    if (wasBlocking) {
+      try {
+        final apps = await RestrictionStore.instance.loadApps();
+        final allowOnly = await RestrictionStore.instance.getAllowOnly();
+        blocking = await _focus.startFocusSession(
+          apps.map((a) => a.packageName).toList(),
+          endAt: endAt,
+          allowOnly: allowOnly,
+        );
+      } catch (_) {}
+    }
+    await p.setInt(_kStartedAt, DateTime.now().millisecondsSinceEpoch);
+    await p.setInt(_kSoftEnd, blocking ? 0 : endAt.millisecondsSinceEpoch);
+    await p.remove(_kFrozenLeft);
+    await p.remove(_kFrozenBlocking);
+    await NotificationService().cancelFocusNags();
+    await NotificationService().scheduleFocusEnd(
+      endAt,
+      purpose: purpose,
+      route: purpose == 'prayer' ? '/prayer/focus' : '/focus',
+    );
+    MusicController.instance.resumeAfterFreeze();
+    return true;
   }
 
   /// Ends the running session now ([early] = the person pressed End).
@@ -191,11 +278,16 @@ class SessionManager {
       } catch (_) {}
     }
     await NotificationService().cancelFocusEnd();
+    await NotificationService().cancelFocusNags();
+    MusicController.instance.endSessionMusic();
 
-    var seconds = ((DateTime.now().millisecondsSinceEpoch - started) / 1000).round();
+    final wasFrozen = p.getInt(_kFrozenLeft) != null;
+    final elapsedMs = (p.getInt(_kElapsed) ?? 0) + (wasFrozen ? 0 : DateTime.now().millisecondsSinceEpoch - started);
+    var seconds = (elapsedMs / 1000).round();
     final plannedSec = planned * 60;
-    if (!early || seconds > plannedSec) seconds = plannedSec; // finished by itself
-    final completed = !early || seconds >= plannedSec - 5;
+    // Only a session that ran its WHOLE time counts. Ending early records nothing as done.
+    final completed = !early;
+    if (completed) seconds = plannedSec;
 
     await p.remove(_kStartedAt);
     await p.remove(_kMinutes);
@@ -203,13 +295,16 @@ class SessionManager {
     await p.remove(_kSoftEnd);
     await p.remove(_kFocusId);
     await p.remove(_kPrayerId);
+    await p.remove(_kFrozenLeft);
+    await p.remove(_kFrozenBlocking);
+    await p.remove(_kElapsed);
     await p.remove('focus_active_minutes');
     await p.remove('focus_active_purpose');
 
     final ops = <Map<String, dynamic>>[
       if (focusId != null)
         {'t': 'focus', 'id': focusId, 'min': (seconds / 60).ceil(), 's': completed ? 'completed' : 'interrupted'},
-      if (prayerId != null) {'t': 'prayer', 'id': prayerId, 'sec': seconds},
+      if (prayerId != null) {'t': 'prayer', 'id': prayerId, 'sec': completed ? seconds : 0}, // 0 = delete: unfinished prayer is not recorded
     ];
     await _queue(ops);
     await _flushPending();

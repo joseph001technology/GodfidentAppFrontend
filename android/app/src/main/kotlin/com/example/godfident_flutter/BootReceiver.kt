@@ -19,7 +19,11 @@ class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent?) {
         val action = intent?.action
-        if (action != Intent.ACTION_BOOT_COMPLETED && action != ACTION_WATCHDOG) return
+        if (action != Intent.ACTION_BOOT_COMPLETED &&
+            action != Intent.ACTION_MY_PACKAGE_REPLACED &&
+            action != "android.intent.action.QUICKBOOT_POWERON" &&
+            action != ACTION_WATCHDOG
+        ) return
 
         // Periodic check: only protection is re-applied (a Focus session is
         // time-boxed and handled by its own service).

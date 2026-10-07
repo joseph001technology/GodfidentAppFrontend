@@ -118,7 +118,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Search',
+        title: Text('Search',
             style: TextStyle(fontFamily: 'Lora', fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
       ),
       body: SingleChildScrollView(
@@ -133,7 +133,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               prefixIcon: const Icon(Icons.search, color: AppTheme.goldDark),
               suffixIcon: _query.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, color: AppTheme.textMuted),
+                      icon: Icon(Icons.clear, color: AppTheme.textMuted),
                       onPressed: () {
                         _searchController.clear();
                         _onQueryChanged('');
@@ -144,7 +144,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               filled: true,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: AppTheme.navyOutline),
+                borderSide: BorderSide(color: AppTheme.navyOutline),
               ),
             ),
           ),
@@ -188,7 +188,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
 
   Widget _buildRecent() {
     if (_recents.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 30),
         child: Center(
           child: Text('Try a book (John), a reference (Psalm 23), or any word.',
@@ -198,7 +198,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        const Expanded(
+        Expanded(
           child: Text('Recent searches',
               style: TextStyle(fontFamily: 'Lora', fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
         ),
@@ -222,9 +222,9 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                 border: Border.all(color: AppTheme.navyOutline),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.history, size: 14, color: AppTheme.textMuted),
+                Icon(Icons.history, size: 14, color: AppTheme.textMuted),
                 const SizedBox(width: 6),
-                Text(item, style: const TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textPrimary)),
+                Text(item, style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: AppTheme.textPrimary)),
               ]),
             ),
           ),
@@ -276,7 +276,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             final hits = (snap.data ?? []).where((h) => _activeFilter == 'All' || h.type == _activeFilter).toList();
             if (hits.isEmpty) {
               if (books.isNotEmpty) return const SizedBox.shrink();
-              return const Center(
+              return Center(
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
                   child: Column(children: [
@@ -306,7 +306,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
 
   Widget _sectionLabel(String t) => Padding(
         padding: const EdgeInsets.only(top: 6, bottom: 8),
-        child: Text(t, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppTheme.textMuted)),
+        child: Text(t, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppTheme.textMuted)),
       );
 
   Widget _card({required String type, required String title, required String desc, required VoidCallback onTap}) {
@@ -323,7 +323,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             ? null
             : Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text(desc, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                child: Text(desc, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ),
         trailing: const Icon(Icons.arrow_forward_ios, color: AppTheme.goldDark, size: 14),
         onTap: onTap,
