@@ -1,4 +1,5 @@
 import '../core/dio_client.dart';
+import '../services/daily_activity.dart';
 import '../core/api_response.dart';
 import '../models/prayer.dart';
 
@@ -119,6 +120,7 @@ class PrayerRepository {
   }
 
   Future<PrayerLog> createLog({required int prayerId, String note = ''}) async {
+    DailyActivity.markPrayed();
     final res = await _dio.post('/api/prayer/logs/', data: {
       'prayer': prayerId,
       if (note.isNotEmpty) 'note': note,

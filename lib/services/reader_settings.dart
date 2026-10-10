@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/theme.dart';
 
 /// How the Bible text looks. Saved on the phone, applies to every chapter.
 class ReaderSettings {
   final double fontSize; // 14 - 30
   final double lineHeight; // 1.3 - 2.2
   final bool serif; // Lora (true) or Inter (false)
-  final String theme; // paper | sepia | night
+  final String theme; // auto | paper | sepia | night   (auto = follows the app's Light / Dark)
   final bool showVerseNumbers;
 
   const ReaderSettings({
     this.fontSize = 17,
     this.lineHeight = 1.7,
     this.serif = true,
-    this.theme = 'paper',
+    this.theme = 'auto',
     this.showVerseNumbers = true,
   });
 
@@ -27,18 +28,21 @@ class ReaderSettings {
         showVerseNumbers: showVerseNumbers ?? this.showVerseNumbers,
       );
 
-  Color get background => switch (theme) {
+  /// 'auto' (and the old default 'paper') follow the app theme: Classic Dark gives the night page.
+  String get _t => (theme == 'auto' || theme == 'paper') ? (AppTheme.isDark ? 'night' : 'paper') : theme;
+
+  Color get background => switch (_t) {
         'sepia' => const Color(0xFFF4ECD8),
         'night' => const Color(0xFF14181F),
         _ => const Color(0xFFFBF8F1),
       };
-  Color get text => switch (theme) {
+  Color get text => switch (_t) {
         'sepia' => const Color(0xFF3B2F1E),
         'night' => const Color(0xFFE6E2D8),
         _ => const Color(0xFF1F2430),
       };
-  Color get accent => theme == 'night' ? const Color(0xFFE0B85A) : const Color(0xFF8A6A1F);
-  bool get dark => theme == 'night';
+  Color get accent => _t == 'night' ? const Color(0xFFE0B85A) : const Color(0xFF8A6A1F);
+  bool get dark => _t == 'night';
   String get fontFamily => serif ? 'Lora' : 'Inter';
 }
 

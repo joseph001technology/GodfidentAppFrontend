@@ -103,6 +103,7 @@ class _ReaderSettingsSheet extends ConsumerWidget {
           ]),
           label('Page'),
           Row(children: [
+            themeChip('auto', 'Match app', const Color(0xFF8E96A8), const Color(0xFFFFFFFF)),
             themeChip('paper', 'Paper', const Color(0xFFFBF8F1), const Color(0xFF1F2430)),
             themeChip('sepia', 'Sepia', const Color(0xFFF4ECD8), const Color(0xFF3B2F1E)),
             themeChip('night', 'Night', const Color(0xFF14181F), const Color(0xFFE6E2D8)),

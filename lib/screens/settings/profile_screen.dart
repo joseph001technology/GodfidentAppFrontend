@@ -264,7 +264,7 @@ class ProfileScreen extends ConsumerWidget {
         );
     return Column(children: [
       Row(children: [
-        tile(Icons.shield, AppTheme.emerald, Overview.minutes(o.protectedMinutes), 'Protected time'),
+        tile(Icons.shield, AppTheme.emerald, Overview.minutes(o.protectedMinutesThisWeek), 'Protected this week'),
         const SizedBox(width: 12),
         tile(Icons.check_circle_outline, AppTheme.emerald, '${o.completedSessions}', 'Focus sessions completed'),
       ]),

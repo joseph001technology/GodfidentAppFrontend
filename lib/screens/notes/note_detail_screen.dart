@@ -11,12 +11,12 @@ class NoteDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notesAsync = ref.watch(notesProvider);
-    return notesAsync.when(
+    // The list from the server has no text in it, so the whole note is loaded here.
+    final noteAsync = ref.watch(noteDetailProvider(noteId));
+    return noteAsync.when(
       loading: () => const Scaffold(body: ShimmerList()),
-      error: (e, _) => Scaffold(body: ErrorView(message: friendlyError(e))),
-      data: (notes) {
-        final note = notes.firstWhere((n) => n.id == noteId, orElse: () => notes.first);
+      error: (e, _) => Scaffold(appBar: AppBar(), body: ErrorView(message: friendlyError(e))),
+      data: (note) {
         return Scaffold(
           backgroundColor: AppTheme.navy,
           appBar: AppBar(
@@ -26,9 +26,10 @@ class NoteDetailScreen extends ConsumerWidget {
             actions: [
               IconButton(
                 icon: Icon(note.isFavorite ? Icons.favorite : Icons.favorite_border, color: AppTheme.accentPink),
-                onPressed: () {
+                onPressed: () async {
                   final wasFavorite = note.isFavorite;
-                  ref.read(notesProvider.notifier).toggleFavorite(note.id);
+                  await ref.read(notesProvider.notifier).toggleFavorite(note.id);
+                  ref.invalidate(noteDetailProvider(noteId));
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(wasFavorite ? 'Removed from favorites' : 'Added to favorites')),
                   );
@@ -36,7 +37,10 @@ class NoteDetailScreen extends ConsumerWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.push_pin, color: AppTheme.gold),
-                onPressed: () => ref.read(notesProvider.notifier).togglePin(note.id),
+                onPressed: () async {
+                  await ref.read(notesProvider.notifier).togglePin(note.id);
+                  ref.invalidate(noteDetailProvider(noteId));
+                },
               ),
               PopupMenuButton<String>(
                 onSelected: (v) async {
@@ -70,25 +74,6 @@ class NoteDetailScreen extends ConsumerWidget {
           body: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              if (note.topicNames.isNotEmpty) ...[
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: note.topicNames.map((t) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.softBlue.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppTheme.softBlue.withValues(alpha: 0.3)),
-                      ),
-                      child: Text(t, style: const TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.softBlue)),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                const GoldDivider(),
-              ],
               Row(
                 children: [
                   Icon(Icons.access_time, size: 14, color: AppTheme.textMuted),
@@ -117,7 +102,7 @@ class NoteDetailScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppTheme.navyOutline),
                 ),
-                child: Text(note.content, style: TextStyle(fontFamily: 'Inter', fontSize: 15, color: AppTheme.textPrimary, height: 1.8)),
+                child: Text(note.content.trim().isEmpty ? 'This note has no text yet. Tap the menu and choose Edit to write in it.' : note.content, style: TextStyle(fontFamily: 'Inter', fontSize: 15, color: AppTheme.textPrimary, height: 1.8)),
               ),
               if (note.bibleReferences.isNotEmpty) ...[
                 const SizedBox(height: 16),
@@ -152,27 +137,6 @@ class NoteDetailScreen extends ConsumerWidget {
                   Text('Folder: ${note.folderName}', style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textMuted)),
                 ]),
               ],
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    await ref.read(notesProvider.notifier).archiveNote(note.id);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Note archived')));
-                      context.pop();
-                    }
-                  },
-                  icon: const Icon(Icons.archive_outlined, size: 18),
-                  label: const Text('Archive Note'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textMuted,
-                    side: BorderSide(color: AppTheme.textMuted.withValues(alpha: 0.3)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
-              ),
             ],
           ),
         );

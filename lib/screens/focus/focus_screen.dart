@@ -11,6 +11,7 @@ import '../../services/focus_session_manager.dart';
 import '../../services/restriction_store.dart';
 import '../../services/permissions_service.dart';
 import '../../services/website_protection_service.dart';
+import '../../widgets/common/session_extras.dart';
 import '../../widgets/common/session_music_card.dart';
 
 /// Focus Mode: pick a duration, then start a REAL Android restriction session.
@@ -164,6 +165,15 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
         content: Text("Session frozen. You haven't finished \u2014 we'll remind you every 10 minutes."),
       ));
     }
+  }
+
+  Future<void> _extend(int minutes) async {
+    setState(() => _busy = true);
+    await _sessions.extend(minutes);
+    await _refresh();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added $minutes minutes to your session.')));
   }
 
   Future<void> _resume() async {
@@ -343,6 +353,9 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
       padding: const EdgeInsets.all(20),
       decoration: _cardDeco(border: _frozen ? AppTheme.accentTeal : AppTheme.gold),
       child: Column(children: [
+        // A quiet animation (no sound) while you spend this time with God.
+        SessionScene(purpose: _purpose ?? '', height: 150),
+        const SizedBox(height: 12),
         Icon(_frozen ? Icons.ac_unit_rounded : Icons.shield_rounded, color: _frozen ? AppTheme.accentTeal : AppTheme.gold, size: 36),
         const SizedBox(height: 8),
         Text(_frozen ? 'Session frozen' : 'Focus session active',
@@ -376,6 +389,8 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
         ],
         const SizedBox(height: 14),
         const SessionMusicCard(),
+        const SizedBox(height: 14),
+        ExtendSessionRow(busy: _busy, onExtend: _extend),
         const SizedBox(height: 14),
         if (_frozen) ...[
           SizedBox(

@@ -6,6 +6,7 @@ import '../repositories/focus_repository.dart';
 import '../repositories/prayer_repository.dart';
 import 'focus_blocking_service.dart';
 import 'music_controller.dart';
+import 'daily_activity.dart';
 import 'notification_service.dart';
 import 'restriction_store.dart';
 
@@ -50,6 +51,12 @@ class SessionInfo {
 class SessionManager {
   SessionManager._();
   static final SessionManager instance = SessionManager._();
+
+  /// Bumps whenever a session starts, freezes, resumes, is extended or ends, so
+  /// the app-wide timer banner can refresh at once.
+  final ValueNotifier<int> changes = ValueNotifier<int>(0);
+  void _changed() => changes.value++;
+  bool _busyEditing = false; // extending: reconcile() must not read the brief gap as "finished"
 
   static const _kStartedAt = 'sm_started_at';
   static const _kMinutes = 'sm_minutes';
@@ -162,6 +169,12 @@ class SessionManager {
       purpose: purpose,
       route: purpose == 'prayer' ? '/prayer/focus' : '/focus',
     );
+    // Live countdown in the notification shade / lock screen.
+    await NotificationService().showSessionTimer(
+      endAt: endAt,
+      purpose: purpose,
+      route: purpose == 'prayer' ? '/prayer/focus' : '/focus',
+    );
 
     // Server records, best effort (the session itself never depends on them).
     try {
@@ -179,6 +192,7 @@ class SessionManager {
     }
     // Calm music for the session (last song played, else the ringtone, else a bundled track).
     MusicController.instance.startForSession();
+    _changed();
     return SessionStart(true, blocking: blocking);
   }
 
@@ -203,7 +217,15 @@ class SessionManager {
       left: left,
       route: i.purpose == 'prayer' ? '/prayer/focus' : '/focus',
     );
+    await NotificationService().showSessionTimer(
+      endAt: DateTime.now(),
+      purpose: i.purpose,
+      route: i.purpose == 'prayer' ? '/prayer/focus' : '/focus',
+      frozen: true,
+      frozenLeft: left,
+    );
     MusicController.instance.pauseForFreeze();
+    _changed();
     return true;
   }
 
@@ -237,7 +259,53 @@ class SessionManager {
       purpose: purpose,
       route: purpose == 'prayer' ? '/prayer/focus' : '/focus',
     );
+    await NotificationService().showSessionTimer(
+      endAt: endAt,
+      purpose: purpose,
+      route: purpose == 'prayer' ? '/prayer/focus' : '/focus',
+    );
     MusicController.instance.resumeAfterFreeze();
+    _changed();
+    return true;
+  }
+
+  /// Adds [minutes] to the running (or frozen) session. The session counts as
+  /// finished only after the longer time has been spent.
+  Future<bool> extend(int minutes) async {
+    if (minutes <= 0) return false;
+    final i = await info();
+    if (!i.active) return false;
+    _busyEditing = true;
+    try {
+      final p = await SharedPreferences.getInstance();
+      final purpose = p.getString(_kPurpose) ?? '';
+      final route = purpose == 'prayer' ? '/prayer/focus' : '/focus';
+      await p.setInt(_kMinutes, (p.getInt(_kMinutes) ?? 0) + minutes);
+      if (i.frozen) {
+        final left = i.frozenLeft + Duration(minutes: minutes);
+        await p.setInt(_kFrozenLeft, left.inMilliseconds);
+        await NotificationService().scheduleFocusNags(left: left, route: route);
+        await NotificationService().showSessionTimer(
+            endAt: DateTime.now(), purpose: purpose, route: route, frozen: true, frozenLeft: left);
+      } else {
+        final endAt = (i.endAt ?? DateTime.now()).add(Duration(minutes: minutes));
+        if (i.blocking) {
+          try {
+            final apps = await RestrictionStore.instance.loadApps();
+            final allowOnly = await RestrictionStore.instance.getAllowOnly();
+            // Starting again with a later end time replaces the running one (no gap).
+            await _focus.startFocusSession(apps.map((a) => a.packageName).toList(), endAt: endAt, allowOnly: allowOnly);
+          } catch (_) {}
+        } else {
+          await p.setInt(_kSoftEnd, endAt.millisecondsSinceEpoch);
+        }
+        await NotificationService().scheduleFocusEnd(endAt, purpose: purpose, route: route);
+        await NotificationService().showSessionTimer(endAt: endAt, purpose: purpose, route: route);
+      }
+    } finally {
+      _busyEditing = false;
+    }
+    _changed();
     return true;
   }
 
@@ -249,6 +317,7 @@ class SessionManager {
   /// Call when a screen opens or the app resumes: a session whose time ran out
   /// while the app was closed is recorded as completed, and unsent records retry.
   Future<void> reconcile() async {
+    if (_busyEditing) return;
     final p = await SharedPreferences.getInstance();
     if (p.getInt(_kStartedAt) != null && !(await info()).active) {
       await _finish(early: false, alreadyStopped: true);
@@ -279,6 +348,7 @@ class SessionManager {
     }
     await NotificationService().cancelFocusEnd();
     await NotificationService().cancelFocusNags();
+    await NotificationService().cancelSessionTimer();
     MusicController.instance.endSessionMusic();
 
     final wasFrozen = p.getInt(_kFrozenLeft) != null;
@@ -289,6 +359,10 @@ class SessionManager {
     final completed = !early;
     if (completed) seconds = plannedSec;
 
+    if (completed) {
+      if (purpose == 'prayer' || purpose == 'both') DailyActivity.markPrayed();
+      if (purpose == 'bible' || purpose == 'both') DailyActivity.markRead();
+    }
     await p.remove(_kStartedAt);
     await p.remove(_kMinutes);
     await p.remove(_kPurpose);
@@ -307,6 +381,7 @@ class SessionManager {
       if (prayerId != null) {'t': 'prayer', 'id': prayerId, 'sec': completed ? seconds : 0}, // 0 = delete: unfinished prayer is not recorded
     ];
     await _queue(ops);
+    _changed();
     await _flushPending();
   }
 

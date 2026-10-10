@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../providers/restriction_provider.dart';
 import '../../repositories/prayer_repository.dart';
 import '../../services/focus_session_manager.dart';
+import '../../widgets/common/session_extras.dart';
 import '../../widgets/common/session_music_card.dart';
 
 /// Prayer Focus: works like Focus Mode, for prayer. Choose how long you want
@@ -135,6 +136,15 @@ class _PrayerFocusScreenState extends ConsumerState<PrayerFocusScreen> with Widg
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
       content: Text("Prayer frozen. You haven't finished \u2014 we'll remind you every 10 minutes."),
     ));
+  }
+
+  Future<void> _extend(int minutes) async {
+    setState(() => _busy = true);
+    await _sessions.extend(minutes);
+    await _refresh();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added $minutes minutes to your prayer time.')));
   }
 
   Future<void> _resume() async {
@@ -314,6 +324,9 @@ class _PrayerFocusScreenState extends ConsumerState<PrayerFocusScreen> with Widg
     final progress = total == 0 ? 0.0 : (1 - left.inSeconds / total).clamp(0.0, 1.0);
     return _card(
       Column(children: [
+        // A quiet animation (no sound) while you pray.
+        const SessionScene(purpose: 'prayer', height: 150),
+        const SizedBox(height: 14),
         const Text('Be still. God is listening.', style: TextStyle(fontFamily: 'Lora', fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 18),
         SizedBox(
@@ -342,6 +355,8 @@ class _PrayerFocusScreenState extends ConsumerState<PrayerFocusScreen> with Widg
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
         const SizedBox(height: 14),
         const SessionMusicCard(),
+        const SizedBox(height: 14),
+        ExtendSessionRow(busy: _busy, onExtend: _extend),
         const SizedBox(height: 14),
         if (_info.frozen) ...[
           SizedBox(

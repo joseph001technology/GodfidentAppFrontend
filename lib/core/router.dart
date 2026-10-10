@@ -42,6 +42,7 @@ import '../screens/settings/change_password_screen.dart';
 import '../screens/settings/notification_settings_screen.dart';
 import '../screens/achievements/achievements_screen.dart';
 import '../widgets/common/shell_scaffold.dart';
+import '../screens/reminders/fasting_checkin_screen.dart';
 import 'package:flutter/material.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -202,6 +203,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/notification-settings',
             builder: (_, __) => const NotificationSettingsScreen(),
+          ),
+
+          GoRoute(
+            path: '/fasting-checkin',
+            builder: (_, state) => FastingCheckinScreen(
+              reminderId: int.tryParse(state.uri.queryParameters['id'] ?? '') ?? 0,
+              title: state.uri.queryParameters['title'] ?? 'Fasting',
+            ),
           ),
 
           // Reminders routes

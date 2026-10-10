@@ -29,6 +29,9 @@ class Reminder {
   final String? time;
   final String repeat; // 'none', 'once', 'daily', 'weekly'
   final String? repeatUntil;
+  /// For weekly reminders: which weekdays ring, as a bitmask (bit 0 = Monday ... bit 6 = Sunday).
+  /// The server ignores it for 'weekly', so it is safe to keep it there.
+  final int? repeatFrequency;
   final int? snoozeMinutes;
   final int? category;
   final String? categoryName;
@@ -49,6 +52,7 @@ class Reminder {
     this.time,
     this.repeat = 'none',
     this.repeatUntil,
+    this.repeatFrequency,
     this.snoozeMinutes,
     this.category,
     this.categoryName,
@@ -70,6 +74,7 @@ class Reminder {
         time: j['time'],
         repeat: j['repeat'] ?? 'none',
         repeatUntil: j['repeat_until'],
+        repeatFrequency: j['repeat_frequency'] is num ? (j['repeat_frequency'] as num).toInt() : null,
         snoozeMinutes: j['snooze_minutes'],
         category: j['category'],
         categoryName: j['category_name'],
@@ -120,6 +125,7 @@ class Reminder {
         time: time ?? this.time,
         repeat: repeat ?? this.repeat,
         repeatUntil: repeatUntil,
+        repeatFrequency: repeatFrequency,
         snoozeMinutes: snoozeMinutes,
         category: category,
         categoryName: categoryName,
@@ -156,10 +162,32 @@ class Reminder {
     }
   }
 
+  /// Weekdays this reminder rings on (1 = Monday ... 7 = Sunday). Empty when it does not repeat weekly.
+  List<int> get weekdays {
+    if (repeat == 'daily') return const [1, 2, 3, 4, 5, 6, 7];
+    if (repeat != 'weekly') return const [];
+    final m = repeatFrequency ?? 0;
+    if (m > 0 && m < 128) return [for (var i = 0; i < 7; i++) if (m & (1 << i) != 0) i + 1];
+    final d = DateTime.tryParse(date);
+    return d == null ? const [] : [d.weekday];
+  }
+
+  static int maskOf(Iterable<int> days) => days.fold(0, (a, d) => a | (1 << (d - 1)));
+
+  static String daysLabel(List<int> days) {
+    const n = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final d = [...days]..sort();
+    if (d.length == 7) return 'Every day';
+    if (d.join() == '12345') return 'Weekdays';
+    if (d.join() == '67') return 'Weekends';
+    return d.map((x) => n[x - 1]).join(', ');
+  }
+
   String get nextOccurrenceText {
     if (time == null || time!.isEmpty) return 'Today';
-    if (repeat == 'daily') return 'Daily at $formattedTime';
-    if (repeat == 'weekly') return 'Weekly at $formattedTime';
+    if (repeat == 'daily') return 'Every day at $formattedTime';
+    if (repeat == 'weekly') return '${daysLabel(weekdays)} at $formattedTime';
+    if (repeat == 'monthly') return 'Monthly at $formattedTime';
     return '$date at $formattedTime';
   }
 
@@ -177,6 +205,8 @@ class Reminder {
         return 'bible';
       case 'both':
         return 'both';
+      case 'fasting':
+        return 'fasting';
       default:
         return 'general';
     }
@@ -190,6 +220,8 @@ class Reminder {
         return '/bible?focus=1&purpose=bible';
       case 'both':
         return '/home?focus=1&purpose=both';
+      case 'fasting':
+        return '/reminders';
       default:
         return '/reminders';
     }
@@ -206,6 +238,8 @@ class Reminder {
         return '📝';
       case 'both':
         return '🙏';
+      case 'fasting':
+        return '🌾';
       default:
         return '⏰';
     }

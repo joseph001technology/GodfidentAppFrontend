@@ -11,6 +11,7 @@ import '../../providers/remaining_providers.dart';
 import '../../providers/rules_provider.dart';
 import '../../models/rule.dart';
 import '../../widgets/common/app_widgets.dart';
+import '../../widgets/common/christian_art.dart';
 
 /// Home - deliberately simple (see the prototype): greeting, verse of the day,
 /// two real stats, a Focus call-to-action, where you left off, and reminders.
@@ -31,7 +32,7 @@ class HomeScreen extends ConsumerWidget {
     final user = ref.watch(currentUserProvider).valueOrNull;
     final verse = ref.watch(verseOfTheDayProvider);
     final streak = ref.watch(readingStreakProvider);
-    final focus = ref.watch(focusStatsProvider);
+    final overview = ref.watch(overviewProvider);
     final progress = ref.watch(readingProgressProvider);
     final reminders = ref.watch(remindersProvider);
 
@@ -49,7 +50,7 @@ class HomeScreen extends ConsumerWidget {
           onRefresh: () async {
             ref.invalidate(verseOfTheDayProvider);
             ref.invalidate(readingStreakProvider);
-            ref.invalidate(focusStatsProvider);
+            ref.invalidate(overviewProvider);
             ref.invalidate(readingProgressProvider);
             ref.invalidate(remindersProvider);
             ref.invalidate(currentUserProvider);
@@ -79,8 +80,12 @@ class HomeScreen extends ConsumerWidget {
                   child: CircleAvatar(
                     radius: 22,
                     backgroundColor: AppTheme.inkNavy,
-                    child: Text(initials.isEmpty ? '·' : initials,
-                        style: const TextStyle(color: AppTheme.goldLight, fontWeight: FontWeight.w700)),
+                    // Your own photo when you have set one; initials otherwise.
+                    backgroundImage: user?.avatarBytes != null ? MemoryImage(user!.avatarBytes!) : null,
+                    child: user?.avatarBytes != null
+                        ? null
+                        : Text(initials.isEmpty ? '·' : initials,
+                            style: const TextStyle(color: AppTheme.goldLight, fontWeight: FontWeight.w700)),
                   ),
                 ),
               ]),
@@ -108,12 +113,12 @@ class HomeScreen extends ConsumerWidget {
                 Expanded(
                   child: _stat(
                     Icons.timer_outlined,
-                    focus.when(
-                      data: (f) => _minutes(f.totalFocusMinutes),
+                    overview.when(
+                      data: (o) => _minutes(o.protectedMinutesThisWeek),
                       loading: () => '…',
                       error: (_, __) => '–',
                     ),
-                    'Focused in total',
+                    'Focused this week',
                   ),
                 ),
               ]),
@@ -321,8 +326,8 @@ const _fallbackVerses = <(String text, String ref, String book, int chapter)>[
   ('Thou wilt keep him in perfect peace, whose mind is stayed on thee: because he trusteth in thee.', 'Isaiah 26:3', 'Isaiah', 26),
 ];
 
-/// Home card. With Universal Rules: one rule at a time, a new one every hour.
-/// Without: the verse of the day first, then a new verse every hour.
+/// Home card. With Universal Rules: one rule at a time, a new one every 10 minutes.
+/// Without: the verse of the day first, then a new verse every 10 minutes.
 class _HourlyWordCard extends ConsumerStatefulWidget {
   final Widget Function({required Widget child, VoidCallback? onTap}) card;
   const _HourlyWordCard({required this.card});
@@ -341,8 +346,10 @@ class _HourlyWordCardState extends ConsumerState<_HourlyWordCard> {
   }
 
   void _scheduleNextHour() {
+    // Wake up at the next 10-minute mark (:00, :10, :20 ...) and show the next rule.
     final now = DateTime.now();
-    final next = DateTime(now.year, now.month, now.day, now.hour + 1);
+    final nextMin = (now.minute ~/ 10 + 1) * 10;
+    final next = DateTime(now.year, now.month, now.day, now.hour, nextMin);
     _timer = Timer(next.difference(now) + const Duration(seconds: 1), () {
       if (!mounted) return;
       setState(() {});
@@ -356,10 +363,10 @@ class _HourlyWordCardState extends ConsumerState<_HourlyWordCard> {
     super.dispose();
   }
 
-  /// Hours since 1970 (local): the same number for the whole hour, so the card is stable within it.
+  /// 10-minute periods since 1970 (local): the same number for the whole period, so the card is stable within it.
   int get _slot {
     final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day, now.hour).millisecondsSinceEpoch ~/ 3600000;
+    return DateTime(now.year, now.month, now.day, now.hour, now.minute ~/ 10 * 10).millisecondsSinceEpoch ~/ 600000;
   }
 
   @override
@@ -377,28 +384,60 @@ class _HourlyWordCardState extends ConsumerState<_HourlyWordCard> {
 
   Widget _ruleCard(BuildContext context, Rule r, int total) {
     final hasDesc = (r.description ?? '').trim().isNotEmpty;
-    return widget.card(
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
       onTap: () => context.push('/rules'),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: _label('YOUR RULE FOR THIS HOUR')),
-          if (total > 1) Text('changes every hour', style: TextStyle(fontSize: 10, color: AppTheme.textMuted)),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.navySurface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppTheme.navyOutline),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SizedBox(
+            height: 130,
+            width: double.infinity,
+            child: Stack(fit: StackFit.expand, children: [
+              KeyedArt(artKey: 'rule_${r.id}', fallbackScene: sceneForId(r.id), radius: 0),
+              Positioned(
+                left: 14,
+                bottom: 10,
+                right: 14,
+                child: Row(children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(12)),
+                    child: const Text('YOUR RULE RIGHT NOW',
+                        style: TextStyle(fontSize: 10.5, letterSpacing: 1.1, fontWeight: FontWeight.w700, color: Colors.white)),
+                  ),
+                  const Spacer(),
+                  if (total > 1)
+                    Text('changes every 10 minutes', style: const TextStyle(fontSize: 10, color: Colors.white)),
+                ]),
+              ),
+            ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(r.title,
+                  style: TextStyle(fontFamily: 'Lora', fontSize: 21, height: 1.35, fontWeight: FontWeight.w600, color: AppTheme.ink)),
+              if (hasDesc) ...[
+                const SizedBox(height: 8),
+                Text(r.description!.trim(),
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 14, height: 1.5, color: AppTheme.textSecondary)),
+              ],
+              if ((r.categoryName ?? '').isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(r.categoryName!, style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.goldDark, fontSize: 12)),
+              ],
+            ]),
+          ),
         ]),
-        const SizedBox(height: 10),
-        Text(r.title,
-            style: TextStyle(fontFamily: 'Lora', fontSize: 21, height: 1.35, fontWeight: FontWeight.w600, color: AppTheme.ink)),
-        if (hasDesc) ...[
-          const SizedBox(height: 8),
-          Text(r.description!.trim(),
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 14, height: 1.5, color: AppTheme.textSecondary)),
-        ],
-        if ((r.categoryName ?? '').isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Text(r.categoryName!, style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.goldDark, fontSize: 12)),
-        ],
-      ]),
+      ),
     );
   }
 
@@ -429,7 +468,7 @@ class _HourlyWordCardState extends ConsumerState<_HourlyWordCard> {
     return widget.card(
       onTap: () => context.go('/bible/chapter?book=${Uri.encodeComponent(f.$3)}&chapter=${f.$4}&translation=KJV'),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _label('A VERSE FOR THIS HOUR'),
+        _label('A VERSE FOR NOW'),
         const SizedBox(height: 10),
         Text('\u201C${f.$1}\u201D',
             style: TextStyle(fontFamily: 'Lora', fontSize: 20, height: 1.45, color: AppTheme.ink)),

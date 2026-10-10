@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../models/reminder.dart';
+import '../../services/native_alarm.dart';
 import '../../services/notification_service.dart';
 import '../../services/permissions_service.dart';
 
@@ -69,6 +70,26 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
     }
   }
 
+  /// End-to-end check of the same path real alarms use (works with the app closed: lock the phone and wait).
+  Future<void> _testAlarm() async {
+    final ok = await NativeAlarm.schedule(
+      id: 987655,
+      when: DateTime.now().add(const Duration(seconds: 15)),
+      title: 'Test alarm',
+      body: 'If this rang, your alarms work. Tap Snooze or open the app to stop it.',
+      route: '/reminders',
+      sound: '',
+      maxSeconds: 30,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(ok
+            ? 'A test alarm will ring in 15 seconds. Lock your phone and wait.'
+            : 'Android would not schedule the alarm. Check the permissions above.'),
+      ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final allOk = _items.isNotEmpty && _items.every((p) => p.granted);
@@ -121,6 +142,15 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
             ]),
           ),
         const SizedBox(height: 10),
+        const _NudgesCard(),
+        const SizedBox(height: 14),
+        OutlinedButton.icon(
+          onPressed: _testAlarm,
+          style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+          icon: const Icon(Icons.alarm),
+          label: const Text('Ring a real test alarm in 15 seconds'),
+        ),
+        const SizedBox(height: 18),
         const Text('How reminders work',
             style: TextStyle(fontFamily: 'Lora', fontSize: 17, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
@@ -177,4 +207,80 @@ class _Help extends StatelessWidget {
           ),
         ]),
       );
+}
+
+
+/// "Remind me if I have not prayed / read today", with a time for each.
+class _NudgesCard extends StatefulWidget {
+  const _NudgesCard();
+  @override
+  State<_NudgesCard> createState() => _NudgesCardState();
+}
+
+class _NudgesCardState extends State<_NudgesCard> {
+  final Map<String, ({bool on, int hour, int minute})> _s = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    for (final w in const ['prayer', 'read']) {
+      _s[w] = await NotificationService.nudgeSetting(w);
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _toggle(String w, bool v) async {
+    await NotificationService.saveNudge(w, on: v);
+    await NotificationService().scheduleDailyNudges();
+    await _load();
+  }
+
+  Future<void> _pick(String w) async {
+    final cur = _s[w]!;
+    final t = await showTimePicker(context: context, initialTime: TimeOfDay(hour: cur.hour, minute: cur.minute));
+    if (t == null) return;
+    await NotificationService.saveNudge(w, hour: t.hour, minute: t.minute);
+    await NotificationService().scheduleDailyNudges();
+    await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget row(String w, IconData icon, String title) {
+      final st = _s[w];
+      if (st == null) return const SizedBox.shrink();
+      return ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(icon, color: AppTheme.goldDark),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: GestureDetector(
+          onTap: () => _pick(w),
+          child: Text('Every day at ${TimeOfDay(hour: st.hour, minute: st.minute).format(context)}  \u00b7  tap to change',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        ),
+        trailing: Switch(value: st.on, activeThumbColor: AppTheme.gold, onChanged: (v) => _toggle(w, v)),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+      decoration: BoxDecoration(
+        color: AppTheme.navySurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.navyOutline),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Daily nudges', style: TextStyle(fontFamily: 'Lora', fontSize: 16, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 2),
+        Text("Only if you haven't done it yet that day. If you already prayed or read, it stays silent.",
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        row('prayer', Icons.volunteer_activism_outlined, "If I haven't prayed"),
+        row('read', Icons.menu_book_outlined, "If I haven't read the Bible"),
+      ]),
+    );
+  }
 }

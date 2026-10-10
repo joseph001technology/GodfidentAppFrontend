@@ -3,7 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../../providers/reminders_provider.dart';
 import '../../core/dio_client.dart';
+import '../../models/reminder.dart';
+import '../../services/fasting_log.dart';
+import '../../services/notification_service.dart';
 import '../../services/ringtone_store.dart';
+import '../../widgets/common/christian_art.dart';
 import '../../widgets/common/delete_reminder.dart';
 import '../../widgets/common/ringtone_picker.dart';
 
@@ -23,18 +27,22 @@ class ReminderEditorScreen extends ConsumerStatefulWidget {
 class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
   late TextEditingController titleController;
   late TextEditingController descriptionController;
-  DateTime selectedDate = DateTime.now();
+  /// A specific date is OPTIONAL. Without one, the reminder rings at the next
+  /// matching time (or on the chosen weekdays).
+  DateTime? pickedDate;
+  final Set<int> weekdays = {}; // 1 = Monday ... 7 = Sunday; empty = once
+  bool monthly = false;
+  String? _art;
+  TimeOfDay _askTime = const TimeOfDay(hour: 20, minute: 0);
   TimeOfDay selectedTime = TimeOfDay.now();
   int? selectedCategoryId;
   String selectedTarget = 'general';
-  String selectedRepeat = 'none';
   bool isEnabled = true;
   bool isAlarmWithRingtone = true;
   Duration snoozeDuration = const Duration(minutes: 5);
   Ringtone _ringtone = Ringtone.fallback;
   bool _saving = false;
 
-  static const repeatOptions = ['none', 'daily', 'weekly', 'monthly'];
 
   @override
   void initState() {
@@ -49,7 +57,15 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
   Future<void> _loadExisting() async {
     final id = int.tryParse(widget.reminderId ?? '');
     final tone = await RingtoneStore.instance.load(id ?? 0);
-    if (mounted) setState(() => _ringtone = tone);
+    await ArtStore.instance.ensureLoaded();
+    final ask = await FastingLog.askTime(id ?? 0);
+    if (mounted) {
+      setState(() {
+        _ringtone = tone;
+        _askTime = TimeOfDay(hour: ask.hour, minute: ask.minute);
+        if (id != null) _art = ArtStore.instance.of('reminder_$id');
+      });
+    }
     if (id == null) return;
     try {
       final r = await ref.read(remindersRepositoryProvider).getDetail(id);
@@ -58,11 +74,17 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
         titleController.text = r.title;
         descriptionController.text = r.description ?? '';
         final dt = r.dateTime;
-        if (dt != null) {
-          selectedDate = DateTime(dt.year, dt.month, dt.day);
-          selectedTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
+        if (dt != null) selectedTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
+        weekdays
+          ..clear()
+          ..addAll(r.repeat == 'weekly' || r.repeat == 'daily' ? r.weekdays : const <int>[]);
+        monthly = r.repeat == 'monthly';
+        // A date is only kept when it is a one-off on a future date, or a monthly day.
+        if ((r.repeat == 'none' || r.repeat == 'monthly') && dt != null && dt.isAfter(DateTime.now())) {
+          pickedDate = DateTime(dt.year, dt.month, dt.day);
+        } else if (r.repeat == 'monthly' && dt != null) {
+          pickedDate = DateTime(dt.year, dt.month, dt.day);
         }
-        selectedRepeat = repeatOptions.contains(r.repeat) ? r.repeat : 'none';
         isEnabled = r.isEnabled;
         isAlarmWithRingtone = r.isAlarm;
         selectedCategoryId = r.category;
@@ -91,10 +113,40 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
       );
       return;
     }
-    final when = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, selectedTime.hour, selectedTime.minute);
-    if (selectedRepeat == 'none' && !when.isAfter(DateTime.now())) {
+    final now = DateTime.now();
+    // What repeats, and which date the server stores (it needs one; the person does not).
+    String repeat;
+    int? mask;
+    DateTime day;
+    if (pickedDate != null) {
+      day = pickedDate!;
+      repeat = monthly ? 'monthly' : 'none';
+    } else if (weekdays.length == 7) {
+      repeat = 'daily';
+      day = DateTime(now.year, now.month, now.day);
+    } else if (weekdays.isNotEmpty) {
+      repeat = 'weekly';
+      mask = Reminder.maskOf(weekdays);
+      day = DateTime(now.year, now.month, now.day);
+      for (var i = 0; i < 8; i++) {
+        final d = DateTime(now.year, now.month, now.day + i, selectedTime.hour, selectedTime.minute);
+        if (weekdays.contains(d.weekday) && d.isAfter(now)) {
+          day = DateTime(d.year, d.month, d.day);
+          break;
+        }
+      }
+    } else {
+      repeat = 'none';
+      day = DateTime(now.year, now.month, now.day);
+      // Rings today if the time is still ahead, otherwise tomorrow.
+      if (!DateTime(day.year, day.month, day.day, selectedTime.hour, selectedTime.minute).isAfter(now)) {
+        day = day.add(const Duration(days: 1));
+      }
+    }
+    if (pickedDate != null && repeat == 'none' &&
+        !DateTime(day.year, day.month, day.day, selectedTime.hour, selectedTime.minute).isAfter(now)) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('That time has already passed. Pick a time in the future.'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('That time has already passed. Pick a later time or another date.'), backgroundColor: Colors.red),
       );
       return;
     }
@@ -104,9 +156,10 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
     final data = <String, dynamic>{
       'title': titleController.text.trim(),
       'description': descriptionController.text.trim(),
-      'date': '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
+      'date': '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}',
       'time': '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}:00',
-      'repeat': selectedRepeat,
+      'repeat': repeat,
+      'repeat_frequency': mask,
       'is_enabled': isEnabled,
       'is_alarm': isAlarmWithRingtone,
       if (selectedCategoryId != null) 'category': selectedCategoryId,
@@ -116,10 +169,18 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
 
     try {
       final notifier = ref.read(remindersProvider.notifier);
-      if (widget.reminderId != null) {
-        await notifier.update(int.tryParse(widget.reminderId!) ?? 0, data, ringtone: _ringtone);
+      final existingId = int.tryParse(widget.reminderId ?? '');
+      // The fasting question time is saved first so scheduling can use it.
+      if (existingId != null) {
+        await FastingLog.setAskTime(existingId, _askTime.hour, _askTime.minute);
+        await ArtStore.instance.set('reminder_$existingId', _art);
+        await notifier.update(existingId, data, ringtone: _ringtone);
       } else {
-        await notifier.create(data, ringtone: _ringtone);
+        await FastingLog.setAskTime(0, _askTime.hour, _askTime.minute); // becomes the default for the new one
+        final created = await notifier.create(data, ringtone: _ringtone);
+        await FastingLog.setAskTime(created.id, _askTime.hour, _askTime.minute);
+        if (_art != null) await ArtStore.instance.set('reminder_${created.id}', _art);
+        if (selectedTarget == 'fasting') await NotificationService().scheduleReminder(created);
       }
       final scheduled = notifier.lastScheduleOk;
       messenger.showSnackBar(
@@ -158,12 +219,15 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
   Future<void> _selectDate() async {
     final date = await showDatePicker(
       context: context,
-      initialDate: selectedDate,
+      initialDate: pickedDate ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2099),
     );
     if (date != null) {
-      setState(() => selectedDate = date);
+      setState(() {
+        pickedDate = date;
+        weekdays.clear();
+      });
     }
   }
 
@@ -225,7 +289,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
             const SizedBox(height: 20),
             _buildDateTimeSelector(),
             const SizedBox(height: 20),
-            _buildFrequencySelector(),
+            _buildPictureTile(),
             const SizedBox(height: 20),
             _buildSnoozeDurationSelector(),
             const SizedBox(height: 20),
@@ -303,6 +367,7 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
     ('prayer', '\u{1F64F}', 'Prayer', 'Tap opens a Prayer Focus session'),
     ('bible', '\u{1F4D6}', 'Reading', 'Tap starts Focus and opens the Bible'),
     ('both', '\u2728', 'Both', 'Tap starts Focus and opens Home'),
+    ('fasting', '\u{1F33E}', 'Fasting', 'Reminds you to fast, then asks in the evening: did you?'),
     ('general', '\u23F0', 'Other', 'Tap opens your Reminders'),
   ];
 
@@ -354,117 +419,190 @@ class _ReminderEditorScreenState extends ConsumerState<ReminderEditorScreen> {
     );
   }
 
+  Widget _label(String t) => Text(t,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary, fontWeight: FontWeight.w500));
+
   Widget _buildDateTimeSelector() {
-    return Row(
-      children: [
+    const names = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    const full = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final dateText = pickedDate == null
+        ? 'Not needed'
+        : '${pickedDate!.year}-${pickedDate!.month.toString().padLeft(2, '0')}-${pickedDate!.day.toString().padLeft(2, '0')}';
+    String summary;
+    if (pickedDate != null) {
+      summary = monthly ? 'Rings every month on day ${pickedDate!.day}.' : 'Rings once, on that date.';
+    } else if (weekdays.isEmpty) {
+      summary = 'Rings once, the next time ${selectedTime.format(context)} comes around.';
+    } else {
+      summary = 'Rings ${Reminder.daysLabel(weekdays.toList()).toLowerCase()} at ${selectedTime.format(context)}.';
+    }
+    Widget quick(String label, List<int> days) => Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: ActionChip(
+            label: Text(label, style: const TextStyle(fontSize: 12)),
+            onPressed: () => setState(() {
+              pickedDate = null;
+              monthly = false;
+              weekdays
+                ..clear()
+                ..addAll(days);
+            }),
+          ),
+        );
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _label('Time'),
+      const SizedBox(height: 8),
+      GestureDetector(
+        onTap: _selectTime,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(color: AppTheme.navySurface, borderRadius: BorderRadius.circular(12)),
+          child: Row(children: [
+            Icon(Icons.access_time, color: AppTheme.goldDark),
+            const SizedBox(width: 12),
+            Text(selectedTime.format(context),
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: AppTheme.ink)),
+          ]),
+        ),
+      ),
+      const SizedBox(height: 20),
+      _label('Repeat on'),
+      const SizedBox(height: 10),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        for (var i = 0; i < 7; i++)
+          Tooltip(
+            message: full[i],
+            child: GestureDetector(
+              onTap: () => setState(() {
+                pickedDate = null;
+                monthly = false;
+                weekdays.contains(i + 1) ? weekdays.remove(i + 1) : weekdays.add(i + 1);
+              }),
+              child: Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: weekdays.contains(i + 1) ? AppTheme.gold : AppTheme.navySurface,
+                  border: Border.all(color: weekdays.contains(i + 1) ? AppTheme.gold : AppTheme.navyOutline),
+                ),
+                child: Text(names[i],
+                    style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: weekdays.contains(i + 1) ? AppTheme.inkNavy : AppTheme.textPrimary)),
+              ),
+            ),
+          ),
+      ]),
+      const SizedBox(height: 8),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: [
+          quick('Every day', const [1, 2, 3, 4, 5, 6, 7]),
+          quick('Weekdays', const [1, 2, 3, 4, 5]),
+          quick('Weekends', const [6, 7]),
+          quick('Once', const []),
+        ]),
+      ),
+      const SizedBox(height: 14),
+      _label('Date (optional)'),
+      const SizedBox(height: 8),
+      Row(children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Date',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: _selectDate,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.navySurface,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          child: GestureDetector(
+            onTap: _selectDate,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: AppTheme.navySurface, borderRadius: BorderRadius.circular(12)),
+              child: Text(dateText,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: pickedDate == null ? AppTheme.textMuted : AppTheme.textPrimary)),
+            ),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Time',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
+        if (pickedDate != null)
+          IconButton(
+            tooltip: 'Remove the date',
+            icon: const Icon(Icons.close),
+            onPressed: () => setState(() {
+              pickedDate = null;
+              monthly = false;
+            }),
+          ),
+      ]),
+      if (pickedDate != null)
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          activeThumbColor: AppTheme.gold,
+          title: const Text('Repeat every month on this day'),
+          value: monthly,
+          onChanged: (v) => setState(() => monthly = v),
+        ),
+      const SizedBox(height: 8),
+      Text(summary, style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+      if (selectedTarget == 'fasting') ...[
+        const SizedBox(height: 16),
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () async {
+            final t = await showTimePicker(context: context, initialTime: _askTime);
+            if (t != null) setState(() => _askTime = t);
+          },
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.navySurface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.navyOutline),
+            ),
+            child: Row(children: [
+              const Icon(Icons.help_outline, color: AppTheme.goldDark),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Ask me "Did you fast?" at', style: TextStyle(fontWeight: FontWeight.w600)),
+                  Text(_askTime.format(context), style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                ]),
               ),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: _selectTime,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.navySurface,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    selectedTime.format(context),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              Icon(Icons.chevron_right, color: AppTheme.textMuted),
+            ]),
           ),
         ),
       ],
-    );
+    ]);
   }
 
-  Widget _buildFrequencySelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Frequency',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppTheme.textSecondary,
-            fontWeight: FontWeight.w500,
+  Widget _buildPictureTile() {
+    final id = int.tryParse(widget.reminderId ?? '');
+    return GestureDetector(
+      onTap: () async {
+        final c = await showArtPicker(context, current: _art);
+        if (c != null) setState(() => _art = c.isEmpty ? null : c);
+      },
+      child: SizedBox(
+        height: 120,
+        child: Stack(fit: StackFit.expand, children: [
+          ArtImage(ref: _art, fallbackScene: defaultSceneForType(selectedTarget == 'bible' ? 'reading' : selectedTarget)),
+          Positioned(
+            right: 10,
+            bottom: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), borderRadius: BorderRadius.circular(20)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.image_outlined, color: Colors.white, size: 16),
+                const SizedBox(width: 6),
+                Text(id == null && _art == null ? 'Choose a picture' : 'Change picture',
+                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+              ]),
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: repeatOptions.map((repeat) {
-              final isSelected = selectedRepeat == repeat;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: GestureDetector(
-                  onTap: () => setState(() => selectedRepeat = repeat),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.emerald : AppTheme.navySurface,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      repeat.toUpperCase(),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: isSelected ? Colors.white : AppTheme.textSecondary,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-      ],
+        ]),
+      ),
     );
   }
 

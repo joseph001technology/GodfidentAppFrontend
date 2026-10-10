@@ -5,6 +5,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'music_service.dart';
 import 'ringtone_store.dart';
+import 'native_alarm.dart';
 
 /// The ONE audio player of the whole app.
 ///
@@ -124,6 +125,9 @@ class MusicController extends ChangeNotifier {
       final raw = (await SharedPreferences.getInstance()).getString(_kLast);
       if (raw == null) return null;
       final m = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      final asset = m['asset'] as String?;
+      // A bundled track that no longer ships (the old ambient pieces) cannot be replayed.
+      if (asset != null && !asset.contains('/ringtones/') && !bundledSongs.any((b) => b.asset == asset)) return null;
       return Song(
         id: m['id'] as String,
         title: m['title'] as String? ?? 'Song',
@@ -230,50 +234,41 @@ class MusicController extends ChangeNotifier {
   String? _previewError;
 
   /// Title of the ringtone being previewed right now, or null.
-  String? get previewTitle => _isPreview && player.playing ? _previewTitle : null;
+  String? get previewTitle => _previewing ? _previewTitle : null;
   String? get previewError => _previewError;
 
-  Future<void> previewAsset(String assetPath, String title) => _preview(
-        title,
-        () => AudioSource.asset(assetPath, tag: MediaItem(id: 'preview_$assetPath', title: title, album: 'Ringtone preview')),
-      );
+  bool _previewing = false;
 
-  Future<void> previewUri(String uri, String title) => _preview(
-        title,
-        () => AudioSource.uri(Uri.parse(uri), tag: MediaItem(id: 'preview_$uri', title: title, album: 'Ringtone preview')),
-      );
+  /// "assets/audio/ringtones/bell.mp3" -> the bundled raw resource "godfident_bell".
+  Future<void> previewAsset(String assetPath, String title) {
+    final name = assetPath.split('/').last.split('.').first;
+    return _nativePreview('raw:godfident_$name', title);
+  }
 
-  /// Starts playing at once and keeps playing (looping) until another song is
-  /// chosen, [stopPreview] is called, or the picker is closed.
-  Future<void> _preview(String title, AudioSource Function() build) async {
-    _isPreview = true;
+  Future<void> previewUri(String uri, String title) => _nativePreview(uri, title);
+
+  /// Plays through a separate native player, so the music player, its queue and
+  /// the mini player are NOT touched: music is simply ducked while the sample plays.
+  Future<void> _nativePreview(String sound, String title) async {
     _previewTitle = title;
     _previewError = null;
-    _queue = const [];
-    _current = null;
+    _previewing = true;
     notifyListeners();
-    try {
-      await player.stop();
-      await player.setAudioSource(build());
-      await player.setLoopMode(LoopMode.one);
-      await player.setVolume(1.0);
-      // Do not await: play() only completes when playback ends.
-      player.play();
-    } catch (e) {
+    final ok = await NativeAlarm.previewSound(sound);
+    if (!ok) {
+      _previewing = false;
+      _previewTitle = null;
       _previewError = 'This sound could not be played.';
-      notifyListeners();
     }
+    notifyListeners();
   }
 
   Future<void> stopPreview() async {
-    if (!_isPreview) return;
-    _isPreview = false;
+    if (!_previewing) return;
+    _previewing = false;
     _previewTitle = null;
     _previewError = null;
-    try {
-      await player.setLoopMode(LoopMode.off);
-      await player.stop();
-    } catch (_) {}
+    await NativeAlarm.stopPreview();
     notifyListeners();
   }
 }

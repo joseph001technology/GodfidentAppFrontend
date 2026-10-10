@@ -7,6 +7,7 @@ import '../../models/rule.dart';
 import '../../providers/notes_provider.dart';
 import '../../providers/rules_provider.dart';
 import '../../widgets/common/app_widgets.dart';
+import '../../widgets/common/christian_art.dart';
 
 /// Combined Notes + Universal Rules screen accessed from the bottom nav.
 /// Uses a TabBar to switch between the two sections so users don't need
@@ -23,7 +24,6 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
   late final TabController _tabController;
 
   // — Notes state —
-  String _notesTopic = 'All';
   bool _isGridView = false;
   String _notesQuery = '';
 
@@ -124,12 +124,10 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
 
   Widget _buildNotesTab() {
     final notesAsync = ref.watch(notesProvider);
-    final topicsAsync = ref.watch(notesTopicsProvider);
 
     return RefreshIndicator(
       onRefresh: () async {
         ref.read(notesProvider.notifier).refresh();
-        ref.invalidate(notesTopicsProvider);
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -140,22 +138,19 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
             _notesSummary(notesAsync.valueOrNull),
             const SizedBox(height: 14),
             _buildSearchBar(
-              hint: 'Search notes & topics...',
+              hint: 'Search notes...',
               onChanged: (v) => setState(() => _notesQuery = v.toLowerCase()),
             ),
-            const SizedBox(height: 16),
-            _buildTopicPills(topicsAsync),
             const SizedBox(height: 20),
             notesAsync.when(
               loading: () => const LoadingShimmer(height: 200),
               error: (e, _) => ErrorView(message: friendlyError(e)),
               data: (notes) {
                 final filtered = notes.where((n) {
-                  final matchesTopic = _notesTopic == 'All' || n.topicNames.contains(_notesTopic);
                   final matchesQuery = _notesQuery.isEmpty ||
                       n.title.toLowerCase().contains(_notesQuery) ||
                       n.content.toLowerCase().contains(_notesQuery);
-                  return matchesTopic && matchesQuery;
+                  return matchesQuery;
                 }).toList();
 
                 if (filtered.isEmpty) {
@@ -222,76 +217,35 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
 
   Widget _rulesSummary(List<Rule>? rules) {
     final n = rules?.length ?? 0;
-    final done = rules?.where((r) => r.isCompletedToday).length ?? 0;
-    final best = rules == null || rules.isEmpty ? 0 : rules.map((r) => r.currentStreak).reduce((a, b) => a > b ? a : b);
-    final p = n == 0 ? 0.0 : done / n;
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF1B2A4C), Color(0xFF2B3F6B)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Row(children: [
-        SizedBox(
-          width: 74,
-          height: 74,
-          child: Stack(alignment: Alignment.center, children: [
-            SizedBox(
-              width: 74,
-              height: 74,
-              child: CircularProgressIndicator(
-                value: p,
-                strokeWidth: 7,
-                color: AppTheme.goldLight,
-                backgroundColor: Colors.white24,
-              ),
+    return SizedBox(
+      height: 140,
+      child: Stack(fit: StackFit.expand, children: [
+        const ArtImage(fallbackScene: 'sunrise', animate: true, radius: 22),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0x00000000), Color(0xAA000000)],
             ),
-            Text(n == 0 ? '-' : '$done/$n',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17)),
-          ]),
+          ),
         ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(n == 0 ? 'Your rules' : (done == n ? 'All rules kept today' : 'Today\u2019s rules'),
-                style: const TextStyle(fontFamily: 'Lora', fontSize: 19, fontWeight: FontWeight.bold, color: Colors.white)),
-            const SizedBox(height: 4),
+        Positioned(
+          left: 18,
+          right: 18,
+          bottom: 14,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text(n == 0 ? 'Your rules' : '$n rule${n == 1 ? '' : 's'}',
+                style: const TextStyle(fontFamily: 'Lora', fontSize: 21, fontWeight: FontWeight.bold, color: Colors.white)),
+            const SizedBox(height: 2),
             Text(
-              n == 0
-                  ? 'Add the rules you want to keep every day.'
-                  : (done == n ? 'Well done. Come back tomorrow.' : '${n - done} left to keep. Tap the circle when you do.'),
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.textOnDarkMuted, height: 1.35),
+              n == 0 ? 'Add the rules you want to live by.' : 'They take turns on your Home page, a new one every 10 minutes.',
+              style: const TextStyle(fontSize: 12.5, color: Colors.white, height: 1.3),
             ),
-            if (best > 0) ...[
-              const SizedBox(height: 6),
-              Text('\u{1F525} Best streak: $best day${best == 1 ? '' : 's'}',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.goldLight)),
-            ],
           ]),
         ),
       ]),
-    );
-  }
-
-  Widget _buildTopicPills(AsyncValue<List<NoteTopic>> topicsAsync) {
-    return topicsAsync.when(
-      loading: () => const SizedBox(height: 38),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (topics) => SizedBox(
-        height: 38,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          itemCount: topics.length + 1,
-          itemBuilder: (context, i) {
-            final label = i == 0 ? 'All' : topics[i - 1].name;
-            final isSelected = _notesTopic == label;
-            return GestureDetector(
-              onTap: () => setState(() => _notesTopic = label),
-              child: _pill(label, isSelected),
-            );
-          },
-        ),
-      ),
     );
   }
 
@@ -342,7 +296,6 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
   }
 
   Widget _buildNoteCard(Note note, int number, {bool compact = false}) {
-    final topics = note.topicNames;
     return GestureDetector(
       onTap: () => context.push('/notes/${note.id}'),
       child: Container(
@@ -393,22 +346,6 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
                       style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textSecondary, height: 1.45),
                     ),
                   ],
-                  if (topics.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Wrap(spacing: 6, runSpacing: 4, children: [
-                      for (final t in topics.take(3))
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppTheme.softBlue.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(t,
-                              style: const TextStyle(
-                                  fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.softBlue)),
-                        ),
-                    ]),
-                  ],
                 ]),
               ),
             ),
@@ -456,13 +393,6 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
                       (r.description ?? '').toLowerCase().contains(_rulesQuery);
                   return matchesCat && matchesQuery;
                 }).toList();
-                // Keep the order you set, but show rules still to do before kept ones.
-                final todo = filtered.where((r) => !r.isCompletedToday).toList();
-                final kept = filtered.where((r) => r.isCompletedToday).toList();
-                filtered
-                  ..clear()
-                  ..addAll([...todo, ...kept]);
-
                 if (filtered.isEmpty) {
                   return EmptyView(
                     title: rules.isEmpty ? 'No rules yet' : 'No matching rules',
@@ -514,91 +444,80 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
   }
 
   Widget _buildRuleItem(Rule rule, int number) {
-    final done = rule.isCompletedToday;
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: AppTheme.navySurface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: done ? AppTheme.emerald.withValues(alpha: 0.45) : AppTheme.navyOutline),
+        border: Border.all(color: AppTheme.navyOutline),
         boxShadow: [BoxShadow(color: AppTheme.inkNavy.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       clipBehavior: Clip.antiAlias,
-      child: IntrinsicHeight(
-        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 4, 14),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _numberBadge(number, color: done ? AppTheme.emerald : AppTheme.accentPurple),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(
-                      rule.title,
-                      style: TextStyle(
-                        fontFamily: 'Lora',
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: done ? AppTheme.textMuted : AppTheme.textPrimary,
-                        decoration: done ? TextDecoration.lineThrough : null,
-                      ),
-                    ),
-                    if (rule.description != null && rule.description!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(rule.description!,
-                          style: TextStyle(fontFamily: 'Inter', fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4)),
-                    ],
-                    const SizedBox(height: 8),
-                    Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                      if (rule.categoryName != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.gold.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(rule.categoryName!,
-                              style: const TextStyle(
-                                  fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.goldDark)),
-                        ),
-                      if (rule.currentStreak > 0)
-                        Text('\u{1F525} ${rule.currentStreak} day streak',
-                            style: const TextStyle(
-                                fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.goldDark)),
-                      if (rule.isPinned) const Icon(Icons.push_pin, color: AppTheme.gold, size: 12),
-                    ]),
-                  ]),
-                ),
-                Column(children: [
-                  GestureDetector(
-                    onTap: () async {
-                      await ref.read(rulesProvider.notifier).toggleToday(rule.id);
-                      ref.invalidate(todayRulesProvider);
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.fromLTRB(4, 2, 8, 0),
-                      padding: const EdgeInsets.all(5),
-                      decoration: BoxDecoration(
-                        color: done ? AppTheme.emerald : Colors.transparent,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: done ? AppTheme.emerald : AppTheme.textMuted, width: 1.5),
-                      ),
-                      child: Icon(Icons.check, size: 16, color: done ? Colors.white : Colors.transparent),
-                    ),
-                  ),
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    icon: Icon(Icons.more_vert, color: AppTheme.textMuted, size: 18),
-                    onPressed: () => _showRuleActions(rule),
-                  ),
-                ]),
-              ]),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        SizedBox(
+          height: 110,
+          child: Stack(fit: StackFit.expand, children: [
+            KeyedArt(artKey: 'rule_${rule.id}', fallbackScene: sceneForId(rule.id), radius: 0),
+            Positioned(
+              left: 12,
+              top: 12,
+              child: Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(11)),
+                child: Text(number.toString().padLeft(2, '0'),
+                    style: const TextStyle(fontFamily: 'Lora', fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
             ),
-          ),
-        ]),
-      ),
+            Positioned(
+              right: 4,
+              top: 4,
+              child: IconButton(
+                tooltip: 'More',
+                icon: const Icon(Icons.more_vert, color: Colors.white, size: 20),
+                onPressed: () => _showRuleActions(rule),
+              ),
+            ),
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(rule.title,
+                style: TextStyle(fontFamily: 'Lora', fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+            if (rule.description != null && rule.description!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(rule.description!,
+                  style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textSecondary, height: 1.45)),
+            ],
+            if (rule.categoryName != null || rule.isPinned) ...[
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                if (rule.categoryName != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.gold.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(rule.categoryName!,
+                        style: const TextStyle(
+                            fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.goldDark)),
+                  ),
+                if (rule.isPinned) const Icon(Icons.push_pin, color: AppTheme.gold, size: 12),
+              ]),
+            ],
+          ]),
+        ),
+      ]),
     );
+  }
+
+  Future<void> _changeRulePicture(Rule rule) async {
+    final key = 'rule_${rule.id}';
+    final choice = await showArtPicker(context, current: ArtStore.instance.of(key), fallbackScene: sceneForId(rule.id));
+    if (choice != null) await ArtStore.instance.set(key, choice);
   }
 
   void _showRuleActions(Rule rule) {
@@ -618,6 +537,14 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
               onTap: () {
                 Navigator.pop(context);
                 context.push('/rules/${rule.id}/edit');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.image_outlined, color: AppTheme.gold),
+              title: Text('Change picture', style: TextStyle(color: AppTheme.textPrimary)),
+              onTap: () {
+                Navigator.pop(context);
+                _changeRulePicture(rule);
               },
             ),
             ListTile(

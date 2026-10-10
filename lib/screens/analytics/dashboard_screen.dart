@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../../models/activity.dart';
 import '../../providers/remaining_providers.dart';
+import '../../services/fasting_log.dart';
 import '../../widgets/common/app_widgets.dart';
 
 /// "My Activity": a real picture of what you actually did with God.
@@ -62,6 +63,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             _title('Last 7 days'),
             const SizedBox(height: 10),
             _weekCard(),
+            const SizedBox(height: 14),
+            _fastingCard(),
             const SizedBox(height: 22),
             _calendarHeader(),
             const SizedBox(height: 10),
@@ -74,6 +77,35 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _title(String t) => Text(t,
       style: TextStyle(fontFamily: 'Lora', fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.ink));
+
+  // ── fasting this week (answers to "Did you fast today?", kept on this phone) ──
+  Widget _fastingCard() {
+    return FutureBuilder<({int fasted, int missed})>(
+      future: FastingLog.thisWeek(),
+      builder: (_, snap) {
+        final w = snap.data;
+        if (w == null || (w.fasted + w.missed) == 0) return const SizedBox.shrink();
+        return _card(
+          child: Row(children: [
+            const Text('\u{1F33E}', style: TextStyle(fontSize: 28)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Fasting this week',
+                    style: TextStyle(fontFamily: 'Lora', fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ink)),
+                const SizedBox(height: 2),
+                Text(
+                  '${w.fasted} day${w.fasted == 1 ? '' : 's'} fasted'
+                  '${w.missed > 0 ? ' \u00b7 ${w.missed} not this time' : ''}',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                ),
+              ]),
+            ),
+          ]),
+        );
+      },
+    );
+  }
 
   // ── last 7 days ────────────────────────────────────────────────────
   Widget _weekCard() {
@@ -377,7 +409,7 @@ class _Summary extends StatelessWidget {
       Row(children: [
         _tile(Icons.local_fire_department, AppTheme.gold, '${o.readingStreak}', o.readingStreak == 1 ? 'day Bible streak' : 'day Bible streak'),
         const SizedBox(width: 12),
-        _tile(Icons.shield, AppTheme.emerald, Overview.minutes(o.protectedMinutes), 'protected for God'),
+        _tile(Icons.shield, AppTheme.emerald, Overview.minutes(o.protectedMinutesThisWeek), 'protected for God this week'),
       ]),
       const SizedBox(height: 12),
       Row(children: [

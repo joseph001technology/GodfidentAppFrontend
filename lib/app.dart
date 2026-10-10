@@ -159,6 +159,10 @@ class _SessionKeeperState extends ConsumerState<_SessionKeeper> with WidgetsBind
       SessionManager.instance.reconcile();
       // Phone was off at an alarm's time? Ring (if < 1h late) or show "Missed".
       NativeAlarm.rearm();
+      // Reminders need notification permission; without it nothing can ever show.
+      final ns = ref.read(notificationServiceProvider);
+      await ns.ensureReminderPermissions();
+      await ns.scheduleDailyNudges();
     });
   }
 

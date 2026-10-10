@@ -17,6 +17,8 @@ class AlarmReceiver : BroadcastReceiver() {
         // while ringing can never lose tomorrow's alarm.
         AlarmScheduler.onFired(context, id)
 
+        if (AlarmScheduler.skipToday(context, alarm)) return // already prayed / read today
+
         if (!alarm.ring) {
             AlarmRingService.postReminder(context, alarm.id, alarm.title, alarm.body, alarm.route, alarm.soundUri)
             return
@@ -33,7 +35,9 @@ class AlarmReceiver : BroadcastReceiver() {
             ContextCompat.startForegroundService(context, svc)
         } catch (_: Exception) {
             // Last resort: at least show something.
-            AlarmRingService.postPlainNotification(context, alarm.id, alarm.title, alarm.body, alarm.route)
+            // The sound service was refused (e.g. Android would not let it start): still make a
+            // noise - a notification on a channel that has the alarm sound.
+            AlarmRingService.postReminder(context, alarm.id, alarm.title, alarm.body, alarm.route, alarm.soundUri)
         }
     }
 }

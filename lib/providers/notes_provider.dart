@@ -14,6 +14,11 @@ final notesTopicsProvider = FutureProvider<List<NoteTopic>>((ref) {
   return ref.read(notesRepositoryProvider).getTopics();
 });
 
+// The list endpoint leaves out the note's text, so the full note is fetched when it is opened.
+final noteDetailProvider = FutureProvider.autoDispose.family<Note, int>((ref, id) {
+  return ref.read(notesRepositoryProvider).getNote(id);
+});
+
 // ── Notes List ───────────────────────────────────────────────────
 final notesProvider = StateNotifierProvider<NotesNotifier, AsyncValue<List<Note>>>((ref) {
   return NotesNotifier(ref.read(notesRepositoryProvider));

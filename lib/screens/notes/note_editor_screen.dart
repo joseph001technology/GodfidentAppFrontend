@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
-import '../../models/note.dart';
 import '../../providers/notes_provider.dart';
 
 class NoteEditorScreen extends ConsumerStatefulWidget {
@@ -22,7 +21,6 @@ class NoteEditorScreen extends ConsumerStatefulWidget {
 class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   late TextEditingController _titleController;
   late TextEditingController _bodyController;
-  int? _selectedTopicId;
   bool _isPinned = false;
   bool _isFavorite = false;
   bool _loadedExisting = false;
@@ -32,28 +30,35 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     super.initState();
     _titleController = TextEditingController();
     _bodyController = TextEditingController();
-    _selectedTopicId = widget.topicId != null ? int.tryParse(widget.topicId!) : null;
+    _loadExisting();
   }
 
-  /// The old version of this screen never actually loaded the existing
-  /// note's data when editing — the fields just opened blank. This fills
-  /// them in from the cached notesProvider list once it's available.
-  void _prefillIfEditing(List<Note> notes) {
-    if (_loadedExisting || widget.noteId == null) return;
-    final id = int.tryParse(widget.noteId!);
+  /// The notes list has no text in it, so an existing note is fetched whole.
+  Future<void> _loadExisting() async {
+    final id = int.tryParse(widget.noteId ?? '');
     if (id == null) return;
-    final match = notes.where((n) => n.id == id);
-    if (match.isEmpty) return;
-    final note = match.first;
-    _titleController.text = note.title;
-    _bodyController.text = note.content;
-    _isPinned = note.isPinned;
-    _isFavorite = note.isFavorite;
-    _selectedTopicId = note.topicIds.isNotEmpty ? note.topicIds.first : _selectedTopicId;
-    _loadedExisting = true;
+    try {
+      final note = await ref.read(notesRepositoryProvider).getNote(id);
+      if (!mounted) return;
+      setState(() {
+        _titleController.text = note.title;
+        _bodyController.text = note.content;
+        _isPinned = note.isPinned;
+        _isFavorite = note.isFavorite;
+        _loadedExisting = true;
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not load this note. Check your connection.')));
+      }
+    }
   }
 
   Future<void> _saveNote() async {
+    if (widget.noteId != null && !_loadedExisting) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Still loading the note. Try again in a moment.')));
+      return;
+    }
     if (_titleController.text.isEmpty || _bodyController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Title and body are required')),
@@ -63,12 +68,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
     final notesRepo = ref.read(notesRepositoryProvider);
 
-    // 'topic_ids' is the backend's write field name for the topics M2M
-    // (see NoteDetailSerializer) — 'topics' is read-only there.
     final data = <String, dynamic>{
       'title': _titleController.text,
       'content': _bodyController.text,
-      'topic_ids': _selectedTopicId != null ? [_selectedTopicId!] : <int>[],
       'is_pinned': _isPinned,
       'is_favorite': _isFavorite,
     };
@@ -81,6 +83,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     }
 
     ref.invalidate(notesProvider);
+    final editedId = int.tryParse(widget.noteId ?? '');
+    if (editedId != null) ref.invalidate(noteDetailProvider(editedId));
 
     if (mounted) {
       context.pop();
@@ -99,10 +103,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final topicsAsync = ref.watch(notesTopicsProvider);
-    final notesAsync = ref.watch(notesProvider);
-    notesAsync.whenData(_prefillIfEditing);
-
     return Scaffold(
       backgroundColor: AppTheme.navy,
       appBar: AppBar(
@@ -151,12 +151,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            topicsAsync.when(
-              data: (topics) => _buildTopicSelector(topics),
-              loading: () => const CircularProgressIndicator(),
-              error: (err, stack) => Text('Error: $err'),
-            ),
-            const SizedBox(height: 20),
             Container(
               decoration: BoxDecoration(
                 color: AppTheme.navyVariant,
@@ -201,42 +195,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildTopicSelector(List<NoteTopic> topics) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.navyVariant,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.emerald.withValues(alpha: 0.2)),
-      ),
-      child: DropdownButton<int?>(
-        value: _selectedTopicId,
-        isExpanded: true,
-        underline: const SizedBox(),
-        style: TextStyle(color: AppTheme.textPrimary),
-        dropdownColor: AppTheme.navyVariant,
-        items: [
-          const DropdownMenuItem<int?>(
-            value: null,
-            child: Padding(
-              padding: EdgeInsets.all(12),
-              child: Text('Select a topic', style: TextStyle(color: AppTheme.warmGray)),
-            ),
-          ),
-          ...topics.map((topic) {
-            return DropdownMenuItem<int?>(
-              value: topic.id,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(topic.name),
-              ),
-            );
-          }),
-        ],
-        onChanged: (value) => setState(() => _selectedTopicId = value),
       ),
     );
   }

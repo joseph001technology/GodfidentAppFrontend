@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../widgets/common/christian_art.dart';
 import '../../core/theme.dart';
 import '../../services/ringtone_store.dart';
 import '../../models/reminder.dart';
@@ -170,14 +171,6 @@ class _ReminderCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final r = reminder;
     final isEnabled = r.isEnabled;
-    final typeIcon = r.isAlarm
-        ? Icons.alarm_outlined
-        : r.repeat == 'daily'
-            ? Icons.repeat
-            : r.repeat == 'weekly'
-                ? Icons.calendar_view_week_outlined
-                : Icons.notifications_none_outlined;
-    final accentColor = isEnabled ? AppTheme.gold : AppTheme.textMuted;
 
     return Dismissible(
       key: Key('reminder_${r.id}'),
@@ -234,13 +227,15 @@ class _ReminderCard extends ConsumerWidget {
         ),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(14),
+            Opacity(
+              opacity: isEnabled ? 1 : 0.45,
+              child: KeyedArt(
+                artKey: 'reminder_${r.id}',
+                fallbackScene: defaultSceneForType(r.kind == 'bible' ? 'reading' : r.kind),
+                width: 60,
+                height: 60,
+                radius: 14,
               ),
-              child: Icon(typeIcon, color: accentColor, size: 22),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -258,7 +253,7 @@ class _ReminderCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    r.formattedTime.isNotEmpty ? r.formattedTime : 'Daily',
+                    r.time == null || r.time!.isEmpty ? 'Daily' : r.nextOccurrenceText,
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 12,

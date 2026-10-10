@@ -21,6 +21,7 @@ class NativeAlarm {
     int maxSeconds = 120,
     String startLabel = '',
     bool ring = true,
+    String skipKey = '',
   }) async {
     try {
       final ok = await _ch.invokeMethod<bool>('scheduleAlarm', {
@@ -34,6 +35,7 @@ class NativeAlarm {
         'maxSeconds': maxSeconds,
         'startLabel': startLabel,
         'ring': ring,
+        'skipKey': skipKey,
       });
       return ok ?? false;
     } catch (e) {
@@ -47,6 +49,21 @@ class NativeAlarm {
   static Future<void> rearm() async {
     try {
       await _ch.invokeMethod('rearmAlarms');
+    } catch (_) {}
+  }
+
+  /// Plays a ringtone sample WITHOUT touching the music player (music is only ducked).
+  static Future<bool> previewSound(String sound) async {
+    try {
+      return await _ch.invokeMethod<bool>('previewSound', {'sound': sound}) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> stopPreview() async {
+    try {
+      await _ch.invokeMethod('stopPreview');
     } catch (_) {}
   }
 

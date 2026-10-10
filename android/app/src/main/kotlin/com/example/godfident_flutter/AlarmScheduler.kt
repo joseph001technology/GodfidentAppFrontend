@@ -51,13 +51,14 @@ object AlarmScheduler {
         val soundUri: String, // content:// or android.resource:// ; empty = default alarm tone
         val maxSeconds: Int,
         val startLabel: String, // "" = no Start button
-        val ring: Boolean = true // false = a normal notification (reminder), true = ringing alarm
+        val ring: Boolean = true, // false = a normal notification (reminder), true = ringing alarm
+        val skipKey: String = "" // Flutter pref holding a yyyy-MM-dd; if it equals today the alarm stays silent
     ) {
         fun toJson() = JSONObject().apply {
             put("id", id); put("when", whenMs); put("repeat", repeatMs)
             put("title", title); put("body", body); put("route", route)
             put("sound", soundUri); put("max", maxSeconds); put("start", startLabel)
-            put("ring", ring)
+            put("ring", ring); put("skip", skipKey)
         }
 
         companion object {
@@ -65,7 +66,7 @@ object AlarmScheduler {
                 o.getInt("id"), o.getLong("when"), o.optLong("repeat", 0),
                 o.optString("title"), o.optString("body"), o.optString("route"),
                 o.optString("sound"), o.optInt("max", 60), o.optString("start"),
-                o.optBoolean("ring", true)
+                o.optBoolean("ring", true), o.optString("skip")
             )
         }
     }
@@ -158,7 +159,7 @@ object AlarmScheduler {
                 var next = advance(t, a.repeatMs)
                 while (next <= now) { t = next; next = advance(t, a.repeatMs) }
                 missedAt = t
-                val moved = Alarm(a.id, next, a.repeatMs, a.title, a.body, a.route, a.soundUri, a.maxSeconds, a.startLabel, a.ring)
+                val moved = Alarm(a.id, next, a.repeatMs, a.title, a.body, a.route, a.soundUri, a.maxSeconds, a.startLabel, a.ring, a.skipKey)
                 keep.add(moved)
                 arm(c, moved)
             } else {
@@ -170,11 +171,28 @@ object AlarmScheduler {
         for ((a, t) in late) handleLate(c, a, t, now)
     }
 
+    /**
+     * "Only nudge me if I have not prayed / read today": the app stores today's date in a
+     * Flutter preference when the person does it; if that date is today, stay silent.
+     */
+    fun skipToday(c: Context, a: Alarm): Boolean {
+        if (a.skipKey.isEmpty()) return false
+        val v = c.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            .getString("flutter." + a.skipKey, "") ?: ""
+        val cal = java.util.Calendar.getInstance()
+        val today = String.format(
+            java.util.Locale.US, "%04d-%02d-%02d",
+            cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1, cal.get(java.util.Calendar.DAY_OF_MONTH)
+        )
+        return v == today
+    }
+
     private fun handleLate(c: Context, a: Alarm, missedAt: Long, now: Long) {
+        if (skipToday(c, a)) return
         if (now - missedAt < CATCHUP_WINDOW_MS) {
             // Re-schedule as a normal alarm a few seconds from now: an alarm-clock
             // alarm may start the sound service even straight after boot.
-            schedule(c, Alarm(derivedId(a.id), now + 4000L, 0L, a.title, a.body, a.route, a.soundUri, a.maxSeconds, a.startLabel, a.ring))
+            schedule(c, Alarm(derivedId(a.id), now + 4000L, 0L, a.title, a.body, a.route, a.soundUri, a.maxSeconds, a.startLabel, a.ring, a.skipKey))
         } else {
             AlarmRingService.postMissed(c, a.id, a.title, a.body, a.route, missedAt)
         }
@@ -183,7 +201,7 @@ object AlarmScheduler {
     /** Rings [a] again in [minutes] (survives a reboot because it is stored like any other alarm). */
     fun snooze(c: Context, a: Alarm, minutes: Int = SNOOZE_MINUTES) {
         schedule(c, Alarm(derivedId(a.id), System.currentTimeMillis() + minutes * 60_000L, 0L,
-            a.title, a.body, a.route, a.soundUri, a.maxSeconds, a.startLabel, true))
+            a.title, a.body, a.route, a.soundUri, a.maxSeconds, a.startLabel, true, a.skipKey))
     }
 
     /** Called when an alarm fires: re-arms repeating ones, forgets one-time ones. */

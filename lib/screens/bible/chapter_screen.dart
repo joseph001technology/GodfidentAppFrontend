@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../models/bible.dart';
 import '../../providers/bible_provider.dart';
 import '../../repositories/analytics_repository.dart';
+import '../../services/daily_activity.dart';
 import '../../services/reader_settings.dart';
 import '../../widgets/common/app_widgets.dart';
 import 'reader_settings_sheet.dart';
@@ -91,6 +92,7 @@ class _ChapterScreenState extends ConsumerState<ChapterScreen> {
   Future<void> _logReading() async {
     if (_logged) return;
     _logged = true;
+    DailyActivity.markRead(); // today counts as a day you read
     try {
       await AnalyticsRepository().logReading(
         bookName: widget.book,

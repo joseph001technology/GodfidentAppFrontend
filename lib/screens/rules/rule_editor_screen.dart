@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../providers/rules_provider.dart';
+import '../../widgets/common/christian_art.dart';
 
 class RuleEditorScreen extends ConsumerStatefulWidget {
   final String? ruleId;
@@ -22,6 +23,7 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
   bool _isPinned = false;
   bool _isFavorite = false;
   bool _loading = false;
+  String? _art; // picture chosen for this rule: 'scene:..' | 'b64:..' | null = default
 
   static const Map<String, String> _colorHexMap = {
     'Violet': '#6C5CE7',
@@ -70,6 +72,8 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
         _isPinned = rule.isPinned;
         _isFavorite = rule.isFavorite;
       });
+      await ArtStore.instance.ensureLoaded();
+      if (mounted) setState(() => _art = ArtStore.instance.of('rule_$id'));
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -103,8 +107,10 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
     if (widget.ruleId != null) {
       final id = int.tryParse(widget.ruleId!) ?? 0;
       await rulesRepo.update(id, data);
+      await ArtStore.instance.set('rule_$id', _art);
     } else {
-      await rulesRepo.create(data);
+      final created = await rulesRepo.create(data);
+      if (_art != null) await ArtStore.instance.set('rule_${created.id}', _art);
     }
 
     ref.invalidate(rulesProvider);
@@ -191,6 +197,35 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: () async {
+                      final c = await showArtPicker(context, current: _art);
+                      if (c != null) setState(() => _art = c.isEmpty ? null : c);
+                    },
+                    child: SizedBox(
+                      height: 130,
+                      child: Stack(fit: StackFit.expand, children: [
+                        ArtImage(
+                          ref: _art,
+                          fallbackScene: widget.ruleId != null ? sceneForId(int.tryParse(widget.ruleId!) ?? 0) : 'sunrise',
+                        ),
+                        Positioned(
+                          right: 10,
+                          bottom: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), borderRadius: BorderRadius.circular(20)),
+                            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.image_outlined, color: Colors.white, size: 16),
+                              SizedBox(width: 6),
+                              Text('Change picture', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                            ]),
+                          ),
+                        ),
+                      ]),
+                    ),
                   ),
                   const SizedBox(height: 24),
                   Text('Description', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.textPrimary)),

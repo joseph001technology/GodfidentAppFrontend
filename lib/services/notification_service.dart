@@ -7,6 +7,9 @@ import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 import '../models/reminder.dart';
 import '../models/scheduled_focus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'daily_activity.dart';
+import 'fasting_log.dart';
 import 'native_alarm.dart';
 import 'ringtone_store.dart';
 
@@ -217,6 +220,31 @@ class NotificationService {
       }
 
       final tone = await RingtoneStore.instance.load(reminder.id);
+      final bodyText = reminder.description?.isNotEmpty == true ? reminder.description! : 'Time for your spiritual check-in';
+      final soundArg = reminder.isAlarm ? _nativeSound(tone) : (tone.isDevice ? tone.uri! : 'raw:godfident_${tone.id}');
+
+      // Days of the week ("every Monday and Thursday"): one repeating phone alarm per day.
+      final days = reminder.repeat == 'weekly' ? reminder.weekdays : const <int>[];
+      if (days.isNotEmpty) {
+        await NativeAlarm.cancel(reminder.id);
+        var all = true;
+        for (final wd in days) {
+          final okDay = await NativeAlarm.schedule(
+            id: dayAlarmId(reminder.id, wd),
+            when: _nextWeekday(wd, base.hour, base.minute),
+            repeat: const Duration(days: 7),
+            title: reminder.title,
+            body: bodyText,
+            route: reminder.targetRoute,
+            sound: soundArg,
+            maxSeconds: 120,
+            ring: reminder.isAlarm,
+          );
+          all = all && okDay;
+        }
+        await _scheduleFastingCheckins(reminder, days);
+        return all;
+      }
 
       // Everything is scheduled by the phone itself (AlarmManager), so it works
       // with no internet, with the app closed and after a restart. Alarms ring
@@ -232,12 +260,13 @@ class NotificationService {
                     ? const Duration(milliseconds: -1) // native side: "monthly"
                     : Duration.zero,
         title: reminder.title,
-        body: reminder.description?.isNotEmpty == true ? reminder.description! : 'Time for your spiritual check-in',
+        body: bodyText,
         route: reminder.targetRoute,
-        sound: reminder.isAlarm ? _nativeSound(tone) : (tone.isDevice ? tone.uri! : 'raw:godfident_${tone.id}'),
+        sound: soundArg,
         maxSeconds: 120,
         ring: reminder.isAlarm,
       );
+      if (ok) await _scheduleFastingCheckins(reminder, const <int>[]);
       if (ok) {
         try {
           await _plugin.cancel(reminder.id); // drop any old plugin copy so it never fires twice
@@ -274,6 +303,59 @@ class NotificationService {
     } catch (e) {
       if (kDebugMode) print('scheduleReminder failed: $e');
       return false;
+    }
+  }
+
+  /// Alarm id for one weekday (1 = Monday ... 7 = Sunday) of a reminder.
+  static int dayAlarmId(int id, int wd) => 1700000000 + (id.abs() % 1000000) * 10 + wd;
+
+  /// Id of the "Did you fast?" question for a weekday (0 = a one-off reminder).
+  static int checkinId(int id, int wd) => 1720000000 + (id.abs() % 1000000) * 10 + wd;
+
+  DateTime _nextWeekday(int wd, int hour, int minute) {
+    final now = DateTime.now();
+    for (var i = 0; i < 8; i++) {
+      final d = DateTime(now.year, now.month, now.day + i, hour, minute);
+      if (d.weekday == wd && d.isAfter(now)) return d;
+    }
+    return DateTime(now.year, now.month, now.day + 7, hour, minute);
+  }
+
+  /// A fasting reminder also asks "Did you fast today?" at the time chosen for it.
+  Future<void> _scheduleFastingCheckins(Reminder r, List<int> days) async {
+    for (var wd = 0; wd <= 7; wd++) {
+      await NativeAlarm.cancel(checkinId(r.id, wd));
+    }
+    if (r.kind != 'fasting') return;
+    final ask = await FastingLog.askTime(r.id);
+    final now = DateTime.now();
+    final slots = days.isEmpty ? <int>[0] : days;
+    for (final wd in slots) {
+      DateTime when;
+      if (wd == 0) {
+        final d = r.dateTime ?? now;
+        when = DateTime(d.year, d.month, d.day, ask.hour, ask.minute);
+        if (r.repeat == 'daily') {
+          while (!when.isAfter(now)) {
+            when = when.add(const Duration(days: 1));
+          }
+        } else if (!when.isAfter(now)) {
+          continue;
+        }
+      } else {
+        when = _nextWeekday(wd, ask.hour, ask.minute);
+      }
+      await NativeAlarm.schedule(
+        id: checkinId(r.id, wd),
+        when: when,
+        repeat: wd == 0 && r.repeat != 'daily' ? Duration.zero : (wd == 0 ? const Duration(days: 1) : const Duration(days: 7)),
+        title: 'Did you fast today?',
+        body: '${r.title}: tap to answer Yes or No.',
+        route: '/fasting-checkin?id=${r.id}&title=${Uri.encodeComponent(r.title)}',
+        sound: '',
+        maxSeconds: 60,
+        ring: false,
+      );
     }
   }
 
@@ -477,6 +559,65 @@ class NotificationService {
     }
   }
 
+  // ── Always-visible session timer ───────────────────────────────────
+  // An ongoing notification with a live countdown that the phone itself keeps
+  // ticking, so a Focus / Prayer session is visible in the notification shade
+  // and on the lock screen from any app, even when Godfident is closed.
+  static const _timerId = 700002;
+
+  Future<void> showSessionTimer({
+    required DateTime endAt,
+    String purpose = '',
+    String route = '/focus',
+    bool frozen = false,
+    Duration frozenLeft = Duration.zero,
+  }) async {
+    try {
+      await initialize();
+      final what = purpose == 'prayer' ? 'Prayer time' : purpose == 'bible' ? 'Bible time' : purpose == 'both' ? 'Time with God' : 'Focus time';
+      final left = endAt.difference(DateTime.now());
+      if (!frozen && left.isNegative) return;
+      final mins = frozen ? (frozenLeft.inMinutes < 1 ? 1 : frozenLeft.inMinutes) : 0;
+      await _plugin.show(
+        _timerId,
+        frozen ? '$what is frozen' : '$what is running',
+        frozen ? "$mins min still to go. Tap to resume \u2014 you haven't finished." : 'Time left with God. Stay with it \u2014 tap to return.',
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'session_timer',
+            'Session timer',
+            channelDescription: 'Shows the time left in a running Focus or Prayer session',
+            importance: Importance.low,
+            priority: Priority.high,
+            ongoing: true,
+            autoCancel: false,
+            onlyAlertOnce: true,
+            playSound: false,
+            enableVibration: false,
+            showWhen: !frozen,
+            when: frozen ? null : endAt.millisecondsSinceEpoch,
+            usesChronometer: !frozen,
+            chronometerCountDown: !frozen,
+            timeoutAfter: frozen ? null : left.inMilliseconds + 2000,
+            visibility: NotificationVisibility.public,
+            category: AndroidNotificationCategory.progress,
+            ticker: 'Session running',
+          ),
+          iOS: const DarwinNotificationDetails(presentAlert: false, presentSound: false),
+        ),
+        payload: route,
+      );
+    } catch (e) {
+      if (kDebugMode) print('showSessionTimer failed: $e');
+    }
+  }
+
+  Future<void> cancelSessionTimer() async {
+    try {
+      await _plugin.cancel(_timerId);
+    } catch (_) {}
+  }
+
   // ── "You haven't finished your session" every 10 minutes while frozen ──
   static const _focusNagBase = 700100;
   static const _nagCount = 12; // two hours of nudges
@@ -523,6 +664,64 @@ class NotificationService {
     } catch (_) {}
   }
 
+  // ── "You haven't prayed / read today" nudges ───────────────────────
+  static const prayerNudgeId = 9100001;
+  static const readNudgeId = 9100002;
+
+  static Future<({bool on, int hour, int minute})> nudgeSetting(String which) async {
+    final p = await SharedPreferences.getInstance();
+    final on = p.getBool('nudge_${which}_on') ?? true;
+    final t = (p.getString('nudge_${which}_time') ?? (which == 'prayer' ? '20:00' : '19:00')).split(':');
+    return (on: on, hour: int.tryParse(t[0]) ?? 20, minute: int.tryParse(t.length > 1 ? t[1] : '0') ?? 0);
+  }
+
+  static Future<void> saveNudge(String which, {bool? on, int? hour, int? minute}) async {
+    final p = await SharedPreferences.getInstance();
+    if (on != null) await p.setBool('nudge_${which}_on', on);
+    if (hour != null && minute != null) {
+      await p.setString('nudge_${which}_time', '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}');
+    }
+  }
+
+  /// Every day at the chosen time: if you have not prayed / read yet today you get a
+  /// notification. If you already did, it stays silent. Runs from the phone's alarm
+  /// system, so it works offline and after a restart (missed ones follow the same
+  /// "ring if < 1 hour late, else say it was missed" rule).
+  Future<void> scheduleDailyNudges() async {
+    for (final which in const ['prayer', 'read']) {
+      final id = which == 'prayer' ? prayerNudgeId : readNudgeId;
+      final st = await nudgeSetting(which);
+      if (!st.on) {
+        await NativeAlarm.cancel(id);
+        continue;
+      }
+      final now = DateTime.now();
+      var when = DateTime(now.year, now.month, now.day, st.hour, st.minute);
+      if (!when.isAfter(now)) when = when.add(const Duration(days: 1));
+      await NativeAlarm.schedule(
+        id: id,
+        when: when,
+        repeat: const Duration(days: 1),
+        title: which == 'prayer' ? "You haven't prayed today" : "You haven't read the Bible today",
+        body: which == 'prayer'
+            ? 'Take a few quiet minutes with God before the day ends.'
+            : 'Open the Bible and read a chapter. God has a word for you today.',
+        route: which == 'prayer' ? '/prayer/focus' : '/bible',
+        sound: '',
+        maxSeconds: 60,
+        ring: false,
+        skipKey: which == 'prayer' ? DailyActivity.prayedKey : DailyActivity.readKey,
+      );
+    }
+  }
+
+  /// Asks for what Android needs for reminders to reach you. Safe to call at every start.
+  Future<void> ensureReminderPermissions() async {
+    try {
+      if (!await Permission.notification.isGranted) await Permission.notification.request();
+    } catch (_) {}
+  }
+
   Future<void> cancelFocusEnd() async {
     try {
       await _plugin.cancel(_focusEndId);
@@ -553,6 +752,12 @@ class NotificationService {
   Future<bool> cancelReminder(int id) async {
     try {
       await NativeAlarm.cancel(id);
+      for (var wd = 1; wd <= 7; wd++) {
+        await NativeAlarm.cancel(dayAlarmId(id, wd));
+      }
+      for (var wd = 0; wd <= 7; wd++) {
+        await NativeAlarm.cancel(checkinId(id, wd));
+      }
       await _plugin.cancel(id);
       return true;
     } catch (e) {

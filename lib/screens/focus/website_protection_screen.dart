@@ -437,6 +437,8 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
                   ),
               ]),
       ),
+      // Blocked words live here, under Website Protection, behind the same key.
+      _wordsSection(),
       const SizedBox(height: 14),
       OutlinedButton.icon(
         onPressed: () {
@@ -497,7 +499,6 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
             ),
         ]),
       ),
-      _wordsSection(),
     ];
   }
 

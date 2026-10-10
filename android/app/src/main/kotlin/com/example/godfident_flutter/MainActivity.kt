@@ -33,12 +33,14 @@ class MainActivity : AudioServiceActivity() {
         /** A blocked website was closed: open the page that points back to God (Universal Rules or Bible). */
         const val EXTRA_REDIRECT_ROUTE = "extra_redirect_route"
         private const val REQ_VPN = 7001
+        private const val REQ_PICK_AUDIO = 7002
     }
 
     private var pendingBlockedAppLabel: String? = null
     private var pendingAlarmRoute: String? = null
     private var channel: MethodChannel? = null
     private var pendingVpnResult: MethodChannel.Result? = null
+    private var pendingPickResult: MethodChannel.Result? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,6 +85,20 @@ class MainActivity : AudioServiceActivity() {
         if (requestCode == REQ_VPN) {
             pendingVpnResult?.success(resultCode == RESULT_OK)
             pendingVpnResult = null
+            return
+        }
+        if (requestCode == REQ_PICK_AUDIO) {
+            val res = pendingPickResult
+            pendingPickResult = null
+            if (res == null) return
+            if (resultCode != RESULT_OK || data == null) { res.success(emptyList<Map<String, Any?>>()); return }
+            val uris = mutableListOf<Uri>()
+            data.data?.let { uris.add(it) }
+            data.clipData?.let { cd -> for (i in 0 until cd.itemCount) uris.add(cd.getItemAt(i).uri) }
+            Thread {
+                val out = uris.mapNotNull { describePickedAudio(it) }
+                runOnUiThread { res.success(out) }
+            }.start()
             return
         }
         @Suppress("DEPRECATION")
@@ -178,13 +194,22 @@ class MainActivity : AudioServiceActivity() {
                                 soundUri = resolveSound(call.argument<String>("sound") ?: ""),
                                 maxSeconds = call.argument<Int>("maxSeconds") ?: 60,
                                 startLabel = call.argument<String>("startLabel") ?: "",
-                                ring = call.argument<Boolean>("ring") ?: true
+                                ring = call.argument<Boolean>("ring") ?: true,
+                                skipKey = call.argument<String>("skipKey") ?: ""
                             )
                         )
                         result.success(true)
                     } catch (e: Exception) {
                         result.success(false)
                     }
+                }
+                // Ringtone preview that does NOT touch the music player: music is ducked, not replaced.
+                "previewSound" -> {
+                    result.success(startPreview(resolveSound(call.argument<String>("sound") ?: "")))
+                }
+                "stopPreview" -> {
+                    stopPreview()
+                    result.success(true)
                 }
                 "rearmAlarms" -> {
                     // App started: make sure every stored alarm is armed, ring ones that
@@ -215,6 +240,19 @@ class MainActivity : AudioServiceActivity() {
                     val songs = try { queryDeviceSongs() } catch (_: Exception) { emptyList() }
                     runOnUiThread { result.success(songs) }
                 }.start()
+
+                "pickAudioFiles" -> {
+                    pendingPickResult?.success(emptyList<Map<String, Any?>>())
+                    pendingPickResult = result
+                    val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "audio/*"
+                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                    }
+                    @Suppress("DEPRECATION")
+                    startActivityForResult(i, REQ_PICK_AUDIO)
+                }
 
                 "getSongArtwork" -> {
                     val uri = call.argument<String>("uri")
@@ -277,6 +315,53 @@ class MainActivity : AudioServiceActivity() {
     }
 
     /** "raw:godfident_bell" -> android.resource:// URI of the bundled tone; anything else is used as is. */
+    private var previewPlayer: android.media.MediaPlayer? = null
+    private var previewFocus: android.media.AudioFocusRequest? = null
+
+    private fun startPreview(uri: String): Boolean {
+        stopPreview()
+        if (uri.isEmpty()) return false
+        return try {
+            val attrs = android.media.AudioAttributes.Builder()
+                .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+            val am = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            if (Build.VERSION.SDK_INT >= 26) {
+                previewFocus = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                    .setAudioAttributes(attrs).build()
+                am.requestAudioFocus(previewFocus!!)
+            }
+            val mp = android.media.MediaPlayer()
+            mp.setAudioAttributes(attrs)
+            mp.setDataSource(this, android.net.Uri.parse(uri))
+            mp.isLooping = true
+            mp.prepare()
+            mp.start()
+            previewPlayer = mp
+            true
+        } catch (_: Exception) {
+            stopPreview()
+            false
+        }
+    }
+
+    private fun stopPreview() {
+        try { previewPlayer?.stop() } catch (_: Exception) {}
+        try { previewPlayer?.release() } catch (_: Exception) {}
+        previewPlayer = null
+        try {
+            val am = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            if (Build.VERSION.SDK_INT >= 26) previewFocus?.let { am.abandonAudioFocusRequest(it) }
+        } catch (_: Exception) {}
+        previewFocus = null
+    }
+
+    override fun onDestroy() {
+        stopPreview()
+        super.onDestroy()
+    }
+
     private fun resolveSound(s: String): String {
         if (s.startsWith("raw:")) {
             val name = s.removePrefix("raw:")
@@ -365,16 +450,18 @@ class MainActivity : AudioServiceActivity() {
             MediaStore.Audio.Media.TITLE,
             MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM,
-            MediaStore.Audio.Media.DURATION
+            MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.DATE_ADDED
         )
         // Real music only: skips ringtones/notification sounds and clips under 20 s.
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= 20000"
-        contentResolver.query(collection, projection, selection, null, "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC")?.use { c ->
+        contentResolver.query(collection, projection, selection, null, "${MediaStore.Audio.Media.DATE_ADDED} DESC")?.use { c ->
             val idCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
             val titleCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
             val artistCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
             val albumCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
             val durCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+            val addedCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
             while (c.moveToNext()) {
                 val id = c.getLong(idCol)
                 val artist = c.getString(artistCol)
@@ -385,12 +472,46 @@ class MainActivity : AudioServiceActivity() {
                         "title" to (c.getString(titleCol) ?: "Unknown"),
                         "artist" to (if (artist == null || artist == "<unknown>") "Unknown artist" else artist),
                         "album" to (c.getString(albumCol) ?: ""),
-                        "durationMs" to c.getLong(durCol)
+                        "durationMs" to c.getLong(durCol),
+                        "addedSec" to c.getLong(addedCol)
                     )
                 )
             }
         }
         return out
+    }
+
+    /** A file the person picked with the system file chooser: keep access to it and read its name + length. */
+    private fun describePickedAudio(uri: Uri): Map<String, Any?>? {
+        try {
+            try {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: Exception) {}
+            var name = ""
+            contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                if (c.moveToFirst()) name = c.getString(0) ?: ""
+            }
+            var title = ""
+            var artist = ""
+            var dur = 0L
+            try {
+                val r = android.media.MediaMetadataRetriever()
+                r.setDataSource(this, uri)
+                title = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_TITLE) ?: ""
+                artist = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: ""
+                dur = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                r.release()
+            } catch (_: Exception) {}
+            if (title.isBlank()) title = name.substringBeforeLast('.').ifBlank { "Song" }
+            return mapOf(
+                "uri" to uri.toString(),
+                "title" to title,
+                "artist" to (if (artist.isBlank()) "Pinned file" else artist),
+                "durationMs" to dur
+            )
+        } catch (_: Exception) {
+            return null
+        }
     }
 
     private fun loadArtwork(uri: String?): ByteArray? {
