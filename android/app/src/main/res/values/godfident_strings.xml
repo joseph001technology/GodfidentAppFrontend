@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="accessibility_service_description">Lets Godfident notice which app has just opened, so it can send you back Home when you open an app you chose to block during a Focus session. It also reads ONLY the address bar of web browsers, on your phone, to catch websites and words you chose to block, and then takes you to your Universal Rules or the Bible. It never reads messages, passwords or anything else, and nothing is stored or sent.</string>
+    <string name="accessibility_service_description">Lets Godfident notice which app has just opened, so it can send you back Home when you open an app you chose to block during a Focus session. It also checks the address bar of web browsers and the search boxes in other apps, on your phone only, against the websites and words you chose to block, and then takes you to your Universal Rules or the Bible. Password fields are never read, nothing is stored, and nothing leaves your phone.</string>
 </resources>

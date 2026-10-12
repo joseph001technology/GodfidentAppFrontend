@@ -7,7 +7,10 @@ import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.os.Build
+import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 
 /**
@@ -19,8 +22,10 @@ import android.widget.Toast
  * and is allowed to press Home for the user. So when a blocked app opens during
  * a Focus session we immediately send the user Home and then bring Godfident up.
  *
- * It declares canRetrieveWindowContent="false": Godfident cannot read what is on
- * screen or what you type - it only learns which app window opened.
+ * Blocked WORDS: besides browser address bars, it looks at what is typed into search
+ * boxes in ANY app (Telegram, X, Instagram, YouTube, TikTok ...). The text is compared
+ * in memory with the words you chose to block, then forgotten; it is never stored or
+ * sent, password fields are skipped, and Godfident's own screens are never checked.
  */
 class FocusAccessibilityService : AccessibilityService() {
 
@@ -46,6 +51,14 @@ class FocusAccessibilityService : AccessibilityService() {
             "com.duckduckgo.mobile.android" to listOf("com.duckduckgo.mobile.android:id/omnibarTextInput"),
             "com.kiwibrowser.browser" to listOf("com.kiwibrowser.browser:id/url_bar"),
             "com.vivaldi.browser" to listOf("com.vivaldi.browser:id/url_bar"),
+        )
+
+        /** Parts of a view id that mean "this is a search box" (search_edit_text, query, omnibox ...). */
+        private val SEARCH_ID_PARTS = listOf("search", "query", "omnibox", "url_bar", "location_bar", "find", "et_kw", "keyword")
+
+        /** Words in a box's hint that mean the same, in a few common languages. */
+        private val SEARCH_HINTS = listOf(
+            "search", "find", "look up", "tafuta", "buscar", "rechercher", "recherche", "suche", "pesquisar", "cerca", "поиск", "搜索", "검색", "ابحث", "بحث"
         )
 
         /** Called by the DNS filter when a blocked name was looked up. Acts only if a browser is in front. */
@@ -84,6 +97,12 @@ class FocusAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         isConnected = true
         instance = this
+        // From now on Godfident knows the person wants this on, and can bring it back if Android turns it off.
+        try { AccessibilityGuard.markWanted(this, true) } catch (_: Throwable) {}
+        // The system starts this service at boot even when other background starts are blocked:
+        // use that moment to bring the background guardian and every alarm back.
+        try { Guardian.ensure(this) } catch (_: Throwable) {}
+        try { AlarmScheduler.rearmAll(this, 90_000L) } catch (_: Throwable) {}
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
@@ -146,17 +165,110 @@ class FocusAccessibilityService : AccessibilityService() {
         }
     }
 
+    // ───────────── blocked words typed in other apps ─────────────
+
+    private var lastScanAt = 0L
+
+    private fun blockedWords(): Set<String> =
+        getSharedPreferences(WebsiteBlockVpnService.PREFS, Context.MODE_PRIVATE)
+            .getStringSet(WebsiteBlockVpnService.KEY_KEYWORDS, emptySet()) ?: emptySet()
+
+    private fun isIgnoredPackage(pkg: String): Boolean =
+        pkg == packageName || pkg == "com.android.systemui" || pkg.contains("inputmethod") || pkg.contains("keyboard")
+
+    /** A box meant for searching (not a chat message): by its id name or its hint text. */
+    private fun looksLikeSearchBox(n: AccessibilityNodeInfo, pkg: String): Boolean {
+        if (BROWSER_URL_IDS.containsKey(pkg) || pkg.contains("browser") || pkg.contains("searchbox") || pkg.contains("quicksearch")) return true
+        val id = (n.viewIdResourceName ?: "").lowercase()
+        if (SEARCH_ID_PARTS.any { id.contains(it) }) return true
+        val hint = try { if (Build.VERSION.SDK_INT >= 26) n.hintText?.toString()?.lowercase() ?: "" else "" } catch (_: Throwable) { "" }
+        if (hint.isNotEmpty() && SEARCH_HINTS.any { hint.contains(it) }) return true
+        val desc = n.contentDescription?.toString()?.lowercase() ?: ""
+        return desc.isNotEmpty() && SEARCH_HINTS.any { desc.contains(it) }
+    }
+
+    private fun isEditText(n: AccessibilityNodeInfo): Boolean =
+        n.isEditable || (n.className?.toString() ?: "").endsWith("EditText")
+
+    private fun clearField(n: AccessibilityNodeInfo?) {
+        if (n == null) return
+        try {
+            val args = Bundle()
+            args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, "")
+            n.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        } catch (_: Throwable) {}
+    }
+
+    /** The person is typing: if it is a search box and the text holds a blocked word, stop it. */
+    private fun checkTyping(event: AccessibilityEvent, pkg: String) {
+        if (isIgnoredPackage(pkg)) return
+        val words = blockedWords()
+        if (words.isEmpty()) return
+        val src = event.source ?: return
+        if (src.isPassword) return
+        val text = event.text?.joinToString(" ") { it?.toString() ?: "" } ?: ""
+        if (text.isBlank() || !WebsiteBlockVpnService.hasBlockedWord(text, words)) return
+        if (!looksLikeSearchBox(src, pkg)) return
+        clearField(src)
+        closeBlockedPage("That word is blocked. Spend this moment with God instead.")
+    }
+
+    /**
+     * A page can reach a blocked search without typing it (tapping a trend, a hashtag, a suggestion).
+     * Looks at the search boxes currently on screen - and only those - for a blocked word.
+     */
+    private fun scanSearchBoxes(pkg: String) {
+        if (isIgnoredPackage(pkg)) return
+        val now = System.currentTimeMillis()
+        if (now - lastScanAt < 700) return
+        lastScanAt = now
+        val words = blockedWords()
+        if (words.isEmpty()) return
+        val root = try { rootInActiveWindow } catch (_: Throwable) { null } ?: return
+        if (root.packageName?.toString() != pkg) return
+        var visited = 0
+        val stack = ArrayDeque<AccessibilityNodeInfo>()
+        stack.addLast(root)
+        while (stack.isNotEmpty() && visited < 300) {
+            val n = stack.removeLast()
+            visited++
+            try {
+                if (!n.isPassword && isEditText(n) && looksLikeSearchBox(n, pkg)) {
+                    val t = n.text?.toString() ?: ""
+                    if (t.isNotBlank() && WebsiteBlockVpnService.hasBlockedWord(t, words)) {
+                        clearField(n)
+                        closeBlockedPage("That word is blocked. Spend this moment with God instead.")
+                        return
+                    }
+                }
+                for (i in 0 until n.childCount) n.getChild(i)?.let { stack.addLast(it) }
+            } catch (_: Throwable) {}
+        }
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        // An exception that escapes from here makes Android switch the service OFF by itself.
+        try {
+            handleEvent(event)
+        } catch (_: Throwable) {
+        }
+    }
+
+    private fun handleEvent(event: AccessibilityEvent?) {
         if (event == null) return
         val pkg = event.packageName?.toString() ?: return
 
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
+            checkTyping(event, pkg)
+            return
+        }
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
-            if (BROWSER_URL_IDS.containsKey(pkg)) checkAddressBar(pkg)
+            if (BROWSER_URL_IDS.containsKey(pkg)) checkAddressBar(pkg) else scanSearchBoxes(pkg)
             return
         }
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         if (!pkg.contains("inputmethod") && !pkg.contains("keyboard") && pkg != "com.android.systemui") frontPkg = pkg
-        if (BROWSER_URL_IDS.containsKey(pkg)) checkAddressBar(pkg)
+        if (BROWSER_URL_IDS.containsKey(pkg)) checkAddressBar(pkg) else scanSearchBoxes(pkg)
         if (!FocusPolicy.shouldBlock(this, pkg)) return
 
         // Debounce: one app opening can fire several window events.

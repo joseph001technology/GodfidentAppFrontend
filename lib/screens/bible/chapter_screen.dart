@@ -363,7 +363,7 @@ class _ChapterView extends ConsumerWidget {
             for (final n in notes)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.edit_note_rounded, color: AppTheme.goldDark),
+                leading: Icon(Icons.edit_note_rounded, color: AppTheme.goldAccent),
                 title: Text('${n.bookName} ${n.chapter}:${n.verse}', style: const TextStyle(fontWeight: FontWeight.w700)),
                 subtitle: Text(n.content, maxLines: 3, overflow: TextOverflow.ellipsis),
                 onTap: () {
@@ -395,7 +395,7 @@ class _SelectionBar extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Icon(icon, color: AppTheme.goldDark, size: 22),
+                Icon(icon, color: AppTheme.goldAccent, size: 22),
                 const SizedBox(height: 2),
                 Text(label,
                     style: TextStyle(
@@ -634,7 +634,7 @@ class _SelectionActions {
                     decoration: BoxDecoration(
                       color: e.value,
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.black12),
+                      border: Border.all(color: AppTheme.navyOutline),
                     ),
                   ),
                 ),
@@ -779,7 +779,7 @@ Future<void> showVerseNoteSheet(BuildContext context, WidgetRef ref, VerseNote n
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             Row(children: [
-              const Icon(Icons.sticky_note_2, color: AppTheme.goldDark),
+              Icon(Icons.sticky_note_2, color: AppTheme.goldAccent),
               const SizedBox(width: 8),
               Expanded(
                 child: Text('${note.bookName} ${note.chapter}:${note.verse}',

@@ -75,7 +75,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
-            child: Center(child: Text(translation, style: const TextStyle(color: AppTheme.goldDark, fontSize: 12, fontWeight: FontWeight.w700))),
+            child: Center(child: Text(translation, style: TextStyle(color: AppTheme.goldAccent, fontSize: 12, fontWeight: FontWeight.w700))),
           ),
         ],
       ),
@@ -119,7 +119,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           ListTile(
                             contentPadding: const EdgeInsets.symmetric(vertical: 4),
                             title: Text(v.reference,
-                                style: const TextStyle(color: AppTheme.goldDark, fontSize: 13, fontWeight: FontWeight.w700)),
+                                style: TextStyle(color: AppTheme.goldAccent, fontSize: 13, fontWeight: FontWeight.w700)),
                             subtitle: Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(v.text, maxLines: 3, overflow: TextOverflow.ellipsis),
@@ -153,7 +153,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           width: 38,
           height: 38,
           decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(10)),
-          child: const Icon(Icons.menu_book_rounded, color: AppTheme.goldDark, size: 20),
+          child: Icon(Icons.menu_book_rounded, color: AppTheme.goldAccent, size: 20),
         ),
         title: Text(m.label, style: const TextStyle(fontFamily: 'Lora', fontWeight: FontWeight.bold)),
         subtitle: Text('${m.book.testament == 'OT' ? 'Old' : 'New'} Testament · ${m.book.chapters} chapters'),

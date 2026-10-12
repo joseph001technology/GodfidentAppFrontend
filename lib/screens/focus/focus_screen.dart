@@ -8,6 +8,9 @@ import '../../providers/restriction_provider.dart';
 import '../../providers/scheduled_focus_provider.dart';
 import '../../services/focus_blocking_service.dart';
 import '../../services/focus_session_manager.dart';
+import '../../services/native_alarm.dart';
+import '../../services/native_session.dart';
+import '../../services/notification_service.dart';
 import '../../services/restriction_store.dart';
 import '../../services/permissions_service.dart';
 import '../../services/website_protection_service.dart';
@@ -36,6 +39,8 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
   Timer? _tick;
   ScheduledFocus? _due; // the scheduled session whose alarm brought us here
   String? _purpose; // bible | prayer | both, of the running session
+  String _title = ''; // name of the running session
+  List<QueuedSession> _queue = const []; // sessions waiting for this one to end (max 3)
 
   final _focus = FocusBlockingService.instance;
 
@@ -99,8 +104,11 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
     final info = await _focus.getSessionInfo();
     final live = await _sessions.info();
     final perms = await PermissionsService.instance.snapshot();
+    final queue = await NativeSession.queue();
     if (mounted) {
       setState(() {
+        _queue = queue;
+        _title = live.active ? live.title : '';
         _session = {
           ...info,
           'active': live.active,
@@ -241,6 +249,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
             const SizedBox(height: 20),
             if (_due != null) ...[_dueCard(_due!, active), const SizedBox(height: 14)],
             if (active) _activeCard() else _setupCard(apps),
+            if (_queue.isNotEmpty) ...[const SizedBox(height: 14), _queueCard()],
             if (_message != null) ...[
               const SizedBox(height: 12),
               _notice(_message!, error: true),
@@ -360,6 +369,13 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
         const SizedBox(height: 8),
         Text(_frozen ? 'Session frozen' : 'Focus session active',
             style: const TextStyle(fontFamily: 'Lora', fontSize: 20, fontWeight: FontWeight.bold)),
+        if (_title.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(_title,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontFamily: 'Lora', fontSize: 18, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+          ),
         if (_purpose != null && ScheduledFocus.purposes[_purpose] != null)
           Padding(
             padding: const EdgeInsets.only(top: 2),
@@ -418,7 +434,85 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
     );
   }
 
+  Widget _queueCard() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+      decoration: _cardDeco(border: AppTheme.gold.withValues(alpha: 0.5)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('UP NEXT  \u00b7  ${_queue.length} of ${3} waiting',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppTheme.textMuted)),
+        const SizedBox(height: 4),
+        Text('These start when the current session ends. Only 3 can wait; a fourth replaces the oldest.',
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        const SizedBox(height: 6),
+        for (var i = 0; i < _queue.length; i++)
+          Row(children: [
+            Container(
+              width: 26,
+              height: 26,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(13)),
+              child: Text('${i + 1}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(_queue[i].name, style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                  Text(
+                      '${_queue[i].minutes} min${ScheduledFocus.purposes[_queue[i].purpose] != null ? ' \u00b7 ${ScheduledFocus.purposes[_queue[i].purpose]}' : ''}',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                ]),
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.close_rounded, color: AppTheme.textMuted),
+              tooltip: 'Remove from queue',
+              onPressed: () async {
+                await NativeSession.queueRemove(i);
+                await _refresh();
+              },
+            ),
+          ]),
+      ]),
+    );
+  }
+
+  Future<void> _queueDue(ScheduledFocus f) async {
+    await NativeAlarm.stopSound();
+    await NativeSession.queueAdd(NotificationService.focusRouteFor(f));
+    await _refresh();
+    if (!mounted) return;
+    setState(() => _due = null);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${f.displayTitle} is waiting. It will be ready when this session ends.')),
+    );
+  }
+
+  /// A scheduled session is due while a frozen one exists: starting it ends the frozen one (not recorded).
+  Future<void> _replaceFrozenWith(ScheduledFocus f) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        backgroundColor: AppTheme.navySurface,
+        title: const Text('Replace the frozen session?'),
+        content: const Text('Your frozen session is not finished. Starting this one ends it, and the frozen one will NOT be counted.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Keep frozen')),
+          TextButton(onPressed: () => Navigator.pop(d, true), child: const Text('Start this one')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _sessions.end(early: true);
+    await NativeAlarm.stopSound();
+    await _refresh();
+    await _start(from: f);
+  }
+
   Widget _dueCard(ScheduledFocus f, bool active) {
+    final running = active && !_frozen;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: _cardDeco(border: AppTheme.gold),
@@ -428,6 +522,12 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
         const SizedBox(height: 4),
         Text('${f.displayTitle} \u00b7 ${f.purposeLabel} \u00b7 ${f.durationLabel}',
             style: TextStyle(color: AppTheme.textSecondary)),
+        if (_frozen)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text('You have a frozen session. Resume it, keep this one waiting, or replace the frozen one.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          ),
         const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
@@ -435,10 +535,10 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
             onPressed: _busy
                 ? null
                 : () async {
-                    if (active) {
-                      // Already in a session: just stop the ringing.
-                      await ref.read(scheduledFocusProvider.notifier).started(f);
-                      if (mounted) setState(() => _due = null);
+                    if (running) {
+                      await _queueDue(f); // a session is running: this one waits
+                    } else if (_frozen) {
+                      await _replaceFrozenWith(f);
                     } else {
                       await _start(from: f);
                     }
@@ -448,9 +548,17 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
               foregroundColor: AppTheme.inkNavy,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
-            child: Text(active ? 'Silence alarm' : 'Start'),
+            child: Text(running ? 'Keep in queue' : (_frozen ? 'Start (replace frozen)' : 'Start')),
           ),
         ),
+        if (_frozen)
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: _busy ? null : () => _queueDue(f),
+              child: const Text('Keep in queue'),
+            ),
+          ),
       ]),
     );
   }

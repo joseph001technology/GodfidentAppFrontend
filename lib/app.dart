@@ -11,6 +11,8 @@ import 'providers/remaining_providers.dart';
 import 'providers/restriction_provider.dart';
 import 'providers/scheduled_focus_provider.dart';
 import 'services/native_alarm.dart';
+import 'services/native_session.dart';
+import 'services/prayer_notifications.dart';
 import 'services/theme_controller.dart';
 import 'services/focus_session_manager.dart';
 
@@ -36,6 +38,21 @@ Future<void> handleReminderRoute(GoRouter router, String route) async {
   }
   try {
     final uri = Uri.parse(route);
+    // Buttons on the session card: Freeze / Resume / +5 min.
+    final act = uri.queryParameters['act'];
+    if (act != null && act.isNotEmpty) {
+      final sm = SessionManager.instance;
+      if (act == 'freeze') {
+        await sm.freeze();
+      } else if (act == 'resume') {
+        await sm.resume();
+      } else if (act == 'extend') {
+        await sm.extend(5);
+      }
+      final info = await sm.info();
+      router.go(info.purpose == 'prayer' ? '/prayer/focus' : '/focus');
+      return;
+    }
     if (uri.queryParameters['focus'] == '1') {
       final sm = SessionManager.instance;
       if (!(await sm.info()).active) {
@@ -159,6 +176,10 @@ class _SessionKeeperState extends ConsumerState<_SessionKeeper> with WidgetsBind
       SessionManager.instance.reconcile();
       // Phone was off at an alarm's time? Ring (if < 1h late) or show "Missed".
       NativeAlarm.rearm();
+      // Start the quiet background guardian: reminders, alarms and Focus sessions keep working
+      // even when the app is never opened again (it also restarts itself after a reboot).
+      NativeSession.ensureGuardian();
+      PrayerNotifications.ensureScheduled();
       // Reminders need notification permission; without it nothing can ever show.
       final ns = ref.read(notificationServiceProvider);
       await ns.ensureReminderPermissions();

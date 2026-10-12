@@ -37,6 +37,7 @@ class AlarmRingService : Service() {
     companion object {
         const val ACTION_STOP = "com.example.godfident_flutter.ALARM_STOP"
         const val ACTION_SNOOZE = "com.example.godfident_flutter.ALARM_SNOOZE"
+        const val ACTION_QUEUE = "com.example.godfident_flutter.ALARM_QUEUE"
         private const val CHANNEL = "godfident_alarm_ring"
         private const val CHANNEL_MISSED = "godfident_missed"
 
@@ -77,6 +78,11 @@ class AlarmRingService : Service() {
                 Intent(c, AlarmRingService::class.java).setAction(ACTION_SNOOZE),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+            val queuePi = PendingIntent.getService(
+                c, 950000 + nid(id) % 100_000_000,
+                Intent(c, AlarmRingService::class.java).setAction(ACTION_QUEUE),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
             val open = openApp(c, id, route)
             val b = NotificationCompat.Builder(c, CHANNEL)
                 .setSmallIcon(c.applicationInfo.icon)
@@ -91,6 +97,8 @@ class AlarmRingService : Service() {
                 .setFullScreenIntent(open, true)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             if (startLabel.isNotEmpty()) b.addAction(0, startLabel, open)
+            // A scheduled Focus session can also wait: keep it in the queue instead of starting it now.
+            if (route.startsWith("/focus?start=")) b.addAction(0, "Keep in queue", queuePi)
             b.addAction(0, "Snooze ${AlarmScheduler.SNOOZE_MINUTES} min", snoozePi)
             return b.build()
         }
@@ -182,6 +190,14 @@ class AlarmRingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            shutdown()
+            return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_QUEUE) {
+            cur?.let {
+                try { FocusQueue.add(this, it) } catch (_: Exception) {}
+            }
+            cur = null
             shutdown()
             return START_NOT_STICKY
         }

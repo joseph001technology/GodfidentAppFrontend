@@ -98,6 +98,8 @@ class ProfileScreen extends ConsumerWidget {
                 _Row(Icons.verified_user_outlined, 'Permissions', 'What Android must allow for protection to work', AppTheme.goldDark, () => context.push('/focus/permissions')),
               ]),
               _group('My tools', [
+                _Row(Icons.volunteer_activism_outlined, 'Prayer', 'Requests, answered prayers and reminders', AppTheme.gold, () => context.push('/prayer')),
+                _Row(Icons.self_improvement, 'Focus session', 'Set aside time to pray', AppTheme.gold, () => context.push('/prayer/focus')),
                 _Row(Icons.alarm_outlined, 'Reminders', null, AppTheme.gold, () => context.go('/reminders')),
                 _Row(Icons.edit_note, 'Notes & rules', null, AppTheme.softBlue, () => context.push('/notes')),
                 _Row(Icons.library_music_outlined, 'Music', null, AppTheme.accentPurple, () => context.push('/music')),

@@ -7,7 +7,7 @@ import 'package:just_audio/just_audio.dart';
 import '../../services/music_controller.dart';
 import '../../services/focus_session_manager.dart';
 
-/// Bottom navigation, matching the prototype: Home, Bible, Focus, Reminders, Profile.
+/// Bottom navigation: Home, Bible, Focus, Reminders, Profile.
 /// Prayer and Notes stay one tap away from Home.
 class ShellScaffold extends StatelessWidget {
   final Widget child;
@@ -25,7 +25,7 @@ class ShellScaffold extends StatelessWidget {
     for (var i = 0; i < _tabs.length; i++) {
       if (location.startsWith(_tabs[i].path)) return i;
     }
-    if (location.startsWith('/settings')) return 4;
+    if (location.startsWith('/settings')) return _tabs.length - 1;
     return 0;
   }
 
@@ -241,7 +241,7 @@ class _SessionBannerState extends State<_SessionBanner> with SingleTickerProvide
   Widget build(BuildContext context) {
     if (!_info.active) return const SizedBox.shrink();
     final prayer = _info.purpose == 'prayer';
-    final route = prayer ? '/prayer/focus' : '/focus';
+    final route = '/focus';
     final loc = GoRouterState.of(context).matchedLocation;
     // The session screen already shows the big timer.
     if (loc == route) return const SizedBox.shrink();

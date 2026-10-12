@@ -12,6 +12,8 @@ import '../../providers/rules_provider.dart';
 import '../../models/rule.dart';
 import '../../widgets/common/app_widgets.dart';
 import '../../widgets/common/christian_art.dart';
+import '../../providers/achievements_provider.dart' show prayerStreakProvider;
+import 'prayer_home_card.dart';
 
 /// Home - deliberately simple (see the prototype): greeting, verse of the day,
 /// two real stats, a Focus call-to-action, where you left off, and reminders.
@@ -54,6 +56,8 @@ class HomeScreen extends ConsumerWidget {
             ref.invalidate(readingProgressProvider);
             ref.invalidate(remindersProvider);
             ref.invalidate(currentUserProvider);
+            ref.invalidate(prayerStreakProvider);
+            ref.read(prayerListProvider.notifier).load();
           },
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
@@ -122,6 +126,10 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
               ]),
+              const SizedBox(height: 14),
+
+              // Prayer: pray now / Prayer Focus, today's status, requests
+              const PrayerHomeCard(),
               const SizedBox(height: 14),
 
               // Focus call to action
@@ -209,8 +217,6 @@ class HomeScreen extends ConsumerWidget {
               // Shortcuts to the two other core features
               const SizedBox(height: 22),
               Row(children: [
-                Expanded(child: _shortcut(context, Icons.volunteer_activism_outlined, 'Prayer', '/prayer')),
-                const SizedBox(width: 12),
                 Expanded(child: _shortcut(context, Icons.edit_note, 'Notes', '/notes')),
                 const SizedBox(width: 12),
                 Expanded(child: _shortcut(context, Icons.library_music_outlined, 'Music', '/music')),

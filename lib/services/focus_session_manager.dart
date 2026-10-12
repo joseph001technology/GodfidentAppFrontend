@@ -6,6 +6,7 @@ import '../repositories/focus_repository.dart';
 import '../repositories/prayer_repository.dart';
 import 'focus_blocking_service.dart';
 import 'music_controller.dart';
+import 'native_session.dart';
 import 'daily_activity.dart';
 import 'notification_service.dart';
 import 'restriction_store.dart';
@@ -24,6 +25,7 @@ class SessionInfo {
   final int plannedMinutes;
   final String purpose; // '' | bible | prayer | both
   final bool blocking;
+  final String title; // name of the session ("Morning prayer"), may be empty
 
   /// Frozen = paused by the person. The clock does not run and nothing is
   /// blocked, but the session is NOT finished and nags every 10 minutes.
@@ -36,6 +38,7 @@ class SessionInfo {
     this.plannedMinutes = 0,
     this.purpose = '',
     this.blocking = false,
+    this.title = '',
     this.frozen = false,
     this.frozenLeft = Duration.zero,
   });
@@ -68,6 +71,7 @@ class SessionManager {
   static const _kFrozenLeft = 'sm_frozen_left_ms';
   static const _kFrozenBlocking = 'sm_frozen_blocking';
   static const _kElapsed = 'sm_elapsed_before_ms';
+  static const _kTitle = 'sm_title';
 
   final _focus = FocusBlockingService.instance;
 
@@ -76,6 +80,7 @@ class SessionManager {
     final started = p.getInt(_kStartedAt);
     final minutes = p.getInt(_kMinutes) ?? 0;
     final purpose = p.getString(_kPurpose) ?? '';
+    final title = p.getString(_kTitle) ?? '';
     final frozenMs = p.getInt(_kFrozenLeft);
     if (frozenMs != null && started != null) {
       return SessionInfo(
@@ -83,6 +88,7 @@ class SessionManager {
         startedAt: DateTime.fromMillisecondsSinceEpoch(started),
         plannedMinutes: minutes,
         purpose: purpose,
+        title: title,
         blocking: false,
         frozen: true,
         frozenLeft: Duration(milliseconds: frozenMs),
@@ -103,6 +109,7 @@ class SessionManager {
         startedAt: started == null ? null : DateTime.fromMillisecondsSinceEpoch(started),
         plannedMinutes: minutes,
         purpose: purpose,
+        title: title,
         blocking: true,
       );
     }
@@ -113,10 +120,43 @@ class SessionManager {
         startedAt: started == null ? null : DateTime.fromMillisecondsSinceEpoch(started),
         plannedMinutes: minutes,
         purpose: purpose,
+        title: title,
         blocking: false,
       );
     }
     return const SessionInfo();
+  }
+
+  /// Shows / updates the "now playing" style session card (name, live countdown, purpose, queue).
+  /// Falls back to the plain timer notification if the phone refuses.
+  Future<void> _card({required DateTime endAt, bool frozen = false, Duration frozenLeft = Duration.zero}) async {
+    final p = await SharedPreferences.getInstance();
+    final purpose = p.getString(_kPurpose) ?? '';
+    final title = (p.getString(_kTitle) ?? '').trim();
+    final minutes = p.getInt(_kMinutes) ?? 0;
+    final route = purpose == 'prayer' ? '/prayer/focus' : '/focus';
+    final label = purpose == 'prayer'
+        ? 'Prayer'
+        : purpose == 'bible'
+            ? 'Bible reading'
+            : purpose == 'both'
+                ? 'Bible + Prayer'
+                : 'Focus';
+    final total = Duration(minutes: minutes <= 0 ? 1 : minutes);
+    final ok = await NativeSession.show(
+      name: title,
+      purposeLabel: label,
+      startedAt: DateTime.fromMillisecondsSinceEpoch(p.getInt(_kStartedAt) ?? DateTime.now().millisecondsSinceEpoch),
+      endAt: endAt,
+      total: total,
+      route: route,
+      frozen: frozen,
+      frozenLeft: frozenLeft,
+    );
+    if (!ok) {
+      await NotificationService()
+          .showSessionTimer(endAt: endAt, purpose: purpose, route: route, frozen: frozen, frozenLeft: frozenLeft);
+    }
   }
 
   /// Starts a session. [requireBlocking] = refuse to start unless apps can really
@@ -133,6 +173,8 @@ class SessionManager {
     if ((await info()).active) {
       return const SessionStart(false, message: 'A session is already running.');
     }
+    // One Focus for everything: every session is time with God, so it counts as Bible reading AND prayer.
+    if (purpose.isEmpty) purpose = 'both';
     final endAt = DateTime.now().add(Duration(minutes: minutes));
     final p = await SharedPreferences.getInstance();
 
@@ -161,6 +203,7 @@ class SessionManager {
     await p.setInt(_kStartedAt, DateTime.now().millisecondsSinceEpoch);
     await p.setInt(_kMinutes, minutes);
     await p.setString(_kPurpose, purpose);
+    await p.setString(_kTitle, title.trim());
     await p.setInt(_kSoftEnd, blocking ? 0 : endAt.millisecondsSinceEpoch);
 
     // "Your session has ended" - arrives even if the app is closed.
@@ -170,11 +213,7 @@ class SessionManager {
       route: purpose == 'prayer' ? '/prayer/focus' : '/focus',
     );
     // Live countdown in the notification shade / lock screen.
-    await NotificationService().showSessionTimer(
-      endAt: endAt,
-      purpose: purpose,
-      route: purpose == 'prayer' ? '/prayer/focus' : '/focus',
-    );
+    await _card(endAt: endAt);
 
     // Server records, best effort (the session itself never depends on them).
     try {
@@ -217,13 +256,7 @@ class SessionManager {
       left: left,
       route: i.purpose == 'prayer' ? '/prayer/focus' : '/focus',
     );
-    await NotificationService().showSessionTimer(
-      endAt: DateTime.now(),
-      purpose: i.purpose,
-      route: i.purpose == 'prayer' ? '/prayer/focus' : '/focus',
-      frozen: true,
-      frozenLeft: left,
-    );
+    await _card(endAt: DateTime.now(), frozen: true, frozenLeft: left);
     MusicController.instance.pauseForFreeze();
     _changed();
     return true;
@@ -259,11 +292,7 @@ class SessionManager {
       purpose: purpose,
       route: purpose == 'prayer' ? '/prayer/focus' : '/focus',
     );
-    await NotificationService().showSessionTimer(
-      endAt: endAt,
-      purpose: purpose,
-      route: purpose == 'prayer' ? '/prayer/focus' : '/focus',
-    );
+    await _card(endAt: endAt);
     MusicController.instance.resumeAfterFreeze();
     _changed();
     return true;
@@ -285,8 +314,7 @@ class SessionManager {
         final left = i.frozenLeft + Duration(minutes: minutes);
         await p.setInt(_kFrozenLeft, left.inMilliseconds);
         await NotificationService().scheduleFocusNags(left: left, route: route);
-        await NotificationService().showSessionTimer(
-            endAt: DateTime.now(), purpose: purpose, route: route, frozen: true, frozenLeft: left);
+        await _card(endAt: DateTime.now(), frozen: true, frozenLeft: left);
       } else {
         final endAt = (i.endAt ?? DateTime.now()).add(Duration(minutes: minutes));
         if (i.blocking) {
@@ -300,7 +328,7 @@ class SessionManager {
           await p.setInt(_kSoftEnd, endAt.millisecondsSinceEpoch);
         }
         await NotificationService().scheduleFocusEnd(endAt, purpose: purpose, route: route);
-        await NotificationService().showSessionTimer(endAt: endAt, purpose: purpose, route: route);
+        await _card(endAt: endAt);
       }
     } finally {
       _busyEditing = false;
@@ -349,6 +377,9 @@ class SessionManager {
     await NotificationService().cancelFocusEnd();
     await NotificationService().cancelFocusNags();
     await NotificationService().cancelSessionTimer();
+    // Ended early (the person pressed End): the oldest waiting session rings next.
+    // When time simply ran out, the phone already did that by itself.
+    await NativeSession.hide(advance: early);
     MusicController.instance.endSessionMusic();
 
     final wasFrozen = p.getInt(_kFrozenLeft) != null;
@@ -360,12 +391,13 @@ class SessionManager {
     if (completed) seconds = plannedSec;
 
     if (completed) {
-      if (purpose == 'prayer' || purpose == 'both') DailyActivity.markPrayed();
-      if (purpose == 'bible' || purpose == 'both') DailyActivity.markRead();
+      DailyActivity.markPrayed();
+      DailyActivity.markRead();
     }
     await p.remove(_kStartedAt);
     await p.remove(_kMinutes);
     await p.remove(_kPurpose);
+    await p.remove(_kTitle);
     await p.remove(_kSoftEnd);
     await p.remove(_kFocusId);
     await p.remove(_kPrayerId);

@@ -1,5 +1,6 @@
 import 'package:permission_handler/permission_handler.dart';
 import 'focus_blocking_service.dart';
+import 'native_session.dart';
 import 'website_protection_service.dart';
 
 /// One thing Android needs the user to allow, with a plain-language reason.
@@ -80,6 +81,14 @@ class PermissionsService {
         required: false,
       ),
       PermissionItem(
+        id: 'autostart',
+        title: 'Auto-start / background activity',
+        why: 'Many phones (Tecno, Infinix, Xiaomi, Oppo, Vivo, Huawei, Samsung) stop apps that are not open. Allow Godfident to auto-start and run in the background so your reminders, alarms and Focus sessions work without opening the app.',
+        feature: 'Reminders & Focus',
+        granted: false, // Android cannot tell us; the button opens the right page
+        required: false,
+      ),
+      PermissionItem(
         id: 'audio',
         title: 'Music on this phone',
         why: 'Lets Godfident list and play the songs stored on your phone.',
@@ -112,6 +121,10 @@ class PermissionsService {
         break;
       case 'battery':
         await Permission.ignoreBatteryOptimizations.request();
+        break;
+      case 'autostart':
+        await NativeSession.ensureGuardian();
+        await NativeSession.openAutostartSettings();
         break;
       case 'audio':
         final p = await _audioPermission();

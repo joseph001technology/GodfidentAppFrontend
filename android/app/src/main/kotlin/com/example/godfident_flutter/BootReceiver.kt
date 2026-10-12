@@ -25,6 +25,9 @@ class BootReceiver : BroadcastReceiver() {
             action != ACTION_WATCHDOG
         ) return
 
+        // Bring the background guardian (and with it every alarm) back first.
+        try { Guardian.ensure(context) } catch (_: Exception) {}
+
         // Periodic check: only protection is re-applied (a Focus session is
         // time-boxed and handled by its own service).
         if (action == ACTION_WATCHDOG) {

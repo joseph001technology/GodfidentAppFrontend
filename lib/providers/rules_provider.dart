@@ -15,6 +15,11 @@ final ruleCategoriesProvider = FutureProvider<List<RuleCategory>>((ref) {
   return ref.read(rulesRepositoryProvider).getCategories();
 });
 
+// ── One rule (detail screen) ───────────────────────────────────────
+final ruleDetailProvider = FutureProvider.autoDispose.family<Rule, int>((ref, id) {
+  return ref.read(rulesRepositoryProvider).getById(id);
+});
+
 // ── All Rules ───────────────────────────────────────────────────────
 final rulesProvider = StateNotifierProvider<RulesNotifier, AsyncValue<List<Rule>>>((ref) {
   return RulesNotifier(ref.read(rulesRepositoryProvider));

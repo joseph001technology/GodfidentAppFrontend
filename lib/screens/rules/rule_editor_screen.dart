@@ -2,8 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
+import '../../models/rule.dart';
 import '../../providers/rules_provider.dart';
+import '../../widgets/common/app_widgets.dart' show friendlyError;
 import '../../widgets/common/christian_art.dart';
+
+/// Editable reference + verse text pair for one attached scripture.
+class _ScriptureDraft {
+  final TextEditingController reference;
+  final TextEditingController text;
+  _ScriptureDraft({String reference = '', String text = ''})
+      : reference = TextEditingController(text: reference),
+        text = TextEditingController(text: text);
+  void dispose() {
+    reference.dispose();
+    text.dispose();
+  }
+}
 
 class RuleEditorScreen extends ConsumerStatefulWidget {
   final String? ruleId;
@@ -23,6 +38,7 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
   bool _isPinned = false;
   bool _isFavorite = false;
   bool _loading = false;
+  final List<_ScriptureDraft> _scriptures = [];
   String? _art; // picture chosen for this rule: 'scene:..' | 'b64:..' | null = default
 
   static const Map<String, String> _colorHexMap = {
@@ -71,6 +87,12 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
         _selectedColorHex = _colorDisplayMap.containsKey(rule.color) ? rule.color : '#6C5CE7';
         _isPinned = rule.isPinned;
         _isFavorite = rule.isFavorite;
+        for (final d in _scriptures) {
+          d.dispose();
+        }
+        _scriptures
+          ..clear()
+          ..addAll(rule.scriptures.map((e) => _ScriptureDraft(reference: e.reference, text: e.text)));
       });
       await ArtStore.instance.ensureLoaded();
       if (mounted) setState(() => _art = ArtStore.instance.of('rule_$id'));
@@ -97,20 +119,33 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
 
     final data = <String, dynamic>{
       'title': _titleController.text,
-      if (_descriptionController.text.isNotEmpty) 'description': _descriptionController.text,
+      'description': _descriptionController.text,
       'category': _selectedCategoryId,
       'color': _selectedColorHex,
       'is_pinned': _isPinned,
       'is_favorite': _isFavorite,
+      // Always sent (even empty) so removing every scripture is saved too.
+      'scriptures': [
+        for (final d in _scriptures)
+          if (d.reference.text.trim().isNotEmpty || d.text.text.trim().isNotEmpty)
+            RuleScripture(reference: d.reference.text.trim(), text: d.text.text.trim()).toJson(),
+      ],
     };
 
-    if (widget.ruleId != null) {
-      final id = int.tryParse(widget.ruleId!) ?? 0;
-      await rulesRepo.update(id, data);
-      await ArtStore.instance.set('rule_$id', _art);
-    } else {
-      final created = await rulesRepo.create(data);
-      if (_art != null) await ArtStore.instance.set('rule_${created.id}', _art);
+    try {
+      if (widget.ruleId != null) {
+        final id = int.tryParse(widget.ruleId!) ?? 0;
+        await rulesRepo.update(id, data);
+        await ArtStore.instance.set('rule_$id', _art);
+      } else {
+        final created = await rulesRepo.create(data);
+        if (_art != null) await ArtStore.instance.set('rule_${created.id}', _art);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      }
+      return;
     }
 
     ref.invalidate(rulesProvider);
@@ -128,6 +163,9 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    for (final d in _scriptures) {
+      d.dispose();
+    }
     super.dispose();
   }
 
@@ -245,10 +283,12 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.all(12),
                       ),
-                      maxLines: 4,
-                      minLines: 3,
+                      maxLines: 12,
+                      minLines: 4,
                     ),
                   ),
+                  const SizedBox(height: 24),
+                  _buildScriptureSection(),
                   const SizedBox(height: 24),
                   Text('Category', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.textPrimary)),
                   const SizedBox(height: 8),
@@ -276,6 +316,70 @@ class _RuleEditorScreenState extends ConsumerState<RuleEditorScreen> {
               ),
             ),
     );
+  }
+
+  Widget _buildScriptureSection() {
+    InputDecoration deco(String hint) => InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(color: AppTheme.textMuted),
+          isDense: true,
+        );
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Icon(Icons.menu_book_rounded, size: 18, color: AppTheme.goldAccent),
+        const SizedBox(width: 8),
+        Text('Scripture', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.textPrimary)),
+        const SizedBox(width: 6),
+        Text('(optional)', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+      ]),
+      const SizedBox(height: 8),
+      for (var i = 0; i < _scriptures.length; i++)
+        Container(
+          key: ObjectKey(_scriptures[i]),
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+          decoration: BoxDecoration(
+            color: AppTheme.navySurface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.navyOutline),
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: Column(children: [
+                TextField(
+                  controller: _scriptures[i].reference,
+                  textCapitalization: TextCapitalization.words,
+                  style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600),
+                  decoration: deco('Reference, e.g. Philippians 4:6-7'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _scriptures[i].text,
+                  minLines: 2,
+                  maxLines: 8,
+                  textCapitalization: TextCapitalization.sentences,
+                  style: TextStyle(color: AppTheme.textPrimary, fontFamily: 'Lora', height: 1.5),
+                  decoration: deco('Verse text'),
+                ),
+              ]),
+            ),
+            IconButton(
+              tooltip: 'Remove scripture',
+              icon: Icon(Icons.close_rounded, size: 20, color: AppTheme.textMuted),
+              onPressed: () {
+                final removed = _scriptures[i];
+                setState(() => _scriptures.removeAt(i));
+                WidgetsBinding.instance.addPostFrameCallback((_) => removed.dispose());
+              },
+            ),
+          ]),
+        ),
+      OutlinedButton.icon(
+        onPressed: () => setState(() => _scriptures.add(_ScriptureDraft())),
+        icon: const Icon(Icons.add, size: 18),
+        label: Text(_scriptures.isEmpty ? 'Add scripture' : 'Add another scripture'),
+      ),
+    ]);
   }
 
   Widget _buildCategorySelector() {

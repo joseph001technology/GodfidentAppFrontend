@@ -45,7 +45,7 @@ class FocusBlockingService : Service() {
         const val EXTRA_END_AT = "extra_end_at_ms"
         const val EXTRA_ALLOW_ONLY = "extra_allow_only"
 
-        private const val NOTIFICATION_CHANNEL_ID = "focus_mode_active"
+        private const val NOTIFICATION_CHANNEL_ID = "focus_mode_active_v2"
         private const val NOTIFICATION_ID = 4201
         private const val POLL_INTERVAL_MS = 1000L
     }
@@ -199,8 +199,8 @@ class FocusBlockingService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
-                "Focus Mode active",
-                NotificationManager.IMPORTANCE_LOW
+                "Focus Mode protection",
+                NotificationManager.IMPORTANCE_MIN
             ).apply {
                 description = "Shown while Godfident is protecting your focus session"
             }

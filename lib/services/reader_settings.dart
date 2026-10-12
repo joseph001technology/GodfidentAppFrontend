@@ -28,21 +28,19 @@ class ReaderSettings {
         showVerseNumbers: showVerseNumbers ?? this.showVerseNumbers,
       );
 
-  /// 'auto' (and the old default 'paper') follow the app theme: Classic Dark gives the night page.
-  String get _t => (theme == 'auto' || theme == 'paper') ? (AppTheme.isDark ? 'night' : 'paper') : theme;
+  /// 'auto' (and the old 'paper' / 'night' values) follow the app theme exactly, so the Bible
+  /// uses the same page, text and accent colours as the rest of the app in Light and Dark.
+  /// 'sepia' is the only separate reader page.
+  bool get _sepia => theme == 'sepia';
 
-  Color get background => switch (_t) {
-        'sepia' => const Color(0xFFF4ECD8),
-        'night' => const Color(0xFF14181F),
-        _ => const Color(0xFFFBF8F1),
-      };
-  Color get text => switch (_t) {
-        'sepia' => const Color(0xFF3B2F1E),
-        'night' => const Color(0xFFE6E2D8),
-        _ => const Color(0xFF1F2430),
-      };
-  Color get accent => _t == 'night' ? const Color(0xFFE0B85A) : const Color(0xFF8A6A1F);
-  bool get dark => _t == 'night';
+  Color get background => _sepia ? const Color(0xFFF4ECD8) : AppTheme.navy;
+  Color get text => _sepia ? const Color(0xFF3B2F1E) : AppTheme.textPrimary;
+  Color get accent => _sepia ? const Color(0xFF8A6A1F) : AppTheme.goldAccent;
+
+  /// Card / sheet surface that matches the reader page.
+  Color get surface => _sepia ? const Color(0xFFEFE5CC) : AppTheme.navySurface;
+  Color get outline => _sepia ? const Color(0xFFDCCFAE) : AppTheme.navyOutline;
+  bool get dark => !_sepia && AppTheme.isDark;
   String get fontFamily => serif ? 'Lora' : 'Inter';
 }
 

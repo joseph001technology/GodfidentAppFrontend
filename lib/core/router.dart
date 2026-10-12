@@ -20,13 +20,13 @@ import '../screens/prayer/prayer_list_screen.dart';
 import '../screens/prayer/prayer_form_screen.dart';
 import '../screens/prayer/prayer_detail_screen.dart';
 import '../screens/prayer/prayer_stats_screen.dart';
-import '../screens/prayer/prayer_focus_screen.dart';
 import '../screens/analytics/dashboard_screen.dart';
 import '../screens/search/global_search_screen.dart';
 import '../screens/notes/notes_rules_screen.dart';
 import '../screens/notes/note_editor_screen.dart';
 import '../screens/notes/note_detail_screen.dart';
 import '../screens/rules/rule_editor_screen.dart';
+import '../screens/rules/rule_detail_screen.dart';
 import '../screens/reminders/reminders_screen.dart';
 import '../screens/reminders/reminder_editor_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
@@ -129,8 +129,9 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(path: 'new', builder: (_, __) => const PrayerFormScreen()),
               GoRoute(
                 path: 'focus',
-                builder: (_, state) => PrayerFocusScreen(autoStart: state.uri.queryParameters['auto'] == '1'),
+                redirect: (_, __) => '/focus', // one Focus for everything: prayer + Bible time
               ),
+              GoRoute(path: 'stats', builder: (_, __) => const PrayerStatsScreen()),
               GoRoute(
                 path: ':id',
                 builder: (_, state) => PrayerDetailScreen(id: int.parse(state.pathParameters['id']!)),
@@ -141,7 +142,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                 ],
               ),
-              GoRoute(path: 'stats', builder: (_, __) => const PrayerStatsScreen()),
             ],
           ),
 
@@ -192,8 +192,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                     ),
                   ),
                 ],
-                builder: (_, state) => RuleEditorScreen(
-                  ruleId: state.pathParameters['id'],
+                builder: (_, state) => RuleDetailScreen(
+                  ruleId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
                 ),
               ),
             ],

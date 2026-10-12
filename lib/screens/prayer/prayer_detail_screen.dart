@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../providers/remaining_providers.dart';
 import '../../repositories/prayer_repository.dart';
+import '../../services/prayer_notifications.dart';
 import '../../widgets/common/app_widgets.dart';
 
 class PrayerDetailScreen extends ConsumerWidget {
@@ -18,10 +19,15 @@ class PrayerDetailScreen extends ConsumerWidget {
       loading: () => Scaffold(appBar: AppBar(), body: const ShimmerList()),
       error: (e, _) => Scaffold(appBar: AppBar(), body: ErrorView(message: friendlyError(e))),
       data: (prayers) {
-        final prayer = prayers.firstWhere(
-          (p) => p.id == id,
-          orElse: () => prayers.first,
-        );
+        final matches = prayers.where((p) => p.id == id);
+        if (matches.isEmpty) {
+          return Scaffold(
+            backgroundColor: AppTheme.navy,
+            appBar: AppBar(backgroundColor: Colors.transparent),
+            body: const Center(child: Text('This prayer is no longer in your list.')),
+          );
+        }
+        final prayer = matches.first;
 
         return Scaffold(
           backgroundColor: AppTheme.navy,
@@ -51,6 +57,7 @@ class PrayerDetailScreen extends ConsumerWidget {
                     );
                     if (confirm == true) {
                       await ref.read(prayerListProvider.notifier).delete(prayer.id);
+                      await PrayerNotifications.clearPrayerReminder(prayer.id);
                       if (context.mounted) context.pop();
                     }
                   }
@@ -173,6 +180,7 @@ class PrayerDetailScreen extends ConsumerWidget {
     );
     if (note != null) {
       await ref.read(prayerListProvider.notifier).markAnswered(id, note: note);
+      await PrayerNotifications.clearPrayerReminder(id);
     }
   }
 }

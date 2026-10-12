@@ -40,6 +40,23 @@ class RuleCategory {
       };
 }
 
+/// One scripture attached to a rule: a reference ("Philippians 4:6-7") and the verse text.
+class RuleScripture {
+  final String reference;
+  final String text;
+
+  const RuleScripture({this.reference = '', this.text = ''});
+
+  factory RuleScripture.fromJson(Map<String, dynamic> j) => RuleScripture(
+        reference: '${j['reference'] ?? ''}',
+        text: '${j['text'] ?? ''}',
+      );
+
+  Map<String, dynamic> toJson() => {'reference': reference, 'text': text};
+
+  bool get isEmpty => reference.trim().isEmpty && text.trim().isEmpty;
+}
+
 /// Matches `rules` app RuleSerializer: id, title, description, category,
 /// category_name, color, is_pinned, is_favorite, is_archived, order,
 /// is_daily, is_completed_today, current_streak, created_at, updated_at.
@@ -62,6 +79,7 @@ class Rule {
   final bool isFavorite;
   final bool isArchived;
   final bool isDaily;
+  final List<RuleScripture> scriptures;
   final int order;
   final int? category;
   final String? categoryName;
@@ -79,6 +97,7 @@ class Rule {
     this.isFavorite = false,
     this.isArchived = false,
     this.isDaily = true,
+    this.scriptures = const [],
     this.order = 0,
     this.category,
     this.categoryName,
@@ -97,6 +116,11 @@ class Rule {
         isFavorite: j['is_favorite'] ?? false,
         isArchived: j['is_archived'] ?? false,
         isDaily: j['is_daily'] ?? true,
+        scriptures: (j['scriptures'] is List ? j['scriptures'] as List : const [])
+            .whereType<Map>()
+            .map((e) => RuleScripture.fromJson(Map<String, dynamic>.from(e)))
+            .where((e) => !e.isEmpty)
+            .toList(),
         order: j['order'] ?? 0,
         category: j['category'],
         categoryName: j['category_name'],
@@ -115,6 +139,7 @@ class Rule {
         'is_pinned': isPinned,
         'is_favorite': isFavorite,
         'is_daily': isDaily,
+        'scriptures': scriptures.map((e) => e.toJson()).toList(),
         if (category != null) 'category': category,
       };
 
@@ -123,6 +148,7 @@ class Rule {
     bool? isPinned,
     bool? isFavorite,
     bool? isArchived,
+    List<RuleScripture>? scriptures,
   }) =>
       Rule(
         id: id,
@@ -135,6 +161,7 @@ class Rule {
         isFavorite: isFavorite ?? this.isFavorite,
         isArchived: isArchived ?? this.isArchived,
         isDaily: isDaily,
+        scriptures: scriptures ?? this.scriptures,
         order: order,
         category: category,
         categoryName: categoryName,

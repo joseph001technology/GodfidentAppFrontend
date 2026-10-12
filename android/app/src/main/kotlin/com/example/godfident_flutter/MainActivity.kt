@@ -47,6 +47,8 @@ class MainActivity : AudioServiceActivity() {
         consumeBlockedAppExtra(intent)
         consumeAlarmRoute(intent)
         consumeRedirect(intent)
+        // Start (or re-arm) everything that keeps reminders and Focus sessions alive in the background.
+        try { Guardian.ensure(this) } catch (_: Exception) {}
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -309,8 +311,91 @@ class MainActivity : AudioServiceActivity() {
                     result.success(null)
                 }
 
+                // ───── session card (media-style notification) + queue ─────
+                "showSession" -> {
+                    try {
+                        SessionUi.show(
+                            this,
+                            name = call.argument<String>("name") ?: "",
+                            purposeLabel = call.argument<String>("purposeLabel") ?: "",
+                            startedAt = (call.argument<Number>("startedAtMs") ?: 0).toLong(),
+                            endAt = (call.argument<Number>("endAtMs") ?: 0).toLong(),
+                            totalMs = (call.argument<Number>("totalMs") ?: 0).toLong(),
+                            frozen = call.argument<Boolean>("frozen") ?: false,
+                            frozenLeftMs = (call.argument<Number>("frozenLeftMs") ?: 0).toLong(),
+                            route = call.argument<String>("route") ?: "/focus"
+                        )
+                        result.success(true)
+                    } catch (_: Exception) {
+                        result.success(false)
+                    }
+                }
+                "hideSession" -> {
+                    try { SessionUi.hide(this, call.argument<Boolean>("advance") ?: false) } catch (_: Exception) {}
+                    result.success(true)
+                }
+                "queueList" -> result.success(FocusQueue.list(this).map { it.toMap() })
+                "queueAdd" -> result.success(FocusQueue.addRoute(this, call.argument<String>("route") ?: "/focus"))
+                "queueRemove" -> {
+                    FocusQueue.remove(this, call.argument<Int>("index") ?: -1)
+                    result.success(true)
+                }
+                "queueClear" -> {
+                    FocusQueue.clear(this)
+                    result.success(true)
+                }
+
+                // ───── keep-alive guardian ─────
+                "ensureGuardian" -> {
+                    Guardian.ensure(this)
+                    result.success(Guardian.isEnabled(this))
+                }
+                "setGuardian" -> {
+                    Guardian.setEnabled(this, call.argument<Boolean>("enabled") ?: true)
+                    result.success(true)
+                }
+                "guardianEnabled" -> result.success(Guardian.isEnabled(this))
+                "openAutostartSettings" -> result.success(openAutostartSettings())
+                "manufacturer" -> result.success(Build.MANUFACTURER.lowercase())
+
                 else -> result.notImplemented()
             }
+        }
+    }
+
+    /** Opens the phone maker's "auto-start / background activity" page (where one exists), else the app's settings page. */
+    private fun openAutostartSettings(): Boolean {
+        val candidates = listOf(
+            "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartManagementActivity",
+            "com.transsion.phonemaster" to "com.cyin.himgr.autostart.AutoStartActivity",
+            "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
+            "com.coloros.safecenter" to "com.coloros.safecenter.startupapp.StartupAppListActivity",
+            "com.oppo.safe" to "com.oppo.safe.permission.startup.StartupAppListActivity",
+            "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.BgStartUpManagerActivity",
+            "com.iqoo.secure" to "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity",
+            "com.huawei.systemmanager" to "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
+            "com.huawei.systemmanager" to "com.huawei.systemmanager.optimize.process.ProtectActivity",
+            "com.samsung.android.lool" to "com.samsung.android.sm.ui.battery.BatteryActivity",
+            "com.asus.mobilemanager" to "com.asus.mobilemanager.autostart.AutoStartActivity",
+            "com.letv.android.letvsafe" to "com.letv.android.letvsafe.AutobootManageActivity"
+        )
+        for ((pkg, cls) in candidates) {
+            try {
+                val i = Intent().setClassName(pkg, cls).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (packageManager.resolveActivity(i, 0) != null) {
+                    startActivity(i)
+                    return true
+                }
+            } catch (_: Exception) {}
+        }
+        return try {
+            startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            false
+        } catch (_: Exception) {
+            false
         }
     }
 

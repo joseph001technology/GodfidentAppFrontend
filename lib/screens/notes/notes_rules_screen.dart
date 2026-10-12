@@ -8,6 +8,7 @@ import '../../providers/notes_provider.dart';
 import '../../providers/rules_provider.dart';
 import '../../widgets/common/app_widgets.dart';
 import '../../widgets/common/christian_art.dart';
+import '../rules/rule_widgets.dart';
 
 /// Combined Notes + Universal Rules screen accessed from the bottom nav.
 /// Uses a TabBar to switch between the two sections so users don't need
@@ -26,6 +27,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
   // — Notes state —
   bool _isGridView = false;
   String _notesQuery = '';
+  String _notesFilter = 'All'; // All | Pinned | Favorites
 
   // — Rules state —
   String _rulesCat = 'All';
@@ -141,23 +143,43 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
               hint: 'Search notes...',
               onChanged: (v) => setState(() => _notesQuery = v.toLowerCase()),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+            _buildNoteFilters(),
+            const SizedBox(height: 16),
             notesAsync.when(
               loading: () => const LoadingShimmer(height: 200),
-              error: (e, _) => ErrorView(message: friendlyError(e)),
+              error: (e, _) => ErrorView(message: friendlyError(e), onRetry: () => ref.read(notesProvider.notifier).refresh()),
               data: (notes) {
                 final filtered = notes.where((n) {
                   final matchesQuery = _notesQuery.isEmpty ||
                       n.title.toLowerCase().contains(_notesQuery) ||
-                      n.content.toLowerCase().contains(_notesQuery);
-                  return matchesQuery;
+                      n.content.toLowerCase().contains(_notesQuery) ||
+                      n.preview.toLowerCase().contains(_notesQuery) ||
+                      n.topicNames.any((t) => t.toLowerCase().contains(_notesQuery));
+                  final matchesFilter = _notesFilter == 'All' ||
+                      (_notesFilter == 'Pinned' && n.isPinned) ||
+                      (_notesFilter == 'Favorites' && n.isFavorite);
+                  return matchesQuery && matchesFilter;
                 }).toList();
+                // Pinned notes first, otherwise keep the server's order (newest first).
+                filtered.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
 
                 if (filtered.isEmpty) {
+                  final none = notes.isEmpty;
                   return EmptyView(
-                    title: notes.isEmpty ? 'No notes yet' : 'No matching notes',
-                    subtitle: notes.isEmpty ? 'Tap + to write your first note' : 'Try a different search or topic',
+                    title: none ? 'Your notes will live here' : 'No matching notes',
+                    subtitle: none
+                        ? 'Write down what God is teaching you: sermon thoughts, prayers, verses that spoke to you.'
+                        : 'Try a different search or filter',
                     icon: Icons.edit_note,
+                    action: none
+                        ? ElevatedButton.icon(
+                            onPressed: () => context.push('/notes/new'),
+                            icon: const Icon(Icons.add),
+                            label: const Text('Write your first note'),
+                            style: ElevatedButton.styleFrom(minimumSize: const Size(220, 48)),
+                          )
+                        : null,
                   );
                 }
                 return _isGridView
@@ -167,6 +189,22 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildNoteFilters() {
+    return SizedBox(
+      height: 38,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          for (final f in const ['All', 'Pinned', 'Favorites'])
+            GestureDetector(
+              onTap: () => setState(() => _notesFilter = f),
+              child: _pill(f, _notesFilter == f),
+            ),
+        ],
       ),
     );
   }
@@ -261,7 +299,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.9,
+        childAspectRatio: 0.78,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
       ),
@@ -270,32 +308,41 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
     );
   }
 
-  /// Two-digit number badge ("01", "02" ...) used by notes and rules.
-  Widget _numberBadge(int n, {Color color = AppTheme.gold, double size = 38}) {
+  /// "Just now", "5 min ago", "Yesterday", "3 days ago", or a short date for older notes.
+  String _relativeDate(String iso) {
+    final d = DateTime.tryParse(iso)?.toLocal();
+    if (d == null) return '';
+    final diff = DateTime.now().difference(d);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+    if (diff.inHours < 24) return '${diff.inHours} h ago';
+    if (diff.inDays == 1) return 'Yesterday';
+    if (diff.inDays < 7) return '${diff.inDays} days ago';
+    const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${d.day} ${m[d.month - 1]}${d.year == DateTime.now().year ? '' : ' ${d.year}'}';
+  }
+
+  Widget _noteChip(String label, Color color, {IconData? icon}) {
     return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(size / 3),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Text(
-        n.toString().padLeft(2, '0'),
-        style: TextStyle(fontFamily: 'Lora', fontSize: size * 0.4, fontWeight: FontWeight.bold, color: color),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (icon != null) ...[Icon(icon, size: 11, color: color), const SizedBox(width: 3)],
+        Flexible(
+          child: Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontFamily: 'Inter', fontSize: 10.5, fontWeight: FontWeight.w700, color: color)),
+        ),
+      ]),
     );
   }
 
-  String _shortDate(String iso) {
-    final d = DateTime.tryParse(iso)?.toLocal();
-    if (d == null) return '';
-    const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${d.day} ${m[d.month - 1]} ${d.year}';
-  }
-
   Widget _buildNoteCard(Note note, int number, {bool compact = false}) {
+    final topic = note.topicsList.isNotEmpty ? note.topicsList.first : null;
+    final accent = note.isPinned ? AppTheme.gold : ruleColorFromHex(topic?.color, fallback: AppTheme.softBlue);
+    final preview = note.content.trim().isNotEmpty ? note.content.trim() : note.preview.trim();
+    final category = topic?.name ?? note.folderName;
     return GestureDetector(
       onTap: () => context.push('/notes/${note.id}'),
       child: Container(
@@ -309,43 +356,59 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
         clipBehavior: Clip.antiAlias,
         child: IntrinsicHeight(
           child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Container(width: 5, color: note.isPinned ? AppTheme.gold : AppTheme.softBlue.withValues(alpha: 0.5)),
+            Container(width: 5, color: accent),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    _numberBadge(number, color: AppTheme.softBlue, size: compact ? 32 : 38),
-                    const SizedBox(width: 12),
                     Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(
-                          note.title.isEmpty ? 'Untitled note' : note.title,
-                          maxLines: compact ? 2 : 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontFamily: 'Lora', fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(_shortDate(note.updatedAt),
-                            style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted)),
-                      ]),
+                      child: Text(
+                        note.title.isEmpty ? 'Untitled note' : note.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontFamily: 'Lora', fontSize: 16.5, fontWeight: FontWeight.bold, height: 1.25, color: AppTheme.textPrimary),
+                      ),
                     ),
-                    if (note.isPinned) const Icon(Icons.push_pin, color: AppTheme.gold, size: 16),
-                    if (note.isFavorite) const Padding(
-                      padding: EdgeInsets.only(left: 4),
-                      child: Icon(Icons.favorite, color: AppTheme.accentPink, size: 15),
-                    ),
+                    if (note.isPinned)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 6, top: 2),
+                        child: Icon(Icons.push_pin, color: AppTheme.gold, size: 15),
+                      ),
+                    if (note.isFavorite)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4, top: 2),
+                        child: Icon(Icons.favorite, color: AppTheme.accentPink, size: 15),
+                      ),
                   ]),
-                  if (note.content.isNotEmpty) ...[
-                    const SizedBox(height: 10),
+                  if (preview.isNotEmpty) ...[
+                    const SizedBox(height: 8),
                     Text(
-                      note.content,
-                      maxLines: compact ? 3 : 2,
+                      preview,
+                      maxLines: compact ? 4 : 3,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textSecondary, height: 1.45),
+                      style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
                     ),
                   ],
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    if (category != null && category.isNotEmpty)
+                      Flexible(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _noteChip(category, accent, icon: topic != null ? Icons.sell_outlined : Icons.folder_outlined),
+                        ),
+                      ),
+                    if (note.bibleReferences.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _noteChip('${note.bibleReferences.length}', AppTheme.goldAccent, icon: Icons.menu_book_rounded),
+                      ),
+                    const Spacer(),
+                    Text(_relativeDate(note.updatedAt),
+                        style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted)),
+                  ]),
                 ]),
               ),
             ),
@@ -444,7 +507,11 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
   }
 
   Widget _buildRuleItem(Rule rule, int number) {
-    return Container(
+    final desc = (rule.description ?? '').trim();
+    final isLong = desc.length > 140 || '\n'.allMatches(desc).length >= 3;
+    return GestureDetector(
+      onTap: () => context.push('/rules/${rule.id}'),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: AppTheme.navySurface,
@@ -485,11 +552,26 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(rule.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontFamily: 'Lora', fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-            if (rule.description != null && rule.description!.isNotEmpty) ...[
+            if (desc.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Text(rule.description!,
+              Text(desc,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: AppTheme.textSecondary, height: 1.45)),
+              if (isLong)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text('Read more',
+                      style: TextStyle(
+                          fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.goldAccent)),
+                ),
+            ],
+            if (rule.scriptures.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ScriptureQuote(scripture: rule.scriptures.first, compact: true),
             ],
             if (rule.categoryName != null || rule.isPinned) ...[
               const SizedBox(height: 8),
@@ -502,8 +584,8 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(rule.categoryName!,
-                        style: const TextStyle(
-                            fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.goldDark)),
+                        style: TextStyle(
+                            fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.goldAccent)),
                   ),
                 if (rule.isPinned) const Icon(Icons.push_pin, color: AppTheme.gold, size: 12),
               ]),
@@ -511,6 +593,7 @@ class _NotesRulesScreenState extends ConsumerState<NotesRulesScreen>
           ]),
         ),
       ]),
+    ),
     );
   }
 

@@ -47,7 +47,7 @@ void showChapterPickerFor(BuildContext context, BookInfo book, String translatio
                     border: Border.all(color: AppTheme.navyOutline),
                   ),
                   child: Text('${i + 1}',
-                      style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.goldDark)),
+                      style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.goldAccent)),
                 ),
               ),
             ),

@@ -32,12 +32,12 @@ class _ReaderSettingsSheet extends ConsumerWidget {
           child: GestureDetector(
             onTap: () => n.update(s.copyWith(theme: id)),
             child: Container(
-              margin: const EdgeInsets.only(right: 8),
+              margin: EdgeInsets.only(right: id == 'sepia' ? 0 : 8),
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
                 color: bg,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: s.theme == id ? AppTheme.gold : AppTheme.navyOutline, width: s.theme == id ? 2 : 1),
+                border: Border.all(color: (s.theme == id || (id == 'auto' && s.theme != 'sepia')) ? AppTheme.gold : AppTheme.navyOutline, width: (s.theme == id || (id == 'auto' && s.theme != 'sepia')) ? 2 : 1),
               ),
               alignment: Alignment.center,
               child: Text(name, style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
@@ -103,10 +103,8 @@ class _ReaderSettingsSheet extends ConsumerWidget {
           ]),
           label('Page'),
           Row(children: [
-            themeChip('auto', 'Match app', const Color(0xFF8E96A8), const Color(0xFFFFFFFF)),
-            themeChip('paper', 'Paper', const Color(0xFFFBF8F1), const Color(0xFF1F2430)),
+            themeChip('auto', 'Match app', AppTheme.navy, AppTheme.textPrimary),
             themeChip('sepia', 'Sepia', const Color(0xFFF4ECD8), const Color(0xFF3B2F1E)),
-            themeChip('night', 'Night', const Color(0xFF14181F), const Color(0xFFE6E2D8)),
           ]),
           const SizedBox(height: 6),
           SwitchListTile(

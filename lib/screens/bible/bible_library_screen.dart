@@ -26,10 +26,10 @@ class BibleLibraryScreen extends ConsumerWidget {
         backgroundColor: AppTheme.navy,
         appBar: AppBar(
           title: const Text('My Bible', style: TextStyle(fontFamily: 'Lora', fontWeight: FontWeight.bold)),
-          bottom: const TabBar(
-            labelColor: AppTheme.goldDark,
+          bottom: TabBar(
+            labelColor: AppTheme.goldAccent,
             indicatorColor: AppTheme.gold,
-            tabs: [Tab(text: 'Bookmarks'), Tab(text: 'Highlights'), Tab(text: 'Notes')],
+            tabs: const [Tab(text: 'Bookmarks'), Tab(text: 'Highlights'), Tab(text: 'Notes')],
           ),
         ),
         body: TabBarView(children: [
@@ -40,7 +40,7 @@ class BibleLibraryScreen extends ConsumerWidget {
             builder: (b) => _Card(
               title: b.reference.isNotEmpty ? b.reference : '${b.bookName} ${b.chapter}:${b.verse}',
               subtitle: b.note,
-              leading: const Icon(Icons.bookmark, color: AppTheme.goldDark),
+              leading: Icon(Icons.bookmark, color: AppTheme.goldAccent),
               onTap: () => open(b.bookName, b.chapter, b.verse),
               onDelete: () async {
                 await ref.read(bibleRepositoryProvider).deleteBookmark(b.id);
@@ -74,7 +74,7 @@ class BibleLibraryScreen extends ConsumerWidget {
             builder: (n) => _Card(
               title: '${n.bookName} ${n.chapter}:${n.verse}',
               subtitle: n.content,
-              leading: const Icon(Icons.edit_note_rounded, color: AppTheme.goldDark),
+              leading: Icon(Icons.edit_note_rounded, color: AppTheme.goldAccent),
               onTap: () => showVerseNoteSheet(context, ref, n, onOpenVerse: () => open(n.bookName, n.chapter, n.verse)),
               onDelete: () async {
                 await ref.read(bibleRepositoryProvider).deleteNote(n.id);

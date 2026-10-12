@@ -74,6 +74,7 @@ class Note {
   final int id;
   final String title;
   final String content;
+  final String preview; // short excerpt, sent by the list endpoint (which has no `content`)
   final bool isPinned;
   final bool isFavorite;
   final bool isArchived;
@@ -91,6 +92,7 @@ class Note {
     required this.id,
     required this.title,
     this.content = '',
+    this.preview = '',
     this.isPinned = false,
     this.isFavorite = false,
     this.isArchived = false,
@@ -109,6 +111,7 @@ class Note {
         id: j['id'] ?? 0,
         title: j['title'] ?? '',
         content: j['content'] ?? '',
+        preview: j['preview'] ?? '',
         isPinned: j['is_pinned'] ?? false,
         isFavorite: j['is_favorite'] ?? false,
         isArchived: j['is_archived'] ?? false,
@@ -153,6 +156,7 @@ class Note {
         id: id,
         title: title ?? this.title,
         content: content ?? this.content,
+        preview: preview,
         isPinned: isPinned ?? this.isPinned,
         isFavorite: isFavorite ?? this.isFavorite,
         isArchived: isArchived ?? this.isArchived,

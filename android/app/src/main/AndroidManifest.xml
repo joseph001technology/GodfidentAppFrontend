@@ -45,6 +45,11 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- Optional: if granted once through adb, Godfident can switch its own Accessibility
+         service back on after Android turns it off. Never requested from the user at runtime. -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+
     <!-- Songs on this phone: Android 13+ uses READ_MEDIA_AUDIO, older versions the storage permission. -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
@@ -166,6 +171,33 @@
             android:name=".AlarmRingService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <!-- Keeps reminders / alarms / Focus sessions alive without the app being opened:
+             a quiet foreground service + a 15-minute heartbeat alarm + a persisted job. See Guardian.kt. -->
+        <service
+            android:name=".GuardianService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps user-set reminders, alarms and Focus sessions running on time while the app is closed" />
+        </service>
+        <receiver android:name=".GuardianReceiver" android:exported="false" />
+        <service
+            android:name=".GuardianJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- The "now playing" style card for a running Focus / Prayer session. -->
+        <service
+            android:name=".SessionNotificationService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Shows the running Focus or Prayer session with its countdown" />
+        </service>
+        <receiver android:name=".SessionEndReceiver" android:exported="false" />
 
         <!-- Re-applies protection after a reboot. -->
         <receiver

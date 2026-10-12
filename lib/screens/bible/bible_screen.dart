@@ -53,7 +53,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: AppTheme.goldDark, size: 22),
+            child: Icon(icon, color: AppTheme.goldAccent, size: 22),
           ),
           title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
           subtitle: sub.isEmpty ? null : Text(sub, style: const TextStyle(fontSize: 12)),
@@ -129,7 +129,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
             ListTile(
               title: Text(t.code, style: const TextStyle(fontWeight: FontWeight.w700)),
               subtitle: Text(t.fullName.isNotEmpty ? t.fullName : t.name),
-              trailing: t.code == current ? const Icon(Icons.check, color: AppTheme.goldDark) : null,
+              trailing: t.code == current ? Icon(Icons.check, color: AppTheme.goldAccent) : null,
               onTap: () => Navigator.pop(d, t.code),
             ),
         ],
@@ -276,7 +276,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                     border: Border.all(color: AppTheme.navyOutline),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.play_circle_fill_rounded, color: AppTheme.goldDark, size: 30),
+                    Icon(Icons.play_circle_fill_rounded, color: AppTheme.goldAccent, size: 30),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -440,7 +440,7 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                     // was AppTheme.gold — gold-on-pale-gold-tint is low
                     // contrast on a light card; goldDark reads clearly
-                    color: isSelected ? AppTheme.goldDark : AppTheme.textPrimary,
+                    color: isSelected ? AppTheme.goldAccent : AppTheme.textPrimary,
                   ),
                 ),
               ),
@@ -485,11 +485,11 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                   ),
                   child: Text(
                     translation,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.goldDark, // was gold — same low-contrast fix
+                      color: AppTheme.goldAccent, // was gold — same low-contrast fix
                     ),
                   ),
                 ),
@@ -531,11 +531,11 @@ class _BibleScreenState extends ConsumerState<BibleScreen> {
                       alignment: Alignment.center,
                       child: Text(
                         '$ch',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.goldDark, // was gold
+                          color: AppTheme.goldAccent, // was gold
                         ),
                       ),
                     ),

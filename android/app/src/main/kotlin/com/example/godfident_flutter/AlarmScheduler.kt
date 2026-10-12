@@ -142,12 +142,12 @@ object AlarmScheduler {
      *  - an hour or more late    -> a "missed" notification (name + what it was for)
      * Repeating alarms are moved on to their next future time either way.
      */
-    fun rearmAll(c: Context) {
+    fun rearmAll(c: Context, graceMs: Long = 0L) {
         val now = System.currentTimeMillis()
         val keep = mutableListOf<Alarm>()
         val late = mutableListOf<Pair<Alarm, Long>>()
         for (a in load(c)) {
-            if (a.whenMs > now) {
+            if (a.whenMs > now - graceMs) {
                 keep.add(a)
                 arm(c, a)
                 continue

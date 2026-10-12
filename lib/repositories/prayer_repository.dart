@@ -69,6 +69,7 @@ class PrayerRepository {
   }
 
   Future<void> logPrayer(int id, {String note = ''}) async {
+    DailyActivity.markPrayed();
     await _dio.post('/api/prayer/$id/log_prayer/', data: {
       if (note.isNotEmpty) 'note': note,
     });

@@ -20,6 +20,9 @@ class AppTheme {
   static const Color goldLight = Color(0xFFD9B36C);
   static const Color goldDark = Color(0xFFA9803B);
 
+  /// Gold for text / icons on a page or card: readable in Light (goldDark) and Dark (goldLight).
+  static Color get goldAccent => isDark ? goldLight : goldDark;
+
   // "navy" used to be the near-black page background AND was reused in a
   // few places as "dark text/icon sitting on a gold chip". In light mode
   // those are two different colors, so:

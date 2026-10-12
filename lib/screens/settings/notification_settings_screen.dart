@@ -6,6 +6,7 @@ import '../../models/reminder.dart';
 import '../../services/native_alarm.dart';
 import '../../services/notification_service.dart';
 import '../../services/permissions_service.dart';
+import '../prayer/prayer_reminders_sheet.dart';
 
 /// Plain-language notifications page. Reminders themselves (time, type, sound)
 /// are created in the Reminders tab; this page only answers "will my reminders
@@ -143,6 +144,19 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
           ),
         const SizedBox(height: 10),
         const _NudgesCard(),
+        const SizedBox(height: 14),
+        ListTile(
+          onTap: () => showPrayerRemindersSheet(context),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: AppTheme.navyOutline),
+          ),
+          tileColor: AppTheme.navySurface,
+          leading: const Icon(Icons.volunteer_activism_outlined, color: AppTheme.goldDark),
+          title: const Text('Prayer reminders', style: TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: const Text('Up to 3 daily prayer times that open Prayer Focus'),
+          trailing: const Icon(Icons.chevron_right),
+        ),
         const SizedBox(height: 14),
         OutlinedButton.icon(
           onPressed: _testAlarm,

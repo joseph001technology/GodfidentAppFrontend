@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme.dart';
 import '../../services/notification_service.dart';
+import '../prayer/prayer_reminders_sheet.dart';
 
 /// State notifier for per-type notification preferences stored in SharedPreferences.
 class NotificationPrefsNotifier extends StateNotifier<Map<String, bool>> {
@@ -316,6 +317,47 @@ class NotificationSettingsScreen extends ConsumerWidget {
                 ],
               );
             }),
+
+            // Prayer reminders (daily prayer times)
+            GestureDetector(
+              onTap: () => showPrayerRemindersSheet(context),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.navySurface,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppTheme.navyOutline),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.volunteer_activism_outlined, color: AppTheme.gold, size: 22),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Prayer reminders',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            'Up to 3 daily prayer times that open Prayer Focus',
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 20),
+                  ],
+                ),
+              ),
+            ),
 
             // Reminders shortcut
             GestureDetector(

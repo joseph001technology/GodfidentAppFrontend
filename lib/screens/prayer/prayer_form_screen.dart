@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../../core/dio_client.dart';
 import '../../repositories/prayer_repository.dart';
+import '../../services/notification_service.dart';
+import '../../services/prayer_notifications.dart';
+import 'prayer_reminders_sheet.dart';
 
 class PrayerFormScreen extends ConsumerStatefulWidget {
   final int? prayerId;
@@ -20,8 +23,41 @@ class _PrayerFormScreenState extends ConsumerState<PrayerFormScreen> {
   String _type = 'request';
   bool _loading = false;
   String? _error;
+  final _reminder = PrayerReminderDraft();
 
   final _types = ['request', 'praise', 'intercession', 'thanksgiving'];
+
+  @override
+  void initState() {
+    super.initState();
+    final id = widget.prayerId;
+    if (id != null) _loadExisting(id);
+  }
+
+  /// Edit mode: fill the form with the saved prayer and its reminder.
+  Future<void> _loadExisting(int id) async {
+    try {
+      final p = await PrayerRepository().getDetail(id);
+      final r = await PrayerNotifications.getPrayerReminder(id);
+      if (!mounted) return;
+      setState(() {
+        _title.text = p.title;
+        _content.text = p.content;
+        _scripture.text = p.scripture;
+        if (_types.contains(p.prayerType)) _type = p.prayerType;
+        if (r != null) {
+          final d = PrayerReminderDraft.fromSetting(r);
+          _reminder.on = d.on;
+          _reminder.time = d.time;
+          _reminder.weekly = d.weekly;
+          _reminder.weekday = d.weekday;
+          _reminder.ring = d.ring;
+        }
+      });
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Could not load this prayer. Check your connection and try again.');
+    }
+  }
 
   @override
   void dispose() {
@@ -33,12 +69,35 @@ class _PrayerFormScreenState extends ConsumerState<PrayerFormScreen> {
     if (!_form.currentState!.validate()) return;
     setState(() { _loading = true; _error = null; });
     try {
-      await PrayerRepository().create(
-        title: _title.text.trim(),
-        content: _content.text.trim(),
-        prayerType: _type,
-        scripture: _scripture.text.trim(),
-      );
+      final repo = PrayerRepository();
+      final title = _title.text.trim();
+      final int prayerId;
+      if (widget.prayerId == null) {
+        final created = await repo.create(
+          title: title,
+          content: _content.text.trim(),
+          prayerType: _type,
+          scripture: _scripture.text.trim(),
+          reminderEnabled: _reminder.on,
+        );
+        prayerId = created.id;
+      } else {
+        await repo.update(widget.prayerId!, {
+          'title': title,
+          'content': _content.text.trim(),
+          'prayer_type': _type,
+          'scripture': _scripture.text.trim(),
+          'reminder_enabled': _reminder.on,
+        });
+        prayerId = widget.prayerId!;
+      }
+      // "Remind me to pray for this": a phone alarm, so it works offline.
+      if (_reminder.on) {
+        await NotificationService().ensureReminderPermissions();
+        await PrayerNotifications.setPrayerReminder(_reminder.toSetting(prayerId, title));
+      } else {
+        await PrayerNotifications.clearPrayerReminder(prayerId);
+      }
       if (mounted) Navigator.of(context).pop(true);
     } on DioException catch (e) {
       setState(() => _error = extractError(e));
@@ -102,6 +161,8 @@ class _PrayerFormScreenState extends ConsumerState<PrayerFormScreen> {
                 ),
                 textInputAction: TextInputAction.done,
               ),
+              const SizedBox(height: 18),
+              PrayerReminderPicker(draft: _reminder, onChanged: () => setState(() {})),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _loading ? null : _save,

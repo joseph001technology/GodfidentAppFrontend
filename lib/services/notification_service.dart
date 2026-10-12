@@ -384,6 +384,11 @@ class NotificationService {
   /// Where tapping the ringing notification (or its Start button) goes.
   static String focusRoute(int id) => '/focus?start=$id';
 
+  /// Same page, carrying the session's name, length and purpose so a session that has to wait in the
+  /// queue (while another one runs) can still be shown by name.
+  static String focusRouteFor(ScheduledFocus f) =>
+      '/focus?start=${f.id}&n=${Uri.encodeQueryComponent(f.displayTitle)}&m=${f.durationMinutes}&p=${f.purpose}';
+
   Future<void> cancelFocusSession(int id) async {
     for (var slot = 0; slot <= 7; slot++) {
       await cancelReminder(_focusNotifId(id, slot));
@@ -463,7 +468,7 @@ class NotificationService {
           repeat: wd == null ? Duration.zero : const Duration(days: 7),
           title: 'Your time with God is starting',
           body: '${f.displayTitle} \u00b7 ${f.durationLabel}. Press Start to begin your Focus session.',
-          route: focusRoute(f.id),
+          route: focusRouteFor(f),
           sound: _nativeSound(tone),
           maxSeconds: 30 * 60,
           startLabel: 'Start',
@@ -478,7 +483,7 @@ class NotificationService {
             androidScheduleMode: mode,
             uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
             matchDateTimeComponents: match,
-            payload: focusRoute(f.id),
+            payload: focusRouteFor(f),
           );
         }
         // 5 minutes before. Its weekday may differ from [wd] when it crosses midnight.
@@ -492,7 +497,7 @@ class NotificationService {
           androidScheduleMode: mode,
           uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
           matchDateTimeComponents: wd == null ? null : DateTimeComponents.dayOfWeekAndTime,
-          payload: focusRoute(f.id),
+          payload: focusRouteFor(f),
         );
       }
       return true;

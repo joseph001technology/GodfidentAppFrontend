@@ -135,65 +135,83 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: _titleController,
-              style: TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
-              decoration: InputDecoration(
-                hintText: 'Note title',
-                hintStyle: TextStyle(color: AppTheme.warmGray.withValues(alpha: 0.5)),
-                border: InputBorder.none,
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              decoration: BoxDecoration(
-                color: AppTheme.navyVariant,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.warmGray.withValues(alpha: 0.2)),
-              ),
-              child: TextField(
-                controller: _bodyController,
-                style: TextStyle(color: AppTheme.textPrimary, height: 1.6),
-                decoration: InputDecoration(
-                  hintText: 'Write your thoughts, prayers, insights...',
-                  hintStyle: TextStyle(color: AppTheme.warmGray.withValues(alpha: 0.5)),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.all(12),
-                ),
-                maxLines: 10,
-                minLines: 5,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(22, 8, 22, 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Pin Note', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.textPrimary)),
-                Switch(
-                  value: _isPinned,
-                  onChanged: (value) => setState(() => _isPinned = value),
-                  activeThumbColor: AppTheme.emerald,
+                TextField(
+                  controller: _titleController,
+                  textCapitalization: TextCapitalization.sentences,
+                  style: TextStyle(fontFamily: 'Lora', color: AppTheme.textPrimary, fontSize: 26, fontWeight: FontWeight.bold, height: 1.25),
+                  decoration: InputDecoration(
+                    hintText: 'Title',
+                    hintStyle: TextStyle(color: AppTheme.textMuted),
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.navySurface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppTheme.navyOutline),
+                  ),
+                  child: Row(children: [
+                    IconButton(
+                      tooltip: _isPinned ? 'Unpin' : 'Pin',
+                      icon: Icon(_isPinned ? Icons.push_pin : Icons.push_pin_outlined, color: AppTheme.gold, size: 20),
+                      onPressed: () => setState(() => _isPinned = !_isPinned),
+                    ),
+                    IconButton(
+                      tooltip: _isFavorite ? 'Remove favorite' : 'Favorite',
+                      icon: Icon(_isFavorite ? Icons.favorite : Icons.favorite_border, color: AppTheme.accentPink, size: 20),
+                      onPressed: () => setState(() => _isFavorite = !_isFavorite),
+                    ),
+                    const Spacer(),
+                    ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _bodyController,
+                      builder: (_, v, __) {
+                        final words = v.text.trim().isEmpty ? 0 : v.text.trim().split(RegExp(r'\s+')).length;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: Text('$words word${words == 1 ? '' : 's'}',
+                              style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppTheme.textMuted)),
+                        );
+                      },
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _bodyController,
+                  style: TextStyle(fontFamily: 'Lora', color: AppTheme.textPrimary, fontSize: 17, height: 1.75),
+                  decoration: InputDecoration(
+                    hintText: 'Write your thoughts, prayers, insights, a verse that spoke to you...',
+                    hintStyle: TextStyle(color: AppTheme.textMuted),
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  keyboardType: TextInputType.multiline,
+                  textCapitalization: TextCapitalization.sentences,
+                  minLines: 12,
+                  maxLines: null,
                 ),
               ],
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Favorite', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.textPrimary)),
-                Switch(
-                  value: _isFavorite,
-                  onChanged: (value) => setState(() => _isFavorite = value),
-                  activeThumbColor: AppTheme.accentPink,
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
