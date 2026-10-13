@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
 
 /// One waiting Focus session (see FocusQueue.kt). Oldest first; at most 3 wait.
@@ -26,6 +27,7 @@ class NativeSession {
     required String route,
     bool frozen = false,
     Duration frozenLeft = Duration.zero,
+    Uint8List? art,
   }) async {
     try {
       return await _ch.invokeMethod<bool>('showSession', {
@@ -37,6 +39,7 @@ class NativeSession {
             'frozen': frozen,
             'frozenLeftMs': frozenLeft.inMilliseconds,
             'route': route,
+            if (art != null) 'art': art,
           }) ??
           false;
     } catch (e) {
@@ -103,12 +106,15 @@ class NativeSession {
     } catch (_) {}
   }
 
-  /// Opens the phone maker's auto-start page if there is one (true), else the app's settings page (false).
-  static Future<bool> openAutostartSettings() async {
+  /// Opens the phone maker's auto-start page. Returns 2 = the maker's own page,
+  /// 1 = Android's battery-optimisation list, 0 = only the app's info page.
+  static Future<int> openAutostartSettings() async {
     try {
-      return await _ch.invokeMethod<bool>('openAutostartSettings') ?? false;
+      final r = await _ch.invokeMethod<dynamic>('openAutostartSettings');
+      if (r is int) return r;
+      return r == true ? 2 : 0;
     } catch (_) {
-      return false;
+      return 0;
     }
   }
 }

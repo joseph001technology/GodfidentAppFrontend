@@ -8,7 +8,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../core/dio_client.dart';
 import 'restriction_store.dart';
 
-/// Live status of the Android-side website protection (local VPN/DNS filter).
+/// Live status of the Android-side Safe Browsing (local VPN/DNS filter).
 class WebsiteProtectionStatus {
   final bool vpnPermissionGranted;
   final bool running;
@@ -34,7 +34,7 @@ class WebsiteProtectionStatus {
   bool get isActive => running;
 }
 
-/// Outcome of checking the Website Protection Key.
+/// Outcome of checking the Safe Browsing Key.
 class KeyCheck {
   final bool ok;
   final int remaining; // attempts left (-1 = unknown)
@@ -43,7 +43,7 @@ class KeyCheck {
   const KeyCheck({required this.ok, this.remaining = -1, this.lockedSeconds = 0, this.message});
 }
 
-/// Wrapper over the native website-blocking channel + the Website Protection
+/// Wrapper over the native website-blocking channel + the Safe Browsing
 /// Key (stored only as a salted hash in secure storage - never in plain text).
 class WebsiteProtectionService {
   WebsiteProtectionService._();
@@ -129,10 +129,10 @@ class WebsiteProtectionService {
     } on PlatformException {/* ignore */}
   }
 
-  /// Website protection is ALWAYS ON while there is at least one protected
+  /// Safe Browsing is ALWAYS ON while there is at least one protected
   /// site. Call this at launch, on resume and whenever the list changes. It
   /// never shows a dialog: if Android's VPN consent is missing it simply does
-  /// nothing and the Website Protection screen offers the "Allow" button.
+  /// nothing and the Safe Browsing screen offers the "Allow" button.
   Future<void> ensureRunning(List<String> domains) async {
     if (!supported) return;
     await setBlockedDomains(domains);
@@ -180,7 +180,7 @@ class WebsiteProtectionService {
     } on PlatformException {/* ignore */}
   }
 
-  // ── Website Protection Key ──────────────────────────────────────────
+  // ── Safe Browsing Key ──────────────────────────────────────────
   // The key lives on the user's ACCOUNT (Django backend), so clearing the
   // app's data or reinstalling cannot remove it. A salted hash is also kept
   // on the phone so the key still works offline. The key is created once;
@@ -227,7 +227,7 @@ class WebsiteProtectionService {
         return 'Connect to the internet to create your key. It is saved to your account so that clearing the app cannot remove it.';
       }
       if (e.response?.statusCode == 404) {
-        return 'Your server has not been updated for Website Protection yet. Deploy the backend patch first.';
+        return 'Your server has not been updated for Safe Browsing yet. Deploy the backend patch first.';
       }
       return friendlyError(e);
     }

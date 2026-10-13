@@ -57,6 +57,9 @@ object FocusPolicy {
         return set
     }
 
+    /** Godfident, the launcher, dialer, keyboard, Settings and emergency UI: never limited or blocked. */
+    fun neverBlock(ctx: Context, pkg: String): Boolean = pkg in alwaysAllowed(ctx)
+
     fun shouldBlock(ctx: Context, pkg: String?): Boolean {
         if (pkg.isNullOrEmpty() || pkg == ctx.packageName) return false
         if (!isSessionActive(ctx)) return false

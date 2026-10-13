@@ -10,6 +10,8 @@ import 'native_session.dart';
 import 'daily_activity.dart';
 import 'notification_service.dart';
 import 'restriction_store.dart';
+import '../widgets/common/christian_art.dart';
+import '../widgets/common/session_extras.dart';
 
 class SessionStart {
   final bool ok;
@@ -72,6 +74,9 @@ class SessionManager {
   static const _kFrozenBlocking = 'sm_frozen_blocking';
   static const _kElapsed = 'sm_elapsed_before_ms';
   static const _kTitle = 'sm_title';
+  // The moment the session FIRST started. Unlike sm_started_at it is not reset by
+  // Resume, so a session frozen overnight still counts on the day it began.
+  static const _kOrigStart = 'sm_orig_started_at';
 
   final _focus = FocusBlockingService.instance;
 
@@ -143,6 +148,9 @@ class SessionManager {
                 ? 'Bible + Prayer'
                 : 'Focus';
     final total = Duration(minutes: minutes <= 0 ? 1 : minutes);
+    // The same picture the session screen shows, for the notification's picture slot.
+    await ArtStore.instance.ensureLoaded();
+    final art = await renderArtPng(ArtStore.instance.of('session_$purpose'), SessionScene.sceneFor(purpose));
     final ok = await NativeSession.show(
       name: title,
       purposeLabel: label,
@@ -152,6 +160,7 @@ class SessionManager {
       route: route,
       frozen: frozen,
       frozenLeft: frozenLeft,
+      art: art,
     );
     if (!ok) {
       await NotificationService()
@@ -201,6 +210,7 @@ class SessionManager {
     await p.remove(_kFrozenBlocking);
     await p.setInt(_kElapsed, 0);
     await p.setInt(_kStartedAt, DateTime.now().millisecondsSinceEpoch);
+    await p.setInt(_kOrigStart, DateTime.now().millisecondsSinceEpoch);
     await p.setInt(_kMinutes, minutes);
     await p.setString(_kPurpose, purpose);
     await p.setString(_kTitle, title.trim());
@@ -356,6 +366,7 @@ class SessionManager {
   Future<void> _finish({required bool early, bool alreadyStopped = false}) async {
     final p = await SharedPreferences.getInstance();
     final started = p.getInt(_kStartedAt);
+    final origStart = p.getInt(_kOrigStart) ?? started;
     if (started == null) {
       if (!alreadyStopped) {
         try {
@@ -390,11 +401,14 @@ class SessionManager {
     final completed = !early;
     if (completed) seconds = plannedSec;
 
+    // Count the day on the day the session STARTED (11 pm start, 1 am finish = start day).
+    final startDay = origStart == null ? null : DateTime.fromMillisecondsSinceEpoch(origStart);
     if (completed) {
-      DailyActivity.markPrayed();
-      DailyActivity.markRead();
+      DailyActivity.markPrayed(on: startDay);
+      DailyActivity.markRead(on: startDay);
     }
     await p.remove(_kStartedAt);
+    await p.remove(_kOrigStart);
     await p.remove(_kMinutes);
     await p.remove(_kPurpose);
     await p.remove(_kTitle);
@@ -410,7 +424,7 @@ class SessionManager {
     final ops = <Map<String, dynamic>>[
       if (focusId != null)
         {'t': 'focus', 'id': focusId, 'min': (seconds / 60).ceil(), 's': completed ? 'completed' : 'interrupted'},
-      if (prayerId != null) {'t': 'prayer', 'id': prayerId, 'sec': completed ? seconds : 0}, // 0 = delete: unfinished prayer is not recorded
+      if (prayerId != null) {'t': 'prayer', 'id': prayerId, 'sec': completed ? seconds : 0, 'tz': DateTime.now().timeZoneOffset.inMinutes}, // 0 = delete: unfinished prayer is not recorded
     ];
     await _queue(ops);
     _changed();
@@ -438,7 +452,7 @@ class SessionManager {
         } else if (o['t'] == 'prayer') {
           final sec = o['sec'] as int;
           if (sec >= 60) {
-            await PrayerRepository().endSession(o['id'] as int, durationSeconds: sec);
+            await PrayerRepository().endSession(o['id'] as int, durationSeconds: sec, tzOffsetMinutes: (o['tz'] as num?)?.toInt());
           } else {
             await PrayerRepository().deleteSession(o['id'] as int); // under a minute does not count
           }

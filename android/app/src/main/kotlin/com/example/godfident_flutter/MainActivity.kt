@@ -123,6 +123,26 @@ class MainActivity : AudioServiceActivity() {
                 // ───── app restriction / focus session ─────
                 "hasUsageAccess" -> result.success(hasUsageAccess())
 
+                // ───── daily app time limits (see AppLimits.kt) ─────
+                "limitsList" -> {
+                    val out = AppLimits.all(this).values.map { l ->
+                        val used = AppLimits.usedTodayMs(this, l.pkg)
+                        mapOf(
+                            "packageName" to l.pkg, "label" to l.label, "minutes" to l.minutes,
+                            "setAt" to l.setAt, "lockedUntil" to l.lockedUntil,
+                            "usedMs" to used
+                        )
+                    }
+                    result.success(out)
+                }
+                "limitSet" -> result.success(
+                    AppLimits.set(
+                        this, call.argument<String>("packageName") ?: "",
+                        call.argument<String>("label") ?: "", call.argument<Int>("minutes") ?: 0
+                    )
+                )
+                "limitRemove" -> result.success(AppLimits.remove(this, call.argument<String>("packageName") ?: ""))
+
                 "requestUsageAccess" -> {
                     startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     result.success(null)
@@ -168,7 +188,7 @@ class MainActivity : AudioServiceActivity() {
                     result.success(label)
                 }
 
-                // ───── website protection (VPN/DNS) ─────
+                // ───── Safe Browsing (VPN/DNS) ─────
                 "websiteStatus" -> result.success(websiteStatus())
 
                 // ───── accessibility (instant app blocking) ─────
@@ -323,7 +343,8 @@ class MainActivity : AudioServiceActivity() {
                             totalMs = (call.argument<Number>("totalMs") ?: 0).toLong(),
                             frozen = call.argument<Boolean>("frozen") ?: false,
                             frozenLeftMs = (call.argument<Number>("frozenLeftMs") ?: 0).toLong(),
-                            route = call.argument<String>("route") ?: "/focus"
+                            route = call.argument<String>("route") ?: "/focus",
+                            art = call.argument<ByteArray>("art")
                         )
                         result.success(true)
                     } catch (_: Exception) {
@@ -363,39 +384,68 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
-    /** Opens the phone maker's "auto-start / background activity" page (where one exists), else the app's settings page. */
-    private fun openAutostartSettings(): Boolean {
+    /**
+     * Opens the phone maker's "auto-start / background activity" page. Returns
+     * 2 = the maker's own page opened, 1 = Android's battery-optimisation list
+     * opened, 0 = only the app's info page could be opened.
+     *
+     * These maker pages are private (not exported), so asking Android whether
+     * they "exist" (resolveActivity) says no even on phones that have them, and
+     * the old code fell through to App info. Now each one is simply tried, and
+     * the next is used if the phone refuses.
+     */
+    private fun openAutostartSettings(): Int {
         val candidates = listOf(
+            // Xiaomi / Redmi / Poco
             "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartManagementActivity",
+            // Tecno / Infinix / itel (Transsion: HiOS, XOS, itel OS)
             "com.transsion.phonemaster" to "com.cyin.himgr.autostart.AutoStartActivity",
+            "com.transsion.phonemaster" to "com.cyin.himgr.whitelist.view.WhiteListActivity",
+            "com.transsion.phonemaster" to "com.transsion.phonemaster.MainActivity",
+            "com.transsion.phonemaster" to "com.cyin.himgr.CyinHimgrActivity",
+            // Oppo / Realme / OnePlus (ColorOS, realme UI)
             "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
             "com.coloros.safecenter" to "com.coloros.safecenter.startupapp.StartupAppListActivity",
             "com.oppo.safe" to "com.oppo.safe.permission.startup.StartupAppListActivity",
+            "com.oplus.battery" to "com.oplus.powermanager.fuelgaue.PowerUsageModelActivity",
+            // Vivo / iQOO
             "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.BgStartUpManagerActivity",
+            "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.PurviewTabActivity",
             "com.iqoo.secure" to "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity",
+            "com.iqoo.secure" to "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager",
+            // Huawei / Honor
             "com.huawei.systemmanager" to "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
             "com.huawei.systemmanager" to "com.huawei.systemmanager.optimize.process.ProtectActivity",
+            "com.hihonor.systemmanager" to "com.hihonor.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
+            // Samsung
             "com.samsung.android.lool" to "com.samsung.android.sm.ui.battery.BatteryActivity",
+            "com.samsung.android.sm_cn" to "com.samsung.android.sm.ui.battery.BatteryActivity",
+            // Asus / LeEco
             "com.asus.mobilemanager" to "com.asus.mobilemanager.autostart.AutoStartActivity",
+            "com.asus.mobilemanager" to "com.asus.mobilemanager.powersaver.PowerSaverSettings",
             "com.letv.android.letvsafe" to "com.letv.android.letvsafe.AutobootManageActivity"
         )
         for ((pkg, cls) in candidates) {
             try {
-                val i = Intent().setClassName(pkg, cls).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                if (packageManager.resolveActivity(i, 0) != null) {
-                    startActivity(i)
-                    return true
-                }
-            } catch (_: Exception) {}
+                startActivity(Intent().setClassName(pkg, cls).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                return 2
+            } catch (_: Exception) {
+                // Not on this phone, or the phone refuses: try the next one.
+            }
         }
+        // No maker page: Android's own "Battery optimisation" list is the next best place.
+        try {
+            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return 1
+        } catch (_: Exception) {}
         return try {
             startActivity(
                 Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
-            false
+            0
         } catch (_: Exception) {
-            false
+            0
         }
     }
 

@@ -9,6 +9,8 @@ import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
@@ -35,6 +37,25 @@ object SessionUi {
     const val ACTION_END_ALARM = "com.example.godfident_flutter.SESSION_END"
 
     private fun p(c: Context) = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    private const val ART_FILE = "session_art.png"
+    @Volatile private var artCache: Bitmap? = null
+
+    /** The picture of the running session (small, square), or null if none was saved. */
+    fun art(c: Context): Bitmap? {
+        artCache?.let { return it }
+        return try {
+            val f = java.io.File(c.filesDir, ART_FILE)
+            if (!f.exists()) return null
+            val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(f.path, o)
+            var sample = 1
+            while (o.outWidth / sample > 512 || o.outHeight / sample > 512) sample *= 2
+            val bmp = BitmapFactory.decodeFile(f.path, BitmapFactory.Options().apply { inSampleSize = sample })
+            artCache = bmp
+            bmp
+        } catch (_: Throwable) { null }
+    }
 
     class State(
         val active: Boolean, val frozen: Boolean, val name: String, val purposeLabel: String,
@@ -70,8 +91,12 @@ object SessionUi {
 
     fun show(
         c: Context, name: String, purposeLabel: String, startedAt: Long, endAt: Long, totalMs: Long,
-        frozen: Boolean, frozenLeftMs: Long, route: String
+        frozen: Boolean, frozenLeftMs: Long, route: String, art: ByteArray? = null
     ) {
+        // The session's picture, shown in the notification's picture slot.
+        if (art != null && art.isNotEmpty()) {
+            try { java.io.File(c.filesDir, ART_FILE).writeBytes(art); artCache = null } catch (_: Exception) {}
+        }
         p(c).edit()
             .putBoolean("active", true).putBoolean("frozen", frozen).putString("name", name)
             .putString("purposeLabel", purposeLabel).putLong("startedAt", startedAt).putLong("endAt", endAt)
@@ -176,6 +201,7 @@ class SessionNotificationService : Service() {
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setCategory(Notification.CATEGORY_TRANSPORT)
                 .setContentIntent(openApp(c, 4310, st.route))
+            SessionUi.art(c)?.let { b.setLargeIcon(it) }
             if (!st.frozen && st.endAt > System.currentTimeMillis()) {
                 b.setShowWhen(true).setWhen(st.endAt)
                 if (Build.VERSION.SDK_INT >= 24) b.setUsesChronometer(true).setChronometerCountDown(true)
@@ -258,6 +284,7 @@ class SessionNotificationService : Service() {
                             (if (st.frozen) "Frozen · " else "") + minutesText(left) + (if (st.frozen) " to go" else " left") +
                                 (if (st.purposeLabel.isNotBlank()) " · ${st.purposeLabel}" else ""))
                         .putString(MediaMetadata.METADATA_KEY_ALBUM, "Godfident Focus")
+                        .apply { SessionUi.art(this@SessionNotificationService)?.let { putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, it) } }
                         .putLong(MediaMetadata.METADATA_KEY_DURATION, st.totalMs.coerceAtLeast(1L))
                         .build()
                 )

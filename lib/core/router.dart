@@ -32,6 +32,7 @@ import '../screens/reminders/reminder_editor_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
 import '../screens/focus/focus_screen.dart';
 import '../screens/focus/app_restrictions_screen.dart';
+import '../screens/focus/app_limits_screen.dart';
 import '../screens/focus/schedule_editor_screen.dart';
 import '../screens/focus/website_protection_screen.dart';
 import '../screens/focus/permissions_screen.dart';
@@ -115,6 +116,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (_, state) => ScheduleEditorScreen(scheduleId: int.tryParse(state.pathParameters['id'] ?? '')),
               ),
               GoRoute(path: 'apps', builder: (_, __) => const AppRestrictionsScreen()),
+              GoRoute(path: 'limits', builder: (_, __) => const AppLimitsScreen()),
               GoRoute(path: 'websites', builder: (_, __) => const WebsiteProtectionScreen()),
               GoRoute(path: 'permissions', builder: (_, __) => const PermissionsScreen()),
             ],

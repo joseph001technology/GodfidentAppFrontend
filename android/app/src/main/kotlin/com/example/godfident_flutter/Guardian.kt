@@ -35,7 +35,7 @@ import androidx.core.content.ContextCompat
  *  - the boot receiver and the accessibility service also call [ensure], so
  *    the guardian comes back after a restart even if one path is blocked.
  *
- * [tick] is the one place that "repairs" things: alarms, website protection,
+ * [tick] is the one place that "repairs" things: alarms, Safe Browsing,
  * the running Focus session, the session card, and the accessibility service.
  */
 object Guardian {
@@ -104,7 +104,7 @@ object Guardian {
         //    very second from being treated as "missed".
         try { AlarmScheduler.rearmAll(c, 90_000L) } catch (_: Exception) {}
 
-        // 2. Website protection.
+        // 2. Safe Browsing.
         try {
             val web = c.getSharedPreferences(WebsiteBlockVpnService.PREFS, Context.MODE_PRIVATE)
             if (web.getBoolean(WebsiteBlockVpnService.KEY_ACTIVE, false) &&

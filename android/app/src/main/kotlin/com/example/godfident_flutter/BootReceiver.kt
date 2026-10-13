@@ -8,7 +8,7 @@ import androidx.core.content.ContextCompat
 
 /**
  * Restores protection after a reboot so a restart is not a way around it.
- * Website protection is only restored if Android's VPN consent is still
+ * Safe Browsing is only restored if Android's VPN consent is still
  * granted (VpnService.prepare returns null); otherwise it stays INACTIVE and
  * the app tells the user, rather than pretending.
  */

@@ -71,7 +71,7 @@ class RestrictedSitesNotifier extends StateNotifier<AsyncValue<List<RestrictedSi
     await _push();
   }
 
-  /// Hand the list to the Android filter. Website protection is ALWAYS ON
+  /// Hand the list to the Android filter. Safe Browsing is ALWAYS ON
   /// while at least one site is listed (and off when the list is empty).
   Future<void> _push() async {
     final sites = state.valueOrNull ?? [];

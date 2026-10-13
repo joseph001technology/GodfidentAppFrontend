@@ -33,7 +33,8 @@ class SessionScene extends StatelessWidget {
   final double height;
   const SessionScene({super.key, required this.purpose, this.height = 150});
 
-  String get _scene {
+  /// The built-in scene for a purpose (also used for the notification picture).
+  static String sceneFor(String purpose) {
     switch (purpose) {
       case 'prayer':
         return 'dove';
@@ -51,7 +52,7 @@ class SessionScene extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       height: height,
-      child: ArtImage(fallbackScene: _scene, animate: true, height: height, radius: 16),
+      child: KeyedArt(artKey: 'session_$purpose', fallbackScene: sceneFor(purpose), height: height, radius: 16),
     );
   }
 }

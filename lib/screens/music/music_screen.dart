@@ -397,8 +397,8 @@ class _Art extends StatelessWidget {
         width: 46,
         height: 46,
         alignment: Alignment.center,
-        decoration: BoxDecoration(color: AppTheme.inkNavy, borderRadius: BorderRadius.circular(10)),
-        child: _EqBars(animating: animating, color: AppTheme.goldLight),
+        decoration: BoxDecoration(color: AppTheme.heroSurface, border: Border.all(color: AppTheme.heroBorder), borderRadius: BorderRadius.circular(10)),
+        child: _EqBars(animating: animating, color: AppTheme.heroAccent),
       );
     }
     final fallback = Container(

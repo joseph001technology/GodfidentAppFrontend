@@ -6,7 +6,7 @@ import '../../providers/restriction_provider.dart';
 import '../../services/permissions_service.dart';
 import '../../services/website_protection_service.dart';
 
-/// Website Protection. The blocked-site list is HIDDEN until the Website
+/// Safe Browsing. The blocked-site list is HIDDEN until the Website
 /// Protection Key is entered, and the key is kept only as a salted hash.
 class WebsiteProtectionScreen extends ConsumerStatefulWidget {
   const WebsiteProtectionScreen({super.key});
@@ -159,7 +159,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
     if (r.lockedSeconds > 0) _startLockTimer();
   }
 
-  /// Website protection is always on while sites are listed. This asks
+  /// Safe Browsing is always on while sites are listed. This asks
   /// Android for the VPN permission if it is missing, then verifies it runs.
   Future<void> _turnOn(List<String> domains) async {
     if (domains.isEmpty) return;
@@ -171,7 +171,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
     final ok = await _svc.start(domains);
     _askingPermission = false;
     if (!ok && mounted) {
-      _error = 'Android did not start website protection. Tap "Turn on protection" and allow the VPN request.';
+      _error = 'Android did not start Safe Browsing. Tap "Turn on protection" and allow the VPN request.';
     }
     ref.invalidate(websiteStatusProvider);
     if (mounted) setState(() => _busy = false);
@@ -182,7 +182,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
     return Scaffold(
       backgroundColor: AppTheme.navy,
       appBar: AppBar(
-        title: const Text('Website Protection'),
+        title: const Text('Safe Browsing'),
         backgroundColor: AppTheme.navy,
         foregroundColor: AppTheme.inkNavy,
         elevation: 0,
@@ -192,7 +192,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
           : !_svc.supported
               ? const Padding(
                   padding: EdgeInsets.all(24),
-                  child: Text('Website protection is only available on Android.'),
+                  child: Text('Safe Browsing is only available on Android.'),
                 )
               : _hasKey == null
                   ? _offlineView()
@@ -207,7 +207,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
   Widget _createKeyView() => _pad([
         const Icon(Icons.lock_outline, size: 40, color: AppTheme.gold),
         const SizedBox(height: 12),
-        const Text('Create your Website Protection Key',
+        const Text('Create your Safe Browsing Key',
             textAlign: TextAlign.center,
             style: TextStyle(fontFamily: 'Lora', fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
@@ -235,7 +235,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
             style: TextStyle(fontFamily: 'Lora', fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Text(
-          'Godfident needs to check your account once to see whether your Website Protection Key already exists. Your protected sites keep blocking in the meantime.',
+          'Godfident needs to check your account once to see whether your Safe Browsing Key already exists. Your protected sites keep blocking in the meantime.',
           textAlign: TextAlign.center,
           style: TextStyle(color: AppTheme.textSecondary),
         ),
@@ -264,7 +264,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
         controller: _keyCtrl,
         obscureText: true,
         enabled: _lockLeft == 0,
-        decoration: const InputDecoration(labelText: 'Website Protection Key'),
+        decoration: const InputDecoration(labelText: 'Safe Browsing Key'),
         onSubmitted: (_) => _unlock(),
       ),
       if (_lockLeft > 0)
@@ -437,7 +437,7 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
                   ),
               ]),
       ),
-      // Blocked words live here, under Website Protection, behind the same key.
+      // Blocked words live here, under Safe Browsing, behind the same key.
       _wordsSection(),
       const SizedBox(height: 14),
       OutlinedButton.icon(

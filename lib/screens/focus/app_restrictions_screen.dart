@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../providers/restriction_provider.dart';
 import '../../widgets/common/app_widgets.dart';
@@ -109,7 +110,13 @@ class _AppRestrictionsScreenState extends ConsumerState<AppRestrictionsScreen> {
                       child: Text('Save ${selected.length} app${selected.length == 1 ? '' : 's'}'),
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
+                  TextButton.icon(
+                    onPressed: () => context.push('/focus/limits'),
+                    icon: const Icon(Icons.hourglass_bottom_rounded, size: 18),
+                    label: const Text('Set daily time limits instead'),
+                  ),
+                  const SizedBox(height: 2),
                   Text(
                     'Selected apps are blocked only while a Focus session is running. Outside Focus Mode they work normally.',
                     textAlign: TextAlign.center,

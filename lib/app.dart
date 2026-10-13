@@ -157,7 +157,7 @@ class _SessionKeeperState extends ConsumerState<_SessionKeeper> with WidgetsBind
       DioClient.ensureSession();
       _guardWebsites();
     });
-    // Website protection is always on: load the saved list (from the phone,
+    // Safe Browsing is always on: load the saved list (from the phone,
     // then from the account) and make sure Android is enforcing it.
     Future.microtask(() => ref.read(restrictedSitesProvider.notifier).load());
     // Opened by tapping/pressing Start on a ringing scheduled-session alarm

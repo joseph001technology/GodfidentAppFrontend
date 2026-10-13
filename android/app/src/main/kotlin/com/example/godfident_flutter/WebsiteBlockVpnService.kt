@@ -209,7 +209,7 @@ class WebsiteBlockVpnService : VpnService() {
         startForeground(NOTIFICATION_ID, buildNotification())
 
         val builder = Builder()
-            .setSession("Godfident website protection")
+            .setSession("Godfident Safe Browsing")
             .addAddress(VPN_ADDRESS, 32)
             .addDnsServer(FAKE_DNS)
             .addRoute(FAKE_DNS, 32) // only DNS to the fake server is captured
@@ -480,7 +480,7 @@ class WebsiteBlockVpnService : VpnService() {
 
     private fun createChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val ch = NotificationChannel(CHANNEL_ID, "Website protection", NotificationManager.IMPORTANCE_LOW)
+            val ch = NotificationChannel(CHANNEL_ID, "Safe Browsing", NotificationManager.IMPORTANCE_LOW)
             ch.description = "Shown while Godfident is blocking websites"
             getSystemService(NotificationManager::class.java).createNotificationChannel(ch)
         }
@@ -490,7 +490,7 @@ class WebsiteBlockVpnService : VpnService() {
         val open = packageManager.getLaunchIntentForPackage(packageName)
         val pi = PendingIntent.getActivity(this, 1, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Website protection is on")
+            .setContentTitle("Safe Browsing is on")
             .setContentText("Godfident is blocking your protected websites.")
             .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
             .setOngoing(true)

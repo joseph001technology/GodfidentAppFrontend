@@ -138,19 +138,19 @@ class HomeScreen extends ConsumerWidget {
                 onTap: () => context.go('/focus'),
                 child: Container(
                   padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(color: AppTheme.inkNavy, borderRadius: BorderRadius.circular(18)),
-                  child: const Row(children: [
+                  decoration: BoxDecoration(color: AppTheme.heroSurface, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppTheme.heroBorder)),
+                  child: Row(children: [
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('Start a Focus session',
                             style: TextStyle(
-                                fontFamily: 'Lora', fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textOnDark)),
+                                fontFamily: 'Lora', fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.onHero)),
                         SizedBox(height: 3),
                         Text('Block distracting apps and websites',
-                            style: TextStyle(fontSize: 12, color: AppTheme.textOnDarkMuted)),
+                            style: TextStyle(fontSize: 12, color: AppTheme.onHeroMuted)),
                       ]),
                     ),
-                    Icon(Icons.arrow_forward, color: AppTheme.goldLight),
+                    Icon(Icons.arrow_forward, color: AppTheme.heroAccent),
                   ]),
                 ),
               ),

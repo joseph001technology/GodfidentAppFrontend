@@ -91,7 +91,8 @@ class _MiniPlayer extends StatelessWidget {
         final song = m.current;
         if (song == null) return const SizedBox.shrink();
         return Material(
-          color: AppTheme.inkNavy,
+          color: AppTheme.heroSurface,
+          shape: Border(top: BorderSide(color: AppTheme.heroBorder)),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             // Thin progress line; drag it to seek.
             StreamBuilder<Duration>(
@@ -105,9 +106,9 @@ class _MiniPlayer extends StatelessWidget {
                     trackHeight: 2.5,
                     thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
                     overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-                    activeTrackColor: AppTheme.goldLight,
-                    inactiveTrackColor: Colors.white24,
-                    thumbColor: AppTheme.goldLight,
+                    activeTrackColor: AppTheme.heroAccent,
+                    inactiveTrackColor: AppTheme.heroTrack,
+                    thumbColor: AppTheme.heroAccent,
                   ),
                   child: SizedBox(
                     height: 16,
@@ -127,23 +128,23 @@ class _MiniPlayer extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 4, 4),
                 child: Row(children: [
-                  const Icon(Icons.music_note, color: AppTheme.goldLight, size: 20),
+                  Icon(Icons.music_note, color: AppTheme.heroAccent, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                       Text(song.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: AppTheme.textOnDark, fontWeight: FontWeight.w700, fontSize: 13)),
+                          style: TextStyle(color: AppTheme.onHero, fontWeight: FontWeight.w700, fontSize: 13)),
                       Text(song.artist,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: AppTheme.textOnDarkMuted, fontSize: 11)),
+                          style: TextStyle(color: AppTheme.onHeroMuted, fontSize: 11)),
                     ]),
                   ),
                   IconButton(
                     tooltip: 'Previous song',
-                    icon: const Icon(Icons.skip_previous, color: AppTheme.goldLight),
+                    icon: Icon(Icons.skip_previous, color: AppTheme.heroAccent),
                     onPressed: m.previous, // restarts the song first, then goes back
                   ),
                   StreamBuilder<PlayerState>(
@@ -152,19 +153,19 @@ class _MiniPlayer extends StatelessWidget {
                       final playing = snap.data?.playing ?? m.isPlaying;
                       return IconButton(
                         tooltip: playing ? 'Pause' : 'Play',
-                        icon: Icon(playing ? Icons.pause_circle_filled : Icons.play_circle_filled, color: AppTheme.goldLight, size: 34),
+                        icon: Icon(playing ? Icons.pause_circle_filled : Icons.play_circle_filled, color: AppTheme.heroAccent, size: 34),
                         onPressed: m.toggle,
                       );
                     },
                   ),
                   IconButton(
                     tooltip: 'Next song',
-                    icon: const Icon(Icons.skip_next, color: AppTheme.goldLight),
+                    icon: Icon(Icons.skip_next, color: AppTheme.heroAccent),
                     onPressed: m.hasNext ? m.next : null,
                   ),
                   IconButton(
                     tooltip: 'Close player',
-                    icon: const Icon(Icons.close, color: AppTheme.textOnDarkMuted, size: 20),
+                    icon: Icon(Icons.close, color: AppTheme.onHeroMuted, size: 20),
                     onPressed: m.stop,
                   ),
                 ]),

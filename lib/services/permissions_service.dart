@@ -46,16 +46,16 @@ class PermissionsService {
       PermissionItem(
         id: 'usage',
         title: 'Usage access',
-        why: 'Backup way to see which app is open if the accessibility service is switched off.',
-        feature: 'App restrictions',
+        why: 'Counts how long each app is used, which Daily app limits need. Also a backup way to see which app is open if the accessibility service is switched off.',
+        feature: 'App restrictions & daily limits',
         granted: await _focus.hasUsageAccess(),
         required: false,
       ),
       PermissionItem(
         id: 'vpn',
         title: 'VPN connection',
-        why: 'Website protection runs as a local VPN on your phone. Nothing is sent anywhere - it only refuses lookups for the sites you chose.',
-        feature: 'Website protection',
+        why: 'Safe Browsing runs as a local VPN on your phone. Nothing is sent anywhere - it only refuses lookups for the sites you chose.',
+        feature: 'Safe Browsing',
         granted: (await _web.status()).vpnPermissionGranted,
       ),
       PermissionItem(
@@ -101,7 +101,8 @@ class PermissionsService {
 
   /// Triggers the right Android prompt/settings page for [id].
   /// The caller must re-read [snapshot] afterwards (the user may have said no).
-  Future<void> request(String id) async {
+  /// Returns a short hint to show the person afterwards, or null.
+  Future<String?> request(String id) async {
     switch (id) {
       case 'accessibility':
         await _focus.openAccessibilitySettings();
@@ -124,14 +125,21 @@ class PermissionsService {
         break;
       case 'autostart':
         await NativeSession.ensureGuardian();
-        await NativeSession.openAutostartSettings();
-        break;
+        final where = await NativeSession.openAutostartSettings();
+        if (where == 1) {
+          return 'Your phone has no separate auto-start page. In this list choose All apps \u2192 Godfident \u2192 Don\u2019t optimise (or Unrestricted).';
+        }
+        if (where == 0) {
+          return 'Opened Godfident\u2019s App info. Open Battery (or Battery usage) and choose Unrestricted. Your phone keeps auto-start inside its own Phone Manager / Security app.';
+        }
+        return 'Find Godfident in the list and switch it ON.';
       case 'audio':
         final p = await _audioPermission();
         final s = await p.request();
         if (s.isPermanentlyDenied) await openAppSettings();
         break;
     }
+    return null;
   }
 
   Future<bool> audioGranted() async => (await _audioPermission()).isGranted;

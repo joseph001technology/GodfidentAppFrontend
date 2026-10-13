@@ -90,8 +90,12 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
   Future<void> _showBlockedAttempt() async {
     final label = await _focus.getLastBlockedApp();
     if (label != null && mounted) {
+      final byLimit = label.startsWith('limit:');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$label is blocked during your focus session.')),
+        SnackBar(
+            content: Text(byLimit
+                ? '${label.substring(6)}: today\u2019s time limit is used up. It opens again tomorrow.'
+                : '$label is blocked during your focus session.')),
       );
     }
   }
@@ -278,8 +282,14 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
               onTap: () => context.push('/focus/apps'),
             ),
             _row(
+              icon: Icons.hourglass_bottom_rounded,
+              title: 'Daily app limits',
+              sub: 'Set how long an app can be used each day',
+              onTap: () => context.push('/focus/limits'),
+            ),
+            _row(
               icon: Icons.language_rounded,
-              title: 'Website Protection',
+              title: 'Safe Browsing',
               // Domains are deliberately NOT shown here - only a count, so the
               // list stays hidden until the Protection Key is entered.
               sub: _webSummary(sites.length, web),

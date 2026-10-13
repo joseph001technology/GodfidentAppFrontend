@@ -94,7 +94,7 @@ class ProfileScreen extends ConsumerWidget {
               _group('Protect my time', [
                 _Row(Icons.shield_outlined, 'Focus sessions', 'Schedule and start time with God', AppTheme.emerald, () => context.go('/focus')),
                 _Row(Icons.apps_rounded, 'App restrictions', null, AppTheme.emerald, () => context.push('/focus/apps')),
-                _Row(Icons.language_rounded, 'Website protection', null, AppTheme.emerald, () => context.push('/focus/websites')),
+                _Row(Icons.language_rounded, 'Safe Browsing', null, AppTheme.emerald, () => context.push('/focus/websites')),
                 _Row(Icons.verified_user_outlined, 'Permissions', 'What Android must allow for protection to work', AppTheme.goldDark, () => context.push('/focus/permissions')),
               ]),
               _group('My tools', [
@@ -148,7 +148,7 @@ class ProfileScreen extends ConsumerWidget {
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Sign out?'),
-        content: const Text('Your protected websites and reminders stay safe on your account.'),
+        content: const Text('Your Safe Browsing list and reminders stay safe on your account.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
           TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Sign out', style: TextStyle(color: AppTheme.danger))),
@@ -167,8 +167,9 @@ class ProfileScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [AppTheme.inkNavy, Color(0xFF2A3B63)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: LinearGradient(colors: AppTheme.heroGradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppTheme.heroBorder),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -180,7 +181,7 @@ class ProfileScreen extends ConsumerWidget {
               alignment: Alignment.center,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [AppTheme.gold, AppTheme.goldLight]),
+                gradient: LinearGradient(colors: [AppTheme.gold, AppTheme.heroAccent]),
                 borderRadius: BorderRadius.circular(22),
               ),
               child: u?.avatarBytes != null
@@ -192,21 +193,21 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(width: 16),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name, style: const TextStyle(fontFamily: 'Lora', fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textOnDark)),
+              Text(name, style: TextStyle(fontFamily: 'Lora', fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.onHero)),
               const SizedBox(height: 2),
-              Text(u?.email ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppTheme.textOnDarkMuted)),
+              Text(u?.email ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppTheme.onHeroMuted)),
               if (since != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text('With Godfident since ${_months[since.month - 1]} ${since.year}',
-                      style: const TextStyle(fontSize: 11, color: AppTheme.goldLight)),
+                      style: TextStyle(fontSize: 11, color: AppTheme.heroAccent)),
                 ),
             ]),
           ),
           IconButton(
             tooltip: 'Edit profile',
             onPressed: () => context.push('/profile/edit'),
-            icon: const Icon(Icons.edit_outlined, color: AppTheme.goldLight),
+            icon: Icon(Icons.edit_outlined, color: AppTheme.heroAccent),
           ),
         ]),
         if ((u?.profile?.church ?? '').isNotEmpty || (u?.profile?.location ?? '').isNotEmpty) ...[
@@ -214,33 +215,33 @@ class ProfileScreen extends ConsumerWidget {
           Wrap(spacing: 14, runSpacing: 6, children: [
             if ((u?.profile?.church ?? '').isNotEmpty)
               Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.church_outlined, size: 15, color: AppTheme.goldLight),
+                Icon(Icons.church_outlined, size: 15, color: AppTheme.heroAccent),
                 const SizedBox(width: 5),
-                Text(u!.profile!.church, style: const TextStyle(fontSize: 12, color: AppTheme.textOnDarkMuted)),
+                Text(u!.profile!.church, style: TextStyle(fontSize: 12, color: AppTheme.onHeroMuted)),
               ]),
             if ((u?.profile?.location ?? '').isNotEmpty)
               Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.place_outlined, size: 15, color: AppTheme.goldLight),
+                Icon(Icons.place_outlined, size: 15, color: AppTheme.heroAccent),
                 const SizedBox(width: 5),
-                Text(u!.profile!.location, style: const TextStyle(fontSize: 12, color: AppTheme.textOnDarkMuted)),
+                Text(u!.profile!.location, style: TextStyle(fontSize: 12, color: AppTheme.onHeroMuted)),
               ]),
           ]),
         ],
         if ((u?.profile?.favoriteVerse ?? '').isNotEmpty) ...[
           const SizedBox(height: 10),
           Text('\u201c${u!.profile!.favoriteVerse}\u201d',
-              style: const TextStyle(fontFamily: 'Lora', fontStyle: FontStyle.italic, color: AppTheme.goldLight, fontSize: 13, height: 1.4)),
+              style: TextStyle(fontFamily: 'Lora', fontStyle: FontStyle.italic, color: AppTheme.heroAccent, fontSize: 13, height: 1.4)),
         ],
         if (bio.trim().isNotEmpty) ...[
           const SizedBox(height: 14),
-          Text(bio, style: const TextStyle(color: AppTheme.textOnDarkMuted, height: 1.4, fontSize: 13)),
+          Text(bio, style: TextStyle(color: AppTheme.onHeroMuted, height: 1.4, fontSize: 13)),
         ],
         if (u != null && !u.isEmailVerified) ...[
           const SizedBox(height: 12),
-          const Row(children: [
-            Icon(Icons.info_outline, size: 16, color: AppTheme.goldLight),
-            SizedBox(width: 6),
-            Expanded(child: Text('Your email is not verified yet.', style: TextStyle(fontSize: 12, color: AppTheme.goldLight))),
+          Row(children: [
+            Icon(Icons.info_outline, size: 16, color: AppTheme.heroAccent),
+            const SizedBox(width: 6),
+            Expanded(child: Text('Your email is not verified yet.', style: TextStyle(fontSize: 12, color: AppTheme.heroAccent))),
           ]),
         ],
       ]),

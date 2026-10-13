@@ -58,8 +58,9 @@ class _PrayerHomeCardState extends ConsumerState<PrayerHomeCard> {
         width: double.infinity,
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: AppTheme.inkNavy,
+          color: AppTheme.heroSurface,
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.heroBorder),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
@@ -68,7 +69,7 @@ class _PrayerHomeCardState extends ConsumerState<PrayerHomeCard> {
               decoration: BoxDecoration(color: AppTheme.gold.withValues(alpha: 0.18), shape: BoxShape.circle),
               child: Icon(
                 prayedToday ? Icons.check : Icons.volunteer_activism,
-                color: AppTheme.goldLight,
+                color: AppTheme.heroAccent,
                 size: 24,
               ),
             ),
@@ -76,14 +77,14 @@ class _PrayerHomeCardState extends ConsumerState<PrayerHomeCard> {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(prayedToday ? 'You prayed today' : 'Pray now',
-                    style: const TextStyle(
-                        fontFamily: 'Lora', fontSize: 21, fontWeight: FontWeight.bold, color: AppTheme.textOnDark)),
+                    style: TextStyle(
+                        fontFamily: 'Lora', fontSize: 21, fontWeight: FontWeight.bold, color: AppTheme.onHero)),
                 const SizedBox(height: 2),
                 Text(
                   prayedToday
                       ? 'Thank you, Lord. Keep the conversation going.'
                       : 'Pray without ceasing. — 1 Thessalonians 5:17',
-                  style: const TextStyle(fontSize: 12.5, color: AppTheme.textOnDarkMuted),
+                  style: TextStyle(fontSize: 12.5, color: AppTheme.onHeroMuted),
                 ),
               ]),
             ),
@@ -102,13 +103,13 @@ class _PrayerHomeCardState extends ConsumerState<PrayerHomeCard> {
 
   Widget _inkStat(IconData icon, String value, String label) => Expanded(
         child: Column(children: [
-          Icon(icon, color: AppTheme.goldLight, size: 18),
+          Icon(icon, color: AppTheme.heroAccent, size: 18),
           const SizedBox(height: 2),
           Text(value,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.textOnDark)),
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.onHero)),
           Text(label,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 10.5, color: AppTheme.textOnDarkMuted)),
+              style: TextStyle(fontSize: 10.5, color: AppTheme.onHeroMuted)),
         ]),
       );
 

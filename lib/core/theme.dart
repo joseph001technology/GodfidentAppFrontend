@@ -63,6 +63,20 @@ class AppTheme {
   static const Color textOnDark = Color(0xFFF4F1E8); // was textPrimary's old value, repurposed
   static const Color textOnDarkMuted = Color(0xFFC9CEDD);
 
+  // "Hero" cards (home Prayer card, Focus call-to-action, profile header, mini
+  // music player). They are dark navy in Dark mode but soft ivory cards in Light
+  // mode, so they no longer look like dark blocks on a light page. Use these
+  // instead of inkNavy / textOnDark / goldLight on those cards.
+  static Color get heroSurface => isDark ? inkNavy : const Color(0xFFFFFFFF);
+  static Color get heroBorder => isDark ? Colors.transparent : const Color(0xFFE8E1D0);
+  static List<Color> get heroGradient => isDark
+      ? const [inkNavy, Color(0xFF2A3B63)]
+      : const [Color(0xFFFFFFFF), Color(0xFFF6EEDB)];
+  static Color get onHero => isDark ? textOnDark : const Color(0xFF1B2A4C);
+  static Color get onHeroMuted => isDark ? textOnDarkMuted : const Color(0xFF666B7C);
+  static Color get heroAccent => isDark ? goldLight : goldDark;
+  static Color get heroTrack => isDark ? const Color(0x3DFFFFFF) : const Color(0x241B2A4C);
+
   // Card glow colors — true "glow" doesn't read on a light background the
   // way it did on near-black, so these are now just very soft tint
   // overlays. If you find these unused elsewhere, they're a good candidate

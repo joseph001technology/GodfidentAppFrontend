@@ -269,8 +269,42 @@ class FocusAccessibilityService : AccessibilityService() {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         if (!pkg.contains("inputmethod") && !pkg.contains("keyboard") && pkg != "com.android.systemui") frontPkg = pkg
         if (BROWSER_URL_IDS.containsKey(pkg)) checkAddressBar(pkg) else scanSearchBoxes(pkg)
-        if (!FocusPolicy.shouldBlock(this, pkg)) return
+        val focusBlock = FocusPolicy.shouldBlock(this, pkg)
+        val limitBlock = !focusBlock && !isIgnoredPackage(pkg) && AppLimits.isOver(this, pkg)
+        if (!focusBlock && !limitBlock) {
+            watchLimit(pkg) // a limited app that still has time: check again when its time runs out
+            return
+        }
+        blockApp(pkg, limitBlock)
+    }
 
+    // ───────────── daily time limits ─────────────
+
+    private var limitPkg: String? = null
+    private val limitRunnable = Runnable { limitTimeUp() }
+
+    /** If [pkg] has a daily limit, wake up when its remaining time is used up. */
+    private fun watchLimit(pkg: String) {
+        handler.removeCallbacks(limitRunnable)
+        limitPkg = null
+        if (AppLimits.get(this, pkg) == null) return
+        val left = AppLimits.remainingMs(this, pkg) ?: return
+        limitPkg = pkg
+        handler.postDelayed(limitRunnable, (left + 400L).coerceIn(1_000L, 15 * 60_000L))
+    }
+
+    private fun limitTimeUp() {
+        val pkg = limitPkg ?: return
+        if (frontPkg != pkg) return
+        if (AppLimits.isOver(this, pkg)) {
+            blockApp(pkg, true)
+        } else {
+            watchLimit(pkg) // screen was off for part of the time, or the wait was capped: look again
+        }
+    }
+
+    /** Sends the person out of [pkg] and brings Godfident forward. [byLimit] = the daily limit is used up. */
+    private fun blockApp(pkg: String, byLimit: Boolean) {
         // Debounce: one app opening can fire several window events.
         val now = System.currentTimeMillis()
         if (pkg == lastBlockedPkg && now - lastBlockedAt < 700) return
@@ -286,7 +320,11 @@ class FocusAccessibilityService : AccessibilityService() {
         // 2. Say why, then bring Godfident forward.
         handler.post {
             try {
-                Toast.makeText(this, "$label is blocked during your Focus session", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    if (byLimit) "$label: today\u2019s time limit is used up" else "$label is blocked during your Focus session",
+                    Toast.LENGTH_SHORT
+                ).show()
             } catch (_: Exception) {
             }
         }
@@ -295,7 +333,7 @@ class FocusAccessibilityService : AccessibilityService() {
                 startActivity(
                     Intent(this, MainActivity::class.java).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                        putExtra(MainActivity.EXTRA_BLOCKED_APP_LABEL, label)
+                        putExtra(MainActivity.EXTRA_BLOCKED_APP_LABEL, if (byLimit) "limit:$label" else label)
                     }
                 )
             } catch (_: Exception) {

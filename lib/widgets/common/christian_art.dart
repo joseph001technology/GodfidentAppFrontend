@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -536,4 +537,25 @@ Future<String?> showArtPicker(BuildContext context, {String? current, String? fa
       );
     },
   );
+}
+
+
+/// Renders a picture reference ("scene:..", "b64:..", or empty = [fallbackScene])
+/// to PNG bytes, so native code (the session notification) can show the same
+/// picture the session screen shows. Returns null if it cannot be drawn.
+Future<Uint8List?> renderArtPng(String? ref, String fallbackScene, {int size = 320}) async {
+  try {
+    final r = ref ?? '';
+    if (r.startsWith('b64:')) return base64Decode(r.substring(4)); // a photo: already an image
+    final id = r.startsWith('scene:') ? r.substring(6) : fallbackScene;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final sz = Size(size.toDouble(), size.toDouble());
+    ScenePainter(id, 0.3).paint(canvas, sz);
+    final img = await recorder.endRecording().toImage(size, size);
+    final data = await img.toByteData(format: ui.ImageByteFormat.png);
+    return data?.buffer.asUint8List();
+  } catch (_) {
+    return null;
+  }
 }

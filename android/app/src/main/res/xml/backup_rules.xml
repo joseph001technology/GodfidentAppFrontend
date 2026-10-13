@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Daily app limits must NOT come back after a reinstall (a reinstall is how a limit is cleared). -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="godfident_app_limits.xml" />
+</full-backup-content>

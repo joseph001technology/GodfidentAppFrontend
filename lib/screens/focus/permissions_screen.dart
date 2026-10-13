@@ -55,7 +55,10 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
       );
       if (ok != true) return;
     }
-    await PermissionsService.instance.request(p.id);
+    final hint = await PermissionsService.instance.request(p.id);
+    if (hint != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(hint), duration: const Duration(seconds: 8)));
+    }
     await _load();
   }
 

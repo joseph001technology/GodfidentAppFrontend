@@ -18,6 +18,35 @@ class InstalledApp {
   }
 }
 
+/// A daily time limit for one app (enforced natively, see AppLimits.kt).
+class AppLimit {
+  final String packageName;
+  final String label;
+  final int minutes;
+  final DateTime lockedUntil;
+  final int usedMs; // -1 = Usage access missing, minutes used are unknown
+  const AppLimit({
+    required this.packageName,
+    required this.label,
+    required this.minutes,
+    required this.lockedUntil,
+    required this.usedMs,
+  });
+
+  bool get locked => lockedUntil.isAfter(DateTime.now());
+  int get usedMinutes => usedMs < 0 ? 0 : (usedMs / 60000).floor();
+  bool get usageKnown => usedMs >= 0;
+  bool get reached => usageKnown && usedMs >= minutes * 60000;
+
+  factory AppLimit.fromMap(Map<Object?, Object?> m) => AppLimit(
+        packageName: m['packageName'] as String? ?? '',
+        label: m['label'] as String? ?? '',
+        minutes: (m['minutes'] as num?)?.toInt() ?? 0,
+        lockedUntil: DateTime.fromMillisecondsSinceEpoch((m['lockedUntil'] as num?)?.toInt() ?? 0),
+        usedMs: (m['usedMs'] as num?)?.toInt() ?? -1,
+      );
+}
+
 /// Dart-side wrapper around the native `com.godfident/focus_blocking`
 /// method channel (see android/.../MainActivity.kt and
 /// FocusBlockingService.kt for the real enforcement logic).
@@ -199,6 +228,42 @@ class FocusBlockingService {
       return await _channel.invokeMethod<int>('getSdkInt') ?? 0;
     } on PlatformException {
       return 0;
+    }
+  }
+
+  // ── Daily app time limits ────────────────────────────────────────────
+  Future<List<AppLimit>> getLimits() async {
+    if (!_supported) return const [];
+    try {
+      final r = await _channel.invokeMethod<List<Object?>>('limitsList') ?? const [];
+      return r.whereType<Map<Object?, Object?>>().map(AppLimit.fromMap).toList();
+    } on PlatformException {
+      return const [];
+    }
+  }
+
+  /// Returns 'ok', 'locked' (still inside its week), 'protected' or 'invalid'.
+  Future<String> setLimit(String packageName, String label, int minutes) async {
+    if (!_supported) return 'invalid';
+    try {
+      return await _channel.invokeMethod<String>('limitSet', {
+            'packageName': packageName,
+            'label': label,
+            'minutes': minutes,
+          }) ??
+          'invalid';
+    } on PlatformException {
+      return 'invalid';
+    }
+  }
+
+  /// Returns 'ok', 'locked' or 'none'.
+  Future<String> removeLimit(String packageName) async {
+    if (!_supported) return 'none';
+    try {
+      return await _channel.invokeMethod<String>('limitRemove', {'packageName': packageName}) ?? 'none';
+    } on PlatformException {
+      return 'none';
     }
   }
 }

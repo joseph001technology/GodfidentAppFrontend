@@ -103,9 +103,11 @@ class PrayerRepository {
     return PrayerSession.fromJson(readMap(res.data));
   }
 
-  Future<PrayerSession> endSession(int id, {required int durationSeconds}) async {
+  Future<PrayerSession> endSession(int id, {required int durationSeconds, int? tzOffsetMinutes}) async {
     final res = await _dio.post('/api/prayer/sessions/$id/end/', data: {
       'duration_seconds': durationSeconds,
+      // Lets the server count the day the session STARTED, in the person's own time zone.
+      'tz_offset': tzOffsetMinutes ?? DateTime.now().timeZoneOffset.inMinutes,
     });
     return PrayerSession.fromJson(readDataMap(res.data));
   }
