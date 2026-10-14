@@ -128,4 +128,34 @@ object AppLimits {
         val r = remainingMs(c, pkg) ?: return false
         return r <= 0L
     }
+
+    // ── foreground watcher state (used by GuardianService) ───────────────
+    private var fgPkg: String? = null
+    private var fgCheckedAt = 0L
+
+    /**
+     * The app in front right now, kept up to date by reading only the usage events
+     * since the previous call. Needs Usage access; returns null when unknown.
+     */
+    fun foregroundNow(c: Context): String? {
+        return try {
+            val usm = c.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val now = System.currentTimeMillis()
+            val from = if (fgCheckedAt == 0L) now - 10 * 60_000L else fgCheckedAt - 1_000L
+            val events = usm.queryEvents(from, now) ?: return fgPkg
+            val e = UsageEvents.Event()
+            while (events.hasNextEvent()) {
+                events.getNextEvent(e)
+                when (e.eventType) {
+                    UsageEvents.Event.MOVE_TO_FOREGROUND -> fgPkg = e.packageName
+                    UsageEvents.Event.MOVE_TO_BACKGROUND, 23 -> if (e.packageName == fgPkg) fgPkg = null
+                    16, 26 -> fgPkg = null
+                }
+            }
+            fgCheckedAt = now
+            fgPkg
+        } catch (_: Throwable) {
+            null
+        }
+    }
 }

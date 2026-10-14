@@ -208,15 +208,13 @@ class SessionNotificationService : Service() {
             } else {
                 b.setShowWhen(false)
             }
-            // Pause / resume, +5 minutes: open Godfident on the page that does it.
+            // Freeze / resume only: open Godfident on the page that does it. Tapping the card itself opens the session.
             if (st.frozen) {
                 b.addAction(android.R.drawable.ic_media_play, "Resume", openApp(c, 4311, "/focus?act=resume"))
             } else {
                 b.addAction(android.R.drawable.ic_media_pause, "Freeze", openApp(c, 4311, "/focus?act=freeze"))
             }
-            b.addAction(android.R.drawable.ic_input_add, "+5 min", openApp(c, 4312, "/focus?act=extend"))
-            b.addAction(android.R.drawable.ic_menu_view, "Open", openApp(c, 4313, st.route))
-            val style = Notification.MediaStyle().setShowActionsInCompactView(0, 1, 2)
+            val style = Notification.MediaStyle().setShowActionsInCompactView(0)
             if (session != null) style.setMediaSession(session.sessionToken)
             b.setStyle(style)
             return b.build()

@@ -106,15 +106,37 @@ class NativeSession {
     } catch (_) {}
   }
 
-  /// Opens the phone maker's auto-start page. Returns 2 = the maker's own page,
-  /// 1 = Android's battery-optimisation list, 0 = only the app's info page.
-  static Future<int> openAutostartSettings() async {
+  /// What [openAutostartSettings] managed to open.
+  /// [level]: 2 = the maker's own auto-start / background page, 1 = Android's
+  /// battery-optimisation list, 0 = only Godfident's App info page.
+  static Future<({int level, String target})> openAutostart() async {
     try {
-      final r = await _ch.invokeMethod<dynamic>('openAutostartSettings');
-      if (r is int) return r;
-      return r == true ? 2 : 0;
+      final r = '${await _ch.invokeMethod<dynamic>('openAutostartSettings') ?? '0|appinfo'}';
+      final i = r.indexOf('|');
+      final code = int.tryParse(i < 0 ? r : r.substring(0, i)) ?? 0;
+      return (level: code, target: i < 0 ? '' : r.substring(i + 1));
     } catch (_) {
-      return 0;
+      return (level: 0, target: 'error');
+    }
+  }
+
+  static Future<int> openAutostartSettings() async => (await openAutostart()).level;
+
+  /// Lower-case phone maker, e.g. "realme", "tecno", "samsung".
+  static Future<String> manufacturer() async {
+    try {
+      return (await _ch.invokeMethod<String>('manufacturer')) ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Opens the phone's own Digital Wellbeing / app timers (true if it opened that app).
+  static Future<bool> openWellbeing() async {
+    try {
+      return await _ch.invokeMethod<bool>('openWellbeing') ?? false;
+    } catch (_) {
+      return false;
     }
   }
 }

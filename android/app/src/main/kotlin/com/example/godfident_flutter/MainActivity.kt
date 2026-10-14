@@ -1,6 +1,7 @@
 package com.example.godfident_flutter
 
 import android.app.AppOpsManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -377,6 +378,7 @@ class MainActivity : AudioServiceActivity() {
                 }
                 "guardianEnabled" -> result.success(Guardian.isEnabled(this))
                 "openAutostartSettings" -> result.success(openAutostartSettings())
+                "openWellbeing" -> result.success(openWellbeing())
                 "manufacturer" -> result.success(Build.MANUFACTURER.lowercase())
 
                 else -> result.notImplemented()
@@ -384,30 +386,84 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
+    /** Tries to open [i]; true if the phone accepted it. */
+    private fun tryStart(i: Intent): Boolean = try {
+        startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        true
+    } catch (_: Exception) {
+        false
+    }
+
+    private fun isOppoFamily(): Boolean {
+        val m = (Build.MANUFACTURER + " " + Build.BRAND).lowercase()
+        return listOf("oppo", "realme", "oneplus", "oplus").any { m.contains(it) }
+    }
+
     /**
-     * Opens the phone maker's "auto-start / background activity" page. Returns
-     * 2 = the maker's own page opened, 1 = Android's battery-optimisation list
-     * opened, 0 = only the app's info page could be opened.
-     *
-     * These maker pages are private (not exported), so asking Android whether
-     * they "exist" (resolveActivity) says no even on phones that have them, and
-     * the old code fell through to App info. Now each one is simply tried, and
-     * the next is used if the phone refuses.
+     * Phone makers hide "auto-start / background activity" in their own private
+     * screens whose names change between versions (Realme UI, ColorOS, HiOS ...).
+     * Instead of trusting a fixed list only, this also SEARCHES the phone's own
+     * system packages for a start-up / auto-launch screen and opens the first one
+     * Android lets us open.
      */
-    private fun openAutostartSettings(): Int {
+    private fun findStartupScreen(): ComponentName? {
+        val pm = packageManager
+        val brandPrefixes = listOf(
+            "com.coloros.", "com.oplus.", "com.oppo.", "com.realme.", "com.heytap.", "com.transsion.",
+            "com.miui.", "com.xiaomi.", "com.vivo.", "com.iqoo.", "com.huawei.", "com.hihonor.",
+            "com.samsung.", "com.asus.", "com.letv."
+        )
+        val words = listOf("startupapp", "autostart", "autolaunch", "startupmanage", "bgstartup", "startup", "bootstart")
+        val hits = mutableListOf<Pair<Int, ComponentName>>()
+        try {
+            @Suppress("DEPRECATION")
+            val pkgs = pm.getInstalledPackages(0).map { it.packageName }.filter { p -> brandPrefixes.any { p.startsWith(it) } }
+            for (pkg in pkgs) {
+                val info = try {
+                    @Suppress("DEPRECATION")
+                    pm.getPackageInfo(pkg, android.content.pm.PackageManager.GET_ACTIVITIES)
+                } catch (_: Exception) { null } ?: continue
+                for (ai in info.activities ?: continue) {
+                    val n = ai.name.lowercase()
+                    if (words.none { n.contains(it) } || n.contains("receiver") || n.contains("service")) continue
+                    // Best first: a list of apps, then anything that looks like a start-up page.
+                    val score = when {
+                        n.contains("startupapplist") -> 0
+                        n.contains("autostart") || n.contains("autolaunch") -> 1
+                        n.contains("startupmanage") || n.contains("bgstartup") -> 2
+                        else -> 3
+                    } + (if (ai.exported) 0 else 5)
+                    hits.add(score to ComponentName(ai.packageName, ai.name))
+                }
+            }
+        } catch (_: Exception) {}
+        for ((_, cn) in hits.sortedBy { it.first }) {
+            if (tryStart(Intent().setComponent(cn))) return cn
+        }
+        return null
+    }
+
+    /**
+     * Opens the page where this phone lets an app start by itself / run in the background.
+     * Returns "<code>|<screen>": code 2 = the maker's own page, 1 = Android's battery
+     * optimisation list, 0 = Godfident's App info page (Realme / Oppo: Battery usage
+     * there holds "Allow auto launch" and "Allow background activity").
+     */
+    private fun openAutostartSettings(): String {
         val candidates = listOf(
+            // Realme / Oppo / OnePlus (ColorOS, realme UI)
+            "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
+            "com.coloros.safecenter" to "com.coloros.safecenter.startupapp.StartupAppListActivity",
+            "com.oplus.battery" to "com.oplus.startupapp.view.StartupAppListActivity",
+            "com.oplus.battery" to "com.oplus.battery.startupapp.StartupAppListActivity",
+            "com.oppo.safe" to "com.oppo.safe.permission.startup.StartupAppListActivity",
+            "com.oplus.battery" to "com.oplus.powermanager.fuelgaue.PowerUsageModelActivity",
             // Xiaomi / Redmi / Poco
             "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartManagementActivity",
-            // Tecno / Infinix / itel (Transsion: HiOS, XOS, itel OS)
+            // Tecno / Infinix / itel (Transsion)
             "com.transsion.phonemaster" to "com.cyin.himgr.autostart.AutoStartActivity",
             "com.transsion.phonemaster" to "com.cyin.himgr.whitelist.view.WhiteListActivity",
             "com.transsion.phonemaster" to "com.transsion.phonemaster.MainActivity",
-            "com.transsion.phonemaster" to "com.cyin.himgr.CyinHimgrActivity",
-            // Oppo / Realme / OnePlus (ColorOS, realme UI)
-            "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
-            "com.coloros.safecenter" to "com.coloros.safecenter.startupapp.StartupAppListActivity",
-            "com.oppo.safe" to "com.oppo.safe.permission.startup.StartupAppListActivity",
-            "com.oplus.battery" to "com.oplus.powermanager.fuelgaue.PowerUsageModelActivity",
             // Vivo / iQOO
             "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.BgStartUpManagerActivity",
             "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.PurviewTabActivity",
@@ -426,27 +482,30 @@ class MainActivity : AudioServiceActivity() {
             "com.letv.android.letvsafe" to "com.letv.android.letvsafe.AutobootManageActivity"
         )
         for ((pkg, cls) in candidates) {
-            try {
-                startActivity(Intent().setClassName(pkg, cls).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                return 2
-            } catch (_: Exception) {
-                // Not on this phone, or the phone refuses: try the next one.
-            }
+            if (tryStart(Intent().setClassName(pkg, cls))) return "2|$pkg/$cls"
         }
-        // No maker page: Android's own "Battery optimisation" list is the next best place.
-        try {
-            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            return 1
-        } catch (_: Exception) {}
-        return try {
-            startActivity(
-                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            )
-            0
-        } catch (_: Exception) {
-            0
+        // Not in the fixed list (new phone or new software version): search the phone's own apps.
+        findStartupScreen()?.let { return "2|${it.flattenToShortString()}" }
+
+        val appInfo = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+        if (isOppoFamily()) {
+            // Realme / Oppo / OnePlus: the toggles are inside App info > Battery usage. The plain
+            // battery-optimisation list does NOT contain them, so go to App info instead.
+            tryStart(appInfo)
+            return "0|appinfo"
         }
+        if (tryStart(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))) return "1|battery"
+        tryStart(appInfo)
+        return "0|appinfo"
+    }
+
+    /** The phone's own app timers (Digital Wellbeing), if it has them. */
+    private fun openWellbeing(): Boolean {
+        for (pkg in listOf("com.google.android.apps.wellbeing", "com.android.settings.intelligence")) {
+            val i = packageManager.getLaunchIntentForPackage(pkg)
+            if (i != null && tryStart(i)) return true
+        }
+        return tryStart(Intent(Settings.ACTION_SETTINGS))
     }
 
     /** "raw:godfident_bell" -> android.resource:// URI of the bundled tone; anything else is used as is. */

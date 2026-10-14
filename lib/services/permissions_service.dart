@@ -125,12 +125,17 @@ class PermissionsService {
         break;
       case 'autostart':
         await NativeSession.ensureGuardian();
-        final where = await NativeSession.openAutostartSettings();
-        if (where == 1) {
-          return 'Your phone has no separate auto-start page. In this list choose All apps \u2192 Godfident \u2192 Don\u2019t optimise (or Unrestricted).';
+        final r = await NativeSession.openAutostart();
+        final maker = await NativeSession.manufacturer();
+        final oppo = ['realme', 'oppo', 'oneplus'].any(maker.contains);
+        if (r.level == 0 && oppo) {
+          return 'Tap Battery usage (or Power saving), then switch ON: Allow auto launch, Allow background activity, Allow foreground activity. Then lock Godfident in your recent apps.';
         }
-        if (where == 0) {
+        if (r.level == 0) {
           return 'Opened Godfident\u2019s App info. Open Battery (or Battery usage) and choose Unrestricted. Your phone keeps auto-start inside its own Phone Manager / Security app.';
+        }
+        if (r.level == 1) {
+          return 'Your phone has no separate auto-start page. In this list choose All apps \u2192 Godfident \u2192 Don\u2019t optimise (or Unrestricted).';
         }
         return 'Find Godfident in the list and switch it ON.';
       case 'audio':

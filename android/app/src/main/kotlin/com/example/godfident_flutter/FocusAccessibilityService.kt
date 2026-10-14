@@ -61,6 +61,13 @@ class FocusAccessibilityService : AccessibilityService() {
             "search", "find", "look up", "tafuta", "buscar", "rechercher", "recherche", "suche", "pesquisar", "cerca", "поиск", "搜索", "검색", "ابحث", "بحث"
         )
 
+        /** Called by the background watcher when a limited app has used up its day. False = the service is not running. */
+        fun blockByLimit(pkg: String): Boolean {
+            val svc = instance ?: return false
+            svc.handler.post { svc.blockApp(pkg, true) }
+            return true
+        }
+
         /** Called by the DNS filter when a blocked name was looked up. Acts only if a browser is in front. */
         fun onBlockedLookup() {
             val svc = instance ?: return

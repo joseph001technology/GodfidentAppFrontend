@@ -166,6 +166,55 @@ class GuardianService : Service() {
 
     private var receiver: BroadcastReceiver? = null
 
+    // Daily app limits: checked every 2 seconds from this always-on service, so they keep
+    // working even when the accessibility service's own timer was paused by the phone.
+    private val limitHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var limitsCache: Set<String> = emptySet()
+    private var limitsCachedAt = 0L
+    private var lastLimitAction = 0L
+    private val limitLoop = object : Runnable {
+        override fun run() {
+            try { watchLimits() } catch (_: Throwable) {}
+            limitHandler.postDelayed(this, 2_000L)
+        }
+    }
+
+    private fun watchLimits() {
+        val now = System.currentTimeMillis()
+        if (now - limitsCachedAt > 10_000L) {
+            limitsCache = AppLimits.all(this).keys
+            limitsCachedAt = now
+        }
+        if (limitsCache.isEmpty()) return
+        val pkg = AppLimits.foregroundNow(this) ?: return
+        if (pkg !in limitsCache || !AppLimits.isOver(this, pkg)) return
+        if (now - lastLimitAction < 3_000L) return
+        lastLimitAction = now
+        if (!FocusAccessibilityService.blockByLimit(pkg)) {
+            // The accessibility service is off: say so (and offer to switch it back on).
+            try { AccessibilityGuard.check(this) } catch (_: Exception) {}
+            try {
+                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel("godfident_limit") == null) {
+                    nm.createNotificationChannel(NotificationChannel("godfident_limit", "Daily limits", NotificationManager.IMPORTANCE_HIGH))
+                }
+                val label = FocusPolicy.labelFor(this, pkg)
+                val pi = PendingIntent.getActivity(
+                    this, 4412, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, "godfident_limit") else Notification.Builder(this)
+                nm.notify(
+                    4413,
+                    b.setSmallIcon(android.R.drawable.ic_dialog_alert)
+                        .setContentTitle("$label: today's limit is used up")
+                        .setContentText("Switch Godfident Focus back on in Accessibility so Godfident can close it.")
+                        .setAutoCancel(true).setContentIntent(pi).build()
+                )
+            } catch (_: Exception) {}
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -221,6 +270,8 @@ class GuardianService : Service() {
             return START_NOT_STICKY
         }
         try { Guardian.tick(this) } catch (_: Exception) {}
+        limitHandler.removeCallbacks(limitLoop)
+        limitHandler.postDelayed(limitLoop, 2_000L)
         return START_STICKY
     }
 
@@ -232,6 +283,7 @@ class GuardianService : Service() {
     }
 
     override fun onDestroy() {
+        limitHandler.removeCallbacks(limitLoop)
         try { receiver?.let { unregisterReceiver(it) } } catch (_: Exception) {}
         receiver = null
         if (Guardian.isEnabled(this)) Guardian.scheduleHeartbeat(this, 5_000L)

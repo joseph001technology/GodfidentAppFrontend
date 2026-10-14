@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
+import '../../services/native_session.dart';
 import '../../services/permissions_service.dart';
 
 /// Every permission Godfident needs, its real current state, and a button that
@@ -37,6 +38,29 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
   }
 
   Future<void> _ask(PermissionItem p) async {
+    if (p.id == 'autostart') {
+      final maker = await NativeSession.manufacturer();
+      final oppo = ['realme', 'oppo', 'oneplus'].any(maker.contains);
+      if (!mounted) return;
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Let Godfident run in the background'),
+          content: Text(oppo
+              ? 'On Realme / Oppo phones this is what keeps your reminders, alarms and limits working after you leave the app.\n\n'
+                  'On the next screen turn ON:\n'
+                  '\u2022 Allow auto launch\n'
+                  '\u2022 Allow background activity (under Battery usage)\n\n'
+                  'Then open your recent apps, pull the Godfident card down (or tap \u22ee) and choose Lock.'
+              : 'Many phones stop apps that are not open. On the next screen find Godfident and allow auto-start / background activity (or set battery to Unrestricted).'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Not now')),
+            TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Open settings')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
     if (p.id == 'accessibility') {
       final ok = await showDialog<bool>(
         context: context,

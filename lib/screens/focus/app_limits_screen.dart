@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../../providers/restriction_provider.dart';
 import '../../services/focus_blocking_service.dart';
+import '../../services/native_session.dart';
 
 /// Daily time limits per app. Once an app has used its minutes for the day it
 /// cannot be opened until midnight. A limit is locked for a week after it is
@@ -178,7 +179,19 @@ class _AppLimitsScreenState extends ConsumerState<AppLimitsScreen> with WidgetsB
                 'A limit is locked for 7 days once set, so a weak moment cannot undo it.',
                 style: TextStyle(color: AppTheme.textSecondary, height: 1.4),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () async {
+                    final ok = await NativeSession.openWellbeing();
+                    if (!ok) await _snack('Could not find the phone\u2019s own app timers.');
+                  },
+                  icon: const Icon(Icons.timer_outlined, size: 18),
+                  label: const Text('Also set the phone\u2019s own app timers'),
+                ),
+              ),
+              const SizedBox(height: 6),
               if (!_accessibility)
                 _warn('Turn on the Godfident Focus accessibility service so limits can close apps.', 'Turn on', _svc.openAccessibilitySettings),
               if (!_usage)
