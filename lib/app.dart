@@ -27,12 +27,12 @@ Future<void> handleReminderRoute(GoRouter router, String route) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final hasRules = prefs.getBool('has_rules') ?? false;
-      router.go(hasRules ? '/rules' : '/bible');
-      appScaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text(hasRules
-            ? 'That was blocked. Here are your rules \u2014 spend this moment with God.'
-            : 'That was blocked. Here is the Bible \u2014 spend this moment with God.')),
-      );
+      // Show one of the person's own videos. If there is none, the player hands
+      // over to the old destination (Rules or Bible). Never open two players.
+      final here = router.routerDelegate.currentConfiguration.uri.path;
+      if (!here.startsWith('/video-player')) {
+        router.push('/video-player/random?fallback=${hasRules ? 'rules' : 'bible'}');
+      }
     } catch (_) {}
     return;
   }

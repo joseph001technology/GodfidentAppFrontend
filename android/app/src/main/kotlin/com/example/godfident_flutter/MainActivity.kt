@@ -117,6 +117,9 @@ class MainActivity : AudioServiceActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
+        // Permanent Movies/Godfident video folder (own channel; does not touch the blocking code).
+        flutterEngine.plugins.add(VideoFolderPlugin())
+
         val ch = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         channel = ch
         ch.setMethodCallHandler { call, result ->

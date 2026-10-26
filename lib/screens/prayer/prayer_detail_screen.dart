@@ -44,14 +44,17 @@ class PrayerDetailScreen extends ConsumerWidget {
                 onSelected: (v) async {
                   if (v == 'edit') context.push('/prayer/${prayer.id}/edit');
                   if (v == 'delete') {
+                    // Close the dialog with the DIALOG's own context. The screen's context
+                    // belongs to another navigator (inside the bottom-bar shell), so popping
+                    // with it closed the wrong thing and the buttons seemed dead.
                     final confirm = await showDialog<bool>(
                       context: context,
-                      builder: (_) => AlertDialog(
+                      builder: (d) => AlertDialog(
                         title: const Text('Delete Prayer'),
                         content: const Text('Are you sure?'),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+                          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Cancel')),
+                          TextButton(onPressed: () => Navigator.pop(d, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
                         ],
                       ),
                     );
@@ -75,12 +78,13 @@ class PrayerDetailScreen extends ConsumerWidget {
               // Status + type badges
               Wrap(spacing: 8, children: [
                 Chip(
-                  label: Text(prayer.prayerType),
+                  // An answered prayer is kept as a thanksgiving prayer.
+                  label: Text(_cap(prayer.displayType)),
                   backgroundColor: AppTheme.navyVariant,
                   labelStyle: const TextStyle(color: AppTheme.gold, fontSize: 11),
                 ),
                 Chip(
-                  label: Text(prayer.status),
+                  label: Text(_cap(prayer.status)),
                   backgroundColor: prayer.isAnswered
                       ? Colors.green.withValues(alpha: 0.15)
                       : AppTheme.navyVariant,
@@ -153,34 +157,55 @@ class PrayerDetailScreen extends ConsumerWidget {
     );
   }
 
+  static String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
   Future<void> _markAnswered(BuildContext context, WidgetRef ref, int id) async {
+    // Grabbed before any await: the screen may rebuild while the list reloads.
+    final messenger = ScaffoldMessenger.of(context);
+    final notifier = ref.read(prayerListProvider.notifier);
     final noteCtrl = TextEditingController();
+    // Buttons close the dialog with the DIALOG's context (d). The screen's own
+    // context sits in a different navigator (the bottom-bar shell), so using it
+    // never closed the dialog: Cancel did nothing and the answer was never saved.
     final note = await showDialog<String>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (d) => AlertDialog(
         backgroundColor: AppTheme.navySurface,
         title: const Text('Praise God! 🎉'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('How did God answer this prayer?'),
             const SizedBox(height: 12),
             TextField(
               controller: noteCtrl,
               maxLines: 3,
+              textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(hintText: 'Your testimony (optional)'),
             ),
+            const SizedBox(height: 10),
+            Text('It will be kept with your thanksgiving prayers.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, noteCtrl.text), child: const Text('Mark Answered')),
+          TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(minimumSize: const Size(0, 44)),
+            onPressed: () => Navigator.pop(d, noteCtrl.text.trim()),
+            child: const Text('Mark Answered'),
+          ),
         ],
       ),
     );
-    if (note != null) {
-      await ref.read(prayerListProvider.notifier).markAnswered(id, note: note);
+    if (note == null) return; // Cancel, or tapped outside
+    try {
+      await notifier.markAnswered(id, note: note);
       await PrayerNotifications.clearPrayerReminder(id);
+      messenger.showSnackBar(const SnackBar(content: Text('Praise God! Saved as answered, under Thanksgiving.')));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(friendlyError(e))));
     }
   }
 }

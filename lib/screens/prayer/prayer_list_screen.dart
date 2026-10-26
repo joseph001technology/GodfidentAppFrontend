@@ -1,13 +1,16 @@
+import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../models/prayer.dart';
+import '../../models/scheduled_focus.dart';
 import '../../providers/remaining_providers.dart';
+import '../../services/focus_session_manager.dart';
 import '../../services/prayer_notifications.dart';
+import '../../services/session_ticker.dart';
 import '../../widgets/common/app_widgets.dart';
 import 'prayer_launch.dart';
-import 'prayer_reminders_sheet.dart';
 
 class PrayerListScreen extends ConsumerStatefulWidget {
   const PrayerListScreen({super.key});
@@ -69,11 +72,6 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Prayer reminders',
-            icon: const Icon(Icons.notifications_active_outlined, color: AppTheme.goldDark),
-            onPressed: () => showPrayerRemindersSheet(context),
-          ),
-          IconButton(
             tooltip: 'Prayer insights',
             icon: const Icon(Icons.insights_outlined, color: AppTheme.goldDark),
             onPressed: () => context.push('/prayer/stats'),
@@ -83,6 +81,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppTheme.gold,
         foregroundColor: AppTheme.inkNavy,
+        shape: const StadiumBorder(), // a pill: the label sits inside the button, not outside a circle
         onPressed: _addPrayer,
         icon: const Icon(Icons.add),
         label: const Text('New request', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -122,7 +121,8 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
     final filtered = prayers.where((p) {
       if (_status == 'active' && p.isAnswered) return false;
       if (_status == 'answered' && !p.isAnswered) return false;
-      if (_type != 'all' && p.prayerType.toLowerCase() != _type) return false;
+      // An answered prayer counts as a thanksgiving prayer.
+      if (_type != 'all' && p.displayType.toLowerCase() != _type) return false;
       return true;
     }).toList();
 
@@ -185,47 +185,127 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
     ]);
   }
 
+  /// The Focus session card. Idle: pick a time and start. While a session runs or
+  /// is frozen it shows the SAME live countdown as the Focus page, and the chips
+  /// add prayer time to it. Colours come from the hero tokens, so the card
+  /// follows Light and Dark like every other card.
   Widget _focusHero(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppTheme.inkNavy,
-        borderRadius: BorderRadius.circular(20),
+    return ValueListenableBuilder<SessionSnapshot>(
+      valueListenable: SessionTicker.instance,
+      builder: (context, snap, _) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppTheme.heroSurface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.heroBorder),
+        ),
+        child: snap.active ? _liveSession(context, snap) : _idleSession(context),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: AppTheme.gold.withValues(alpha: 0.18), shape: BoxShape.circle),
-            child: const Icon(Icons.self_improvement, color: AppTheme.goldLight, size: 26),
-          ),
-          const SizedBox(width: 14),
-          const Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Focus session',
-                  style: TextStyle(
-                      fontFamily: 'Lora', fontSize: 19, fontWeight: FontWeight.bold, color: AppTheme.textOnDark)),
-              SizedBox(height: 2),
-              Text('Choose your time, silence distractions and pray.',
-                  style: TextStyle(color: AppTheme.textOnDarkMuted, fontSize: 12.5)),
-            ]),
-          ),
-        ]),
-        const SizedBox(height: 14),
-        const Text('START NOW',
-            style: TextStyle(fontSize: 10.5, letterSpacing: 1.2, fontWeight: FontWeight.w700, color: AppTheme.goldLight)),
-        const SizedBox(height: 8),
-        Row(children: [
-          const Expanded(child: PrayerDurationChips(minutes: [5, 15, 30])),
-          TextButton(
-            onPressed: () => openPrayerFocus(context),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.goldLight),
-            child: const Text('Choose time'),
-          ),
-        ]),
-      ]),
     );
+  }
+
+  Widget _heroIcon(IconData icon) => Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: AppTheme.gold.withValues(alpha: 0.18), shape: BoxShape.circle),
+        child: Icon(icon, color: AppTheme.heroAccent, size: 26),
+      );
+
+  Widget _idleSession(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        _heroIcon(Icons.self_improvement),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Focus session',
+                style: TextStyle(fontFamily: 'Lora', fontSize: 19, fontWeight: FontWeight.bold, color: AppTheme.onHero)),
+            const SizedBox(height: 2),
+            Text('Choose your time, silence distractions and pray.',
+                style: TextStyle(color: AppTheme.onHeroMuted, fontSize: 12.5)),
+          ]),
+        ),
+      ]),
+      const SizedBox(height: 14),
+      Text('START NOW',
+          style: TextStyle(fontSize: 10.5, letterSpacing: 1.2, fontWeight: FontWeight.w700, color: AppTheme.heroAccent)),
+      const SizedBox(height: 8),
+      Row(children: [
+        const Expanded(child: PrayerDurationChips(minutes: [5, 15, 30])),
+        TextButton(
+          onPressed: () => openPrayerFocus(context),
+          style: TextButton.styleFrom(foregroundColor: AppTheme.heroAccent),
+          child: const Text('Choose time'),
+        ),
+      ]),
+    ]);
+  }
+
+  Widget _liveSession(BuildContext context, SessionSnapshot snap) {
+    final info = snap.info;
+    final purpose = ScheduledFocus.purposes[info.purpose] ?? 'Time with God';
+    final name = info.title.trim();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        _heroIcon(snap.frozen ? Icons.ac_unit_rounded : Icons.self_improvement),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(snap.frozen ? 'Session frozen' : 'Focus session running',
+                style: TextStyle(fontFamily: 'Lora', fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.onHero)),
+            const SizedBox(height: 2),
+            Text(name.isEmpty ? purpose : '$name · $purpose',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: AppTheme.onHeroMuted, fontSize: 12.5)),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          formatSessionLeft(snap.left),
+          style: TextStyle(
+            fontSize: 30,
+            fontWeight: FontWeight.w800,
+            color: snap.frozen ? AppTheme.onHeroMuted : AppTheme.onHero,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ]),
+      const SizedBox(height: 12),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: LinearProgressIndicator(
+          value: snap.progress,
+          minHeight: 5,
+          color: AppTheme.heroAccent,
+          backgroundColor: AppTheme.heroTrack,
+        ),
+      ),
+      if (snap.frozen)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text("You haven't finished yet. Resume when you are ready.",
+              style: TextStyle(color: AppTheme.onHeroMuted, fontSize: 12)),
+        ),
+      const SizedBox(height: 14),
+      Text('ADD PRAYER TIME',
+          style: TextStyle(fontSize: 10.5, letterSpacing: 1.2, fontWeight: FontWeight.w700, color: AppTheme.heroAccent)),
+      const SizedBox(height: 8),
+      Row(children: [
+        const Expanded(child: PrayerDurationChips(minutes: [5, 15, 30])),
+        if (snap.frozen)
+          TextButton(
+            onPressed: () => SessionManager.instance.resume(),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.heroAccent),
+            child: const Text('Resume'),
+          ),
+        TextButton(
+          onPressed: () => context.go('/focus'),
+          style: TextButton.styleFrom(foregroundColor: AppTheme.heroAccent),
+          child: const Text('Open'),
+        ),
+      ]),
+    ]);
   }
 
   Widget _miniStat(IconData icon, String value, String label) => Container(
@@ -407,10 +487,25 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Prayed ${prayer.timesPrayed}×',
-                  style: const TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.gold),
-                ),
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(
+                    'Prayed ${prayer.timesPrayed}×',
+                    style: const TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.gold),
+                  ),
+                  // Once answered, a prayer is kept as a thanksgiving prayer.
+                  if (prayer.isAnswered) ...[
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.gold.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('THANKSGIVING',
+                          style: TextStyle(fontFamily: 'Inter', fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.goldAccent)),
+                    ),
+                  ],
+                ]),
                 if (!prayer.isAnswered)
                   ElevatedButton.icon(
                     onPressed: () async {

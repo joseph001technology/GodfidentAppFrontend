@@ -83,8 +83,13 @@ object FocusQueue {
     /** Queues an alarm that came due while a session is busy. Returns the queue size. */
     fun add(c: Context, a: AlarmScheduler.Alarm): Int = addItem(c, itemFor(a.route, a.title, a.body, a.soundUri, a.maxSeconds, a.startLabel))
 
-    /** Queues a session the person started by hand while another one is running. */
-    fun addRoute(c: Context, route: String): Int = addItem(c, itemFor(route, "Your time with God is starting", "", "", 1800, "Start"))
+    /** Queues a session the person kept for later. Only allowed behind a running / frozen session or others already waiting. */
+    fun addRoute(c: Context, route: String): Int {
+        // Nothing running or frozen and nobody waiting: there is nothing to wait for, so
+        // it is refused (-1). The app keeps it as a frozen session instead.
+        if (!SessionUi.state(c).active && size(c) == 0) return -1
+        return addItem(c, itemFor(route, "Your time with God is starting", "", "", 1800, "Start"))
+    }
 
     private fun itemFor(route: String, title: String, body: String, sound: String, max: Int, start: String): Item {
         val u = Uri.parse(route)

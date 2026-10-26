@@ -239,11 +239,13 @@ class AppTheme {
         showSelectedLabels: true,
         showUnselectedLabels: true,
       ),
+      // StadiumBorder, not CircleBorder: every FAB in the app is an "extended" one
+      // (icon + label). A circle clips the label and the button looks off.
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: gold,
         foregroundColor: inkNavy,
         elevation: 0,
-        shape: CircleBorder(),
+        shape: StadiumBorder(),
       ),
       popupMenuTheme: PopupMenuThemeData(
         color: navySurface,

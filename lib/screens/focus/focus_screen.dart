@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,10 +11,12 @@ import '../../services/native_alarm.dart';
 import '../../services/native_session.dart';
 import '../../services/notification_service.dart';
 import '../../services/restriction_store.dart';
+import '../../services/session_ticker.dart';
 import '../../services/permissions_service.dart';
 import '../../services/website_protection_service.dart';
 import '../../widgets/common/session_extras.dart';
 import '../../widgets/common/session_music_card.dart';
+import 'focus_queue_card.dart';
 
 /// Focus Mode: pick a duration, then start a REAL Android restriction session.
 /// The screen only shows "active" after the native service confirms it.
@@ -34,9 +35,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
   String? _message;
   Map<String, dynamic> _session = const {'active': false};
   bool _frozen = false;
-  Duration _frozenLeft = Duration.zero;
   List<PermissionItem> _perms = const [];
-  Timer? _tick;
   ScheduledFocus? _due; // the scheduled session whose alarm brought us here
   String? _purpose; // bible | prayer | both, of the running session
   String _title = ''; // name of the running session
@@ -58,21 +57,30 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
         if (mounted && f != null) setState(() => _due = f);
       });
     }
-    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      final endAt = (_session['endAtMs'] as num?)?.toInt() ?? 0;
-      if (_frozen) return;
-      if (_session['active'] == true && endAt != 0 && endAt <= DateTime.now().millisecondsSinceEpoch) {
-        _refresh();
-      } else if (_session['active'] == true) {
-        setState(() {});
-      }
-    });
+    // The countdown is the shared clock, so this page, the Prayer page and the
+    // bottom banner always show the same time.
+    SessionTicker.instance.addListener(_onSnapshot);
+  }
+
+  bool? _seenActive;
+  bool? _seenFrozen;
+  void _onSnapshot() {
+    if (!mounted) return;
+    final snap = SessionTicker.instance.value;
+    // Something changed (started, frozen, resumed, ended, here or from the notification card):
+    // reload what this page shows besides the clock.
+    if (snap.active != _seenActive || snap.frozen != _seenFrozen) {
+      _seenActive = snap.active;
+      _seenFrozen = snap.frozen;
+      _refresh();
+    } else {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
-    _tick?.cancel();
+    SessionTicker.instance.removeListener(_onSnapshot);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -119,15 +127,14 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
           'endAtMs': live.endAt?.millisecondsSinceEpoch ?? 0,
         };
         _frozen = live.frozen;
-        _frozenLeft = live.frozenLeft;
         if (live.active) _purpose = live.purpose.isEmpty ? null : live.purpose;
         _perms = perms;
       });
     }
   }
 
-  Future<void> _start({ScheduledFocus? from}) async {
-    final minutes = from?.durationMinutes ?? _minutes;
+  Future<void> _start({ScheduledFocus? from, int? minutes, String? purpose, String? title}) async {
+    final mins = from?.durationMinutes ?? minutes ?? _minutes;
     final apps = ref.read(restrictedAppsProvider).valueOrNull ?? [];
     if (apps.isEmpty && !_allowOnly) {
       setState(() => _message = 'Choose at least one app to restrict first, or turn on "Only Godfident".');
@@ -150,10 +157,10 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
       return;
     }
     final r = await _sessions.start(
-      minutes: minutes,
-      purpose: from?.purpose ?? '',
+      minutes: mins,
+      purpose: from?.purpose ?? purpose ?? '',
       requireBlocking: true,
-      title: from?.displayTitle ?? '',
+      title: from?.displayTitle ?? title ?? '',
     );
     if (r.ok && from != null) {
       await ref.read(scheduledFocusProvider.notifier).started(from); // stops the ringing
@@ -359,14 +366,9 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
   }
 
   Widget _activeCard() {
-    final endAt = (_session['endAtMs'] as num?)?.toInt() ?? 0;
-    final left = _frozen
-        ? _frozenLeft
-        : (endAt == 0 ? null : Duration(milliseconds: (endAt - DateTime.now().millisecondsSinceEpoch).clamp(0, 1 << 40)));
-    String fmt(Duration d) {
-      final m = d.inMinutes, s = d.inSeconds % 60;
-      return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-    }
+    final snap = SessionTicker.instance.value;
+    final left = snap.active ? snap.left : null;
+    String fmt(Duration d) => formatSessionLeft(d);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -445,59 +447,73 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
   }
 
   Widget _queueCard() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
-      decoration: _cardDeco(border: AppTheme.gold.withValues(alpha: 0.5)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('UP NEXT  \u00b7  ${_queue.length} of ${3} waiting',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppTheme.textMuted)),
-        const SizedBox(height: 4),
-        Text('These start when the current session ends. Only 3 can wait; a fourth replaces the oldest.',
-            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-        const SizedBox(height: 6),
-        for (var i = 0; i < _queue.length; i++)
-          Row(children: [
-            Container(
-              width: 26,
-              height: 26,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: AppTheme.navyVariant, borderRadius: BorderRadius.circular(13)),
-              child: Text('${i + 1}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(_queue[i].name, style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
-                  Text(
-                      '${_queue[i].minutes} min${ScheduledFocus.purposes[_queue[i].purpose] != null ? ' \u00b7 ${ScheduledFocus.purposes[_queue[i].purpose]}' : ''}',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                ]),
-              ),
-            ),
-            IconButton(
-              icon: Icon(Icons.close_rounded, color: AppTheme.textMuted),
-              tooltip: 'Remove from queue',
-              onPressed: () async {
-                await NativeSession.queueRemove(i);
-                await _refresh();
-              },
-            ),
-          ]),
-      ]),
+    final list = ref.watch(scheduledFocusProvider).valueOrNull ?? const <ScheduledFocus>[];
+    return FocusQueueCard(
+      queue: _queue,
+      schedules: {for (final f in list) f.id: f},
+      busy: _busy,
+      onStart: _startQueued,
+      onRemove: (i) async {
+        await NativeSession.queueRemove(i);
+        await _refresh();
+      },
     );
   }
 
+  /// Start button of the first waiting session. If something is running or frozen it
+  /// is ended first (not recorded as done), so this is asked before it happens.
+  Future<void> _startQueued(int index) async {
+    if (index < 0 || index >= _queue.length) return;
+    final q = _queue[index];
+    final live = SessionTicker.instance.value;
+    if (live.active) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (d) => AlertDialog(
+          backgroundColor: AppTheme.navySurface,
+          title: Text('Start ${q.name} now?'),
+          content: Text(live.frozen
+              ? 'Your frozen session is not finished. Starting this one ends it, and the frozen one will NOT be counted.'
+              : 'Your running session is not finished. Starting this one ends it, and it will NOT be counted.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Keep it')),
+            TextButton(onPressed: () => Navigator.pop(d, true), child: const Text('Start this one')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      setState(() => _busy = true);
+      // The person chose this one: do not ring the next waiting session meanwhile.
+      await _sessions.end(early: true, advanceQueue: false);
+    }
+    await NativeAlarm.stopSound();
+    await NativeSession.queueRemove(index);
+    final sched = q.startId == 0 ? null : await ref.read(scheduledFocusProvider.notifier).byId(q.startId);
+    await _start(from: sched, minutes: q.minutes, purpose: q.purpose, title: q.name);
+  }
+
+  /// "Keep for later". Something running or frozen (or others waiting): it joins the queue.
+  /// Nothing in the way: it is NOT queued, it is kept as a frozen session instead.
   Future<void> _queueDue(ScheduledFocus f) async {
     await NativeAlarm.stopSound();
-    await NativeSession.queueAdd(NotificationService.focusRouteFor(f));
+    final outcome = await _sessions.holdForLater(
+      minutes: f.durationMinutes,
+      purpose: f.purpose,
+      title: f.displayTitle,
+      queueRoute: NotificationService.focusRouteFor(f),
+    );
+    if (outcome != HoldOutcome.refused) {
+      await ref.read(scheduledFocusProvider.notifier).started(f); // stop it ringing / switch off a one-time one
+    }
     await _refresh();
     if (!mounted) return;
     setState(() => _due = null);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${f.displayTitle} is waiting. It will be ready when this session ends.')),
-    );
+    final msg = switch (outcome) {
+      HoldOutcome.queued => '${f.displayTitle} is waiting. It will be ready when this session ends.',
+      HoldOutcome.frozen => '${f.displayTitle} is kept frozen. Resume it when you are free.',
+      HoldOutcome.refused => 'Could not keep ${f.displayTitle}. Please try again.',
+    };
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   /// A scheduled session is due while a frozen one exists: starting it ends the frozen one (not recorded).
@@ -535,7 +551,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
         if (_frozen)
           Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: Text('You have a frozen session. Resume it, keep this one waiting, or replace the frozen one.',
+            child: Text('You have a frozen session. Resume it, keep this one in the queue, or replace the frozen one.',
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ),
         const SizedBox(height: 12),
@@ -561,12 +577,13 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
             child: Text(running ? 'Keep in queue' : (_frozen ? 'Start (replace frozen)' : 'Start')),
           ),
         ),
-        if (_frozen)
+        // Nothing running: "I'm busy" keeps it as a frozen session. Frozen: it joins the queue.
+        if (!running)
           SizedBox(
             width: double.infinity,
             child: TextButton(
               onPressed: _busy ? null : () => _queueDue(f),
-              child: const Text('Keep in queue'),
+              child: Text(_frozen ? 'Keep in queue' : "I'm busy, keep it frozen"),
             ),
           ),
       ]),

@@ -8,7 +8,20 @@ class QueuedSession {
   final String name;
   final int minutes;
   final String purpose;
-  const QueuedSession({required this.route, required this.name, required this.minutes, required this.purpose});
+
+  /// Id of the scheduled session it came from (0 = it was queued by hand).
+  final int startId;
+
+  /// When it joined the queue (null if the phone did not say).
+  final DateTime? queuedAt;
+  const QueuedSession({
+    required this.route,
+    required this.name,
+    required this.minutes,
+    required this.purpose,
+    this.startId = 0,
+    this.queuedAt,
+  });
 }
 
 /// The "now playing" style session card, the focus queue and the background
@@ -66,6 +79,10 @@ class NativeSession {
               name: '${e['name'] ?? ''}',
               minutes: (e['minutes'] as num?)?.toInt() ?? 30,
               purpose: '${e['purpose'] ?? ''}',
+              startId: (e['startId'] as num?)?.toInt() ?? 0,
+              queuedAt: ((e['queuedAt'] as num?)?.toInt() ?? 0) == 0
+                  ? null
+                  : DateTime.fromMillisecondsSinceEpoch((e['queuedAt'] as num).toInt()),
             ),
       ];
     } catch (_) {
@@ -73,10 +90,16 @@ class NativeSession {
     }
   }
 
-  static Future<void> queueAdd(String route) async {
+  /// Puts a session in the waiting line. Returns how many are waiting now, or -1
+  /// when it was refused: with nothing running (or frozen) and nobody waiting
+  /// there is nothing to wait for. Use SessionManager.holdForLater, which
+  /// decides between waiting and a frozen session.
+  static Future<int> queueAdd(String route) async {
     try {
-      await _ch.invokeMethod('queueAdd', {'route': route});
-    } catch (_) {}
+      return await _ch.invokeMethod<int>('queueAdd', {'route': route}) ?? -1;
+    } catch (_) {
+      return -1;
+    }
   }
 
   static Future<void> queueRemove(int index) async {

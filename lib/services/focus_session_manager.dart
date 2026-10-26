@@ -20,6 +20,28 @@ class SessionStart {
   const SessionStart(this.ok, {this.blocking = false, this.message});
 }
 
+/// What happened when prayer time was added from the Prayer page.
+class PrayerTimeResult {
+  final bool ok;
+
+  /// true = a new Focus session was created; false = time was added to the one already there.
+  final bool started;
+  final String message;
+  const PrayerTimeResult({required this.ok, required this.started, required this.message});
+}
+
+/// Where a session that cannot start right now ended up.
+enum HoldOutcome {
+  /// It waits in the queue behind a running / frozen session (or others already waiting).
+  queued,
+
+  /// Nothing was running, so it became a frozen session: it waits for you to resume it.
+  frozen,
+
+  /// It could not be kept.
+  refused,
+}
+
 class SessionInfo {
   final bool active;
   final DateTime? endAt;
@@ -245,6 +267,112 @@ class SessionManager {
     return SessionStart(true, blocking: blocking);
   }
 
+  /// Prayer time from the Prayer page. There is ONE Focus for everything:
+  ///  * nothing running  -> a normal Focus session of [minutes] starts;
+  ///  * one is running or frozen -> [minutes] are added to it.
+  /// The Prayer page and the Focus page show the same countdown either way.
+  Future<PrayerTimeResult> addPrayerTime(int minutes) async {
+    if (minutes <= 0) {
+      return const PrayerTimeResult(ok: false, started: false, message: 'Choose how long you want to pray.');
+    }
+    final now = await info();
+    if (now.active) {
+      final ok = await extend(minutes);
+      if (!ok) {
+        return const PrayerTimeResult(
+            ok: false, started: false, message: 'Could not add the time. Please try again.');
+      }
+      final after = await info();
+      final left = (after.left.inSeconds / 60).ceil();
+      return PrayerTimeResult(
+        ok: true,
+        started: false,
+        message: 'Added $minutes minutes to your session. $left min left${after.frozen ? ' (frozen)' : ''}.',
+      );
+    }
+    final r = await start(minutes: minutes, purpose: 'prayer');
+    if (!r.ok) {
+      return PrayerTimeResult(
+          ok: false, started: false, message: r.message ?? 'Could not start your prayer time.');
+    }
+    return PrayerTimeResult(
+      ok: true,
+      started: true,
+      message: r.blocking
+          ? 'Prayer time started: $minutes minutes. Your chosen apps are blocked.'
+          : 'Prayer time started: $minutes minutes.',
+    );
+  }
+
+  /// Starts a session already FROZEN: it exists, it is not finished, it nags every
+  /// 10 minutes, and it waits for the person to press Resume. This is what
+  /// "I'm busy, keep it for me" creates when nothing is running.
+  Future<bool> startFrozen({
+    required int minutes,
+    String purpose = '',
+    bool block = true,
+    String title = '',
+  }) async {
+    if (minutes <= 0) return false;
+    if ((await info()).active) return false;
+    if (purpose.isEmpty) purpose = 'both';
+    final p = await SharedPreferences.getInstance();
+    final apps = await RestrictionStore.instance.loadApps();
+    final allowOnly = await RestrictionStore.instance.getAllowOnly();
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final left = Duration(minutes: minutes);
+    final route = purpose == 'prayer' ? '/prayer/focus' : '/focus';
+
+    await p.setInt(_kElapsed, 0);
+    await p.setInt(_kStartedAt, nowMs);
+    await p.setInt(_kOrigStart, nowMs);
+    await p.setInt(_kMinutes, minutes);
+    await p.setString(_kPurpose, purpose);
+    await p.setString(_kTitle, title.trim());
+    await p.setInt(_kSoftEnd, 0);
+    // Whether Resume should block apps again (decided now, like a normal start).
+    await p.setBool(_kFrozenBlocking, block && (apps.isNotEmpty || allowOnly));
+    await p.setInt(_kFrozenLeft, left.inMilliseconds);
+
+    // Server records, best effort, exactly like a normal start.
+    try {
+      final s = await FocusRepository().startSession(purpose: purpose);
+      await p.setInt(_kFocusId, s.id);
+    } catch (_) {}
+    if (purpose == 'prayer' || purpose == 'both') {
+      try {
+        final ps = await PrayerRepository().createSession(
+          title: title.isEmpty ? 'Prayer focus' : title,
+          plannedMinutes: minutes,
+        );
+        await p.setInt(_kPrayerId, ps.id);
+      } catch (_) {}
+    }
+    await NotificationService().scheduleFocusNags(left: left, route: route);
+    await _card(endAt: DateTime.now(), frozen: true, frozenLeft: left);
+    _changed();
+    return true;
+  }
+
+  /// The ONE rule for a session that cannot start right now ("I'm busy"):
+  ///  * something is running or frozen, or others already wait -> it waits in the queue;
+  ///  * nothing is in the way -> it is NOT queued; it becomes a frozen session instead.
+  Future<HoldOutcome> holdForLater({
+    required int minutes,
+    required String purpose,
+    required String title,
+    required String queueRoute,
+  }) async {
+    final cur = await info();
+    final waiting = (await NativeSession.queue()).length;
+    if (cur.active || waiting > 0) {
+      final n = await NativeSession.queueAdd(queueRoute);
+      return n < 0 ? HoldOutcome.refused : HoldOutcome.queued;
+    }
+    final ok = await startFrozen(minutes: minutes, purpose: purpose, title: title);
+    return ok ? HoldOutcome.frozen : HoldOutcome.refused;
+  }
+
   /// Pauses the session. It is NOT finished: the clock stops, blocking is
   /// lifted, and every 10 minutes a notification says it is still unfinished.
   Future<bool> freeze() async {
@@ -348,22 +476,31 @@ class SessionManager {
   }
 
   /// Ends the running session now ([early] = the person pressed End).
-  Future<void> end({bool early = true}) async {
-    await _finish(early: early);
+  /// [advanceQueue] = ring the oldest waiting session next; pass false when the
+  /// person is starting a specific one themselves.
+  Future<void> end({bool early = true, bool advanceQueue = true}) async {
+    await _finish(early: early, advanceQueue: advanceQueue);
   }
+
+  bool _reconciling = false; // several screens may notice the same ending at once
 
   /// Call when a screen opens or the app resumes: a session whose time ran out
   /// while the app was closed is recorded as completed, and unsent records retry.
   Future<void> reconcile() async {
-    if (_busyEditing) return;
-    final p = await SharedPreferences.getInstance();
-    if (p.getInt(_kStartedAt) != null && !(await info()).active) {
-      await _finish(early: false, alreadyStopped: true);
+    if (_busyEditing || _reconciling) return;
+    _reconciling = true;
+    try {
+      final p = await SharedPreferences.getInstance();
+      if (p.getInt(_kStartedAt) != null && !(await info()).active) {
+        await _finish(early: false, alreadyStopped: true);
+      }
+      await _flushPending();
+    } finally {
+      _reconciling = false;
     }
-    await _flushPending();
   }
 
-  Future<void> _finish({required bool early, bool alreadyStopped = false}) async {
+  Future<void> _finish({required bool early, bool alreadyStopped = false, bool advanceQueue = true}) async {
     final p = await SharedPreferences.getInstance();
     final started = p.getInt(_kStartedAt);
     final origStart = p.getInt(_kOrigStart) ?? started;
@@ -390,7 +527,7 @@ class SessionManager {
     await NotificationService().cancelSessionTimer();
     // Ended early (the person pressed End): the oldest waiting session rings next.
     // When time simply ran out, the phone already did that by itself.
-    await NativeSession.hide(advance: early);
+    await NativeSession.hide(advance: early && advanceQueue);
     MusicController.instance.endSessionMusic();
 
     final wasFrozen = p.getInt(_kFrozenLeft) != null;

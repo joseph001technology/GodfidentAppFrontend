@@ -2,4 +2,6 @@
 <!-- Daily app limits must NOT come back after a reinstall (a reinstall is how a limit is cleared). -->
 <full-backup-content>
     <exclude domain="sharedpref" path="godfident_app_limits.xml" />
+    <!-- Video folder link: re-validated after a reinstall; must not be restored blindly. -->
+    <exclude domain="sharedpref" path="godfident_video_folder.xml" />
 </full-backup-content>

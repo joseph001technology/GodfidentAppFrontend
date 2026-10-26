@@ -63,6 +63,10 @@ class Prayer {
 
   bool get isAnswered => status == 'answered';
   bool get isActive => status == 'active';
+
+  /// An answered prayer is a thanksgiving prayer, whatever it was before.
+  /// (The server saves it that way too; this keeps older rows right as well.)
+  String get displayType => isAnswered ? 'thanksgiving' : prayerType;
 }
 
 class PrayerStats {

@@ -8,7 +8,6 @@ import '../../providers/remaining_providers.dart';
 import '../../services/daily_activity.dart';
 import '../../services/prayer_notifications.dart';
 import '../prayer/prayer_launch.dart';
-import '../prayer/prayer_reminders_sheet.dart';
 
 /// The Prayer section of Home: a "Pray now" hero that starts Prayer Focus,
 /// today's prayed status, streak, active / answered counts and quick actions.

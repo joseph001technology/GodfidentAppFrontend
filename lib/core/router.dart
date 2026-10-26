@@ -37,6 +37,8 @@ import '../screens/focus/schedule_editor_screen.dart';
 import '../screens/focus/website_protection_screen.dart';
 import '../screens/focus/permissions_screen.dart';
 import '../screens/music/music_screen.dart';
+import '../screens/video/video_library_screen.dart';
+import '../screens/video/video_player_screen.dart';
 import '../screens/settings/edit_profile_screen.dart';
 import '../screens/settings/profile_screen.dart';
 import '../screens/settings/change_password_screen.dart';
@@ -66,11 +68,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordScreen()),
       GoRoute(path: '/verify-email', builder: (_, __) => const VerifyEmailScreen()),
 
+      // Full-screen player (outside the bottom-bar shell). `random` = pick for me.
+      GoRoute(
+        path: '/video-player/:id',
+        builder: (_, state) => VideoPlayerScreen(
+          videoId: state.pathParameters['id']!,
+          preview: state.uri.queryParameters['preview'] == '1',
+          fallback: state.uri.queryParameters['fallback'],
+        ),
+      ),
+
       ShellRoute(
         builder: (context, state, child) => ShellScaffold(child: child),
         routes: [
           GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
           GoRoute(path: '/music', builder: (_, __) => const MusicScreen()),
+          GoRoute(path: '/videos', builder: (_, __) => const VideoLibraryScreen()),
           GoRoute(
             path: '/bible',
             builder: (_, state) => BibleScreen(browse: state.uri.queryParameters['browse'] == '1'),
