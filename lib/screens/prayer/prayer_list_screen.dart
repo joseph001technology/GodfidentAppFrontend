@@ -20,15 +20,14 @@ class PrayerListScreen extends ConsumerStatefulWidget {
 }
 
 class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
-  /// 'active' | 'answered' | 'all'
-  String _status = 'active';
-
-  /// 'all' or a prayer type.
-  String _type = 'all';
+  /// One filter at a time: 'all' | 'active' | 'answered' | a prayer type.
+  String _filter = 'active';
   bool _prayedToday = false;
 
-  static const _types = <(String, String)>[
-    ('all', 'All types'),
+  static const _filters = <(String, String)>[
+    ('all', 'All'),
+    ('active', 'Active'),
+    ('answered', 'Answered'),
     ('request', 'Requests'),
     ('praise', 'Praise'),
     ('intercession', 'Intercession'),
@@ -118,13 +117,21 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
   Widget _content(BuildContext context, List<Prayer> prayers) {
     final active = prayers.where((p) => !p.isAnswered).length;
     final answered = prayers.where((p) => p.isAnswered).length;
-    final filtered = prayers.where((p) {
-      if (_status == 'active' && p.isAnswered) return false;
-      if (_status == 'answered' && !p.isAnswered) return false;
-      // An answered prayer counts as a thanksgiving prayer.
-      if (_type != 'all' && p.displayType.toLowerCase() != _type) return false;
-      return true;
-    }).toList();
+    bool matches(Prayer p, String f) {
+      switch (f) {
+        case 'all':
+          return true;
+        case 'active':
+          return !p.isAnswered;
+        case 'answered':
+          return p.isAnswered;
+        default:
+          // An answered prayer counts as a thanksgiving prayer.
+          return p.displayType.toLowerCase() == f;
+      }
+    }
+
+    final filtered = prayers.where((p) => matches(p, _filter)).toList();
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
@@ -141,37 +148,28 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
         ),
       ]),
       const SizedBox(height: 16),
-      // Status filter
-      Row(children: [
-        _statusChip('active', 'Active', active),
-        const SizedBox(width: 8),
-        _statusChip('answered', 'Answered', answered),
-        const SizedBox(width: 8),
-        _statusChip('all', 'All', prayers.length),
-      ]),
-      const SizedBox(height: 10),
-      // Type filter
+      // One simple filter row: All, Active, Answered, then the categories.
       SizedBox(
         height: 36,
         child: ListView(
           scrollDirection: Axis.horizontal,
           children: [
-            for (final t in _types)
+            for (final t in _filters)
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
-                  label: Text(t.$2),
-                  selected: _type == t.$1,
+                  label: Text('${t.$2} (${prayers.where((p) => matches(p, t.$1)).length})'),
+                  selected: _filter == t.$1,
                   showCheckmark: false,
                   selectedColor: AppTheme.goldLight,
                   backgroundColor: AppTheme.navySurface,
-                  side: BorderSide(color: _type == t.$1 ? AppTheme.goldLight : AppTheme.navyOutline),
+                  side: BorderSide(color: _filter == t.$1 ? AppTheme.goldLight : AppTheme.navyOutline),
                   labelStyle: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: _type == t.$1 ? AppTheme.inkNavy : AppTheme.textPrimary,
+                    color: _filter == t.$1 ? AppTheme.inkNavy : AppTheme.textPrimary,
                   ),
-                  onSelected: (_) => setState(() => _type = t.$1),
+                  onSelected: (_) => setState(() => _filter = t.$1),
                 ),
               ),
           ],
@@ -323,35 +321,8 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
         ]),
       );
 
-  Widget _statusChip(String key, String label, int count) {
-    final sel = _status == key;
-    return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => setState(() => _status = key),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 11),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: sel ? AppTheme.gold : AppTheme.navySurface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: sel ? AppTheme.gold : AppTheme.navyOutline),
-          ),
-          child: Text(
-            '$label ($count)',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: sel ? AppTheme.inkNavy : AppTheme.textPrimary,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _emptyState(BuildContext context, {required bool hasAny}) {
-    final answeredView = _status == 'answered';
+    final answeredView = _filter == 'answered';
     final String title;
     final String body;
     final String verse;

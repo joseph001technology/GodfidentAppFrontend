@@ -34,15 +34,15 @@ class AppTheme {
   // inline with a comment), but do a project-wide search for
   // `AppTheme.navy` used as a `color:`/`foregroundColor:` on top of a gold
   // background before you copy this into the other ~25 screens.
-  static Color get navy => isDark ? const Color(0xFF0B1020) : const Color(0xFFFAF6EC);
+  static Color get navy => isDark ? const Color(0xFF121212) : const Color(0xFFFAF6EC); // Dark: RGB 18,18,18
   static const Color inkNavy = Color(0xFF1B2A4C); // NEW — dark ink/on-gold text
 
   // Surface ramp: in dark mode "lighter navy" meant "more elevated". In
   // light mode elevation instead goes from warm ivory -> white card ->
   // soft ivory-gray for inputs/inactive chips -> a hairline border color.
-  static Color get navySurface => isDark ? const Color(0xFF141B2F) : const Color(0xFFFFFFFF);
-  static Color get navyVariant => isDark ? const Color(0xFF1D2744) : const Color(0xFFF2ECDD);
-  static Color get navyOutline => isDark ? const Color(0xFF2B3658) : const Color(0xFFE8E1D0);
+  static Color get navySurface => isDark ? const Color(0xFF181818) : const Color(0xFFFFFFFF);
+  static Color get navyVariant => isDark ? const Color(0xFF282828) : const Color(0xFFF2ECDD);
+  static Color get navyOutline => isDark ? const Color(0xFF333333) : const Color(0xFFE8E1D0);
 
   static const Color emerald = Color(0xFF4F8C5D);
   static const Color emeraldLight = Color(0xFF6FA87C);
@@ -51,8 +51,8 @@ class AppTheme {
   static const Color accentPink = Color(0xFFC15B6B);
 
   static Color get textPrimary => isDark ? const Color(0xFFF2EDE0) : const Color(0xFF1E2030);
-  static Color get textSecondary => isDark ? const Color(0xFFB4BACB) : const Color(0xFF666B7C);
-  static Color get textMuted => isDark ? const Color(0xFF8791AA) : const Color(0xFF8A8D9C);
+  static Color get textSecondary => isDark ? const Color(0xFFB3B3B3) : const Color(0xFF666B7C);
+  static Color get textMuted => isDark ? const Color(0xFF8A8A8A) : const Color(0xFF8A8D9C);
 
   // NEW — a handful of hero cards (verse-of-day, focus mode, the home
   // header) intentionally KEEP a dark navy/gradient fill even in the light
@@ -67,10 +67,10 @@ class AppTheme {
   // music player). They are dark navy in Dark mode but soft ivory cards in Light
   // mode, so they no longer look like dark blocks on a light page. Use these
   // instead of inkNavy / textOnDark / goldLight on those cards.
-  static Color get heroSurface => isDark ? inkNavy : const Color(0xFFFFFFFF);
+  static Color get heroSurface => isDark ? const Color(0xFF1E1E1E) : const Color(0xFFFFFFFF);
   static Color get heroBorder => isDark ? Colors.transparent : const Color(0xFFE8E1D0);
   static List<Color> get heroGradient => isDark
-      ? const [inkNavy, Color(0xFF2A3B63)]
+      ? const [Color(0xFF1E1E1E), Color(0xFF2A2A2A)]
       : const [Color(0xFFFFFFFF), Color(0xFFF6EEDB)];
   static Color get onHero => isDark ? textOnDark : const Color(0xFF1B2A4C);
   static Color get onHeroMuted => isDark ? textOnDarkMuted : const Color(0xFF666B7C);
@@ -260,14 +260,14 @@ class AppTheme {
       ),
       bottomSheetTheme: BottomSheetThemeData(backgroundColor: navySurface, surfaceTintColor: Colors.transparent),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: dark ? const Color(0xFF26304F) : const Color(0xFF1B2A4C),
+        backgroundColor: dark ? const Color(0xFF2A2A2A) : const Color(0xFF1B2A4C),
         contentTextStyle: const TextStyle(color: Color(0xFFF4F1E8), fontFamily: 'Inter'),
         behavior: SnackBarBehavior.floating,
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) return gold;
-          return dark ? const Color(0xFFB4BACB) : const Color(0xFFFFFFFF);
+          return dark ? const Color(0xFFB3B3B3) : const Color(0xFFFFFFFF);
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) return gold.withValues(alpha: 0.35);

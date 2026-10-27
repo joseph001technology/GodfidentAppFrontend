@@ -119,8 +119,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/focus',
             builder: (_, state) => FocusScreen(
-              key: ValueKey('focus-${state.uri.queryParameters['start'] ?? ''}'),
+              key: ValueKey('focus-${state.uri.queryParameters['start'] ?? ''}-${state.uri.queryParameters['go'] ?? ''}'),
               startScheduleId: int.tryParse(state.uri.queryParameters['start'] ?? ''),
+              // "&go=1": the Start button of the notification was pressed - start the session now.
+              autoStart: state.uri.queryParameters['go'] == '1',
             ),
             routes: [
               GoRoute(path: 'schedule/new', builder: (_, __) => const ScheduleEditorScreen()),

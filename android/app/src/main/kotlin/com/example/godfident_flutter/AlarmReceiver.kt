@@ -19,8 +19,9 @@ class AlarmReceiver : BroadcastReceiver() {
 
         if (AlarmScheduler.skipToday(context, alarm)) return // already prayed / read today
 
-        // A scheduled Focus session that comes due while another session is running or frozen
+        // A scheduled Focus session that comes due while another session is running or FROZEN
         // does not ring: it waits in the queue (max 3, oldest dropped) until that session ends.
+        // With nothing running or frozen it rings; Start begins an active session, Snooze rings it again.
         if (alarm.route.startsWith("/focus?start=") && !FocusQueue.isReplayId(id) && SessionUi.isBusy(context)) {
             FocusQueue.add(context, alarm)
             return

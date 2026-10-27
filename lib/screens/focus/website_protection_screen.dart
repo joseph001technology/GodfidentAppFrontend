@@ -405,6 +405,11 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
           child: const Text('Add'),
         ),
       ]),
+      const SizedBox(height: 6),
+      Text(
+        'Once a website is added it cannot be removed.',
+        style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+      ),
       const SizedBox(height: 14),
       sites.when(
         loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.gold)),
@@ -429,10 +434,8 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
                       title: Text(s.domain),
                       subtitle: Text(s.backendId == null ? 'Saved on this phone' : 'Saved & backed up',
                           style: const TextStyle(fontSize: 11)),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => ref.read(restrictedSitesProvider.notifier).remove(s.domain),
-                      ),
+                      // No remove button on purpose: once a website is added it stays protected.
+                      trailing: Icon(Icons.lock_outline, size: 18, color: AppTheme.textMuted),
                     ),
                   ),
               ]),
@@ -549,13 +552,15 @@ class _WebsiteProtectionScreenState extends ConsumerState<WebsiteProtectionScree
         ),
       ]),
       if (_wordError != null) _err(_wordError!),
+      const SizedBox(height: 6),
+      Text(
+        'Once a word is added it cannot be removed.',
+        style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+      ),
       const SizedBox(height: 10),
       Wrap(spacing: 8, runSpacing: 8, children: [
-        for (final w in words)
-          InputChip(
-            label: Text(w),
-            onDeleted: () => ref.read(restrictedKeywordsProvider.notifier).remove(w),
-          ),
+        // No delete on purpose: once a word is added it stays blocked.
+        for (final w in words) Chip(label: Text(w)),
       ]),
       if (words.isEmpty)
         Text('No words yet.', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),

@@ -23,7 +23,11 @@ import 'focus_queue_card.dart';
 class FocusScreen extends ConsumerStatefulWidget {
   /// Set when opened from a ringing scheduled-session notification.
   final int? startScheduleId;
-  const FocusScreen({super.key, this.startScheduleId});
+
+  /// True when the Start button of the notification was pressed: the session starts at once
+  /// (or joins the queue if one is already running / frozen).
+  final bool autoStart;
+  const FocusScreen({super.key, this.startScheduleId, this.autoStart = false});
   @override
   ConsumerState<FocusScreen> createState() => _FocusScreenState();
 }
@@ -53,8 +57,10 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
     _refresh();
     final sid = widget.startScheduleId;
     if (sid != null) {
-      ref.read(scheduledFocusProvider.notifier).byId(sid).then((f) {
-        if (mounted && f != null) setState(() => _due = f);
+      ref.read(scheduledFocusProvider.notifier).byId(sid).then((f) async {
+        if (!mounted || f == null) return;
+        setState(() => _due = f);
+        if (widget.autoStart) await _startFromNotification(f);
       });
     }
     // The countdown is the shared clock, so this page, the Prayer page and the
@@ -492,6 +498,17 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
     await _start(from: sched, minutes: q.minutes, purpose: q.purpose, title: q.name);
   }
 
+  /// Start was pressed on the notification. Nothing running or frozen: an active session starts now.
+  /// Something running or frozen: this session waits in the queue instead.
+  Future<void> _startFromNotification(ScheduledFocus f) async {
+    await NativeAlarm.stopSound();
+    if ((await _sessions.info()).active) {
+      await _queueDue(f);
+    } else {
+      await _start(from: f);
+    }
+  }
+
   /// "Keep for later". Something running or frozen (or others waiting): it joins the queue.
   /// Nothing in the way: it is NOT queued, it is kept as a frozen session instead.
   Future<void> _queueDue(ScheduledFocus f) async {
@@ -538,7 +555,8 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
   }
 
   Widget _dueCard(ScheduledFocus f, bool active) {
-    final running = active && !_frozen;
+    // A running OR frozen session holds the queue: this one waits behind it.
+    final running = active;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: _cardDeco(border: AppTheme.gold),
@@ -562,9 +580,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
                 ? null
                 : () async {
                     if (running) {
-                      await _queueDue(f); // a session is running: this one waits
-                    } else if (_frozen) {
-                      await _replaceFrozenWith(f);
+                      await _queueDue(f); // a session is running or frozen: this one waits
                     } else {
                       await _start(from: f);
                     }
@@ -574,16 +590,25 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with WidgetsBindingOb
               foregroundColor: AppTheme.inkNavy,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
-            child: Text(running ? 'Keep in queue' : (_frozen ? 'Start (replace frozen)' : 'Start')),
+            child: Text(running ? 'Keep in queue' : 'Start'),
           ),
         ),
-        // Nothing running: "I'm busy" keeps it as a frozen session. Frozen: it joins the queue.
+        // Frozen session: the person may still choose to replace it with this one.
+        if (_frozen)
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: _busy ? null : () => _replaceFrozenWith(f),
+              child: const Text('Start (replace frozen)'),
+            ),
+          ),
+        // Nothing running: "I'm busy" keeps it as a frozen session.
         if (!running)
           SizedBox(
             width: double.infinity,
             child: TextButton(
               onPressed: _busy ? null : () => _queueDue(f),
-              child: Text(_frozen ? 'Keep in queue' : "I'm busy, keep it frozen"),
+              child: const Text("I'm busy, keep it frozen"),
             ),
           ),
       ]),

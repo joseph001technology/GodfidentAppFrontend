@@ -71,6 +71,28 @@ class AlarmRingService : Service() {
             )
         }
 
+        private fun isFocusStart(route: String) = route.startsWith("/focus?start=")
+
+        /**
+         * The Start button of a scheduled Focus session: opens the app and STARTS the session at once
+         * ("&go=1"). Its own request code keeps it apart from the notification body's PendingIntent.
+         */
+        private fun startNow(c: Context, id: Int, route: String): PendingIntent =
+            openApp(c, 1_800_000_000 + nid(id) % 100_000_000, if (isFocusStart(route)) "$route&go=1" else route)
+
+        /**
+         * A Focus session that nobody answered (or that was missed while the phone was off).
+         *  - a session is running or frozen: it goes into the queue (max 3) and rings when its turn comes;
+         *  - nothing is running: a "Missed" note with a Start button, which starts an active session.
+         */
+        fun handleMissed(c: Context, a: AlarmScheduler.Alarm, missedAtMs: Long) {
+            if (isFocusStart(a.route) && SessionUi.isBusy(c)) {
+                try { FocusQueue.add(c, a) } catch (_: Exception) {}
+                return
+            }
+            postMissed(c, a.id, a.title, a.body, a.route, missedAtMs)
+        }
+
         fun build(c: Context, id: Int, title: String, body: String, route: String, startLabel: String): Notification {
             ensureChannel(c)
             val snoozePi = PendingIntent.getService(
@@ -96,7 +118,7 @@ class AlarmRingService : Service() {
                 .setContentIntent(open)
                 .setFullScreenIntent(open, true)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            if (startLabel.isNotEmpty()) b.addAction(0, startLabel, open)
+            if (startLabel.isNotEmpty()) b.addAction(0, startLabel, startNow(c, id, route))
             // A scheduled Focus session can also wait: keep it in the queue instead of starting it now.
             if (route.startsWith("/focus?start=")) b.addAction(0, "Keep in queue", queuePi)
             b.addAction(0, "Snooze ${AlarmScheduler.SNOOZE_MINUTES} min", snoozePi)
@@ -166,7 +188,7 @@ class AlarmRingService : Service() {
                 else -> "You missed this reminder at $at."
             }
             val detail = if (body.isNotBlank() && kindOf(route) != "focus") "$intro\n$body" else intro
-            val n = NotificationCompat.Builder(c, CHANNEL_MISSED)
+            val nb = NotificationCompat.Builder(c, CHANNEL_MISSED)
                 .setSmallIcon(c.applicationInfo.icon)
                 .setContentTitle("Missed: $title")
                 .setContentText(intro)
@@ -175,8 +197,9 @@ class AlarmRingService : Service() {
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true)
                 .setContentIntent(openApp(c, id, route))
-                .build()
-            nm.notify(2_000_000_000 - (Math.abs(id.toLong()) % 100_000_000L).toInt(), n)
+            // Nothing is running: pressing Start creates an active session straight away.
+            if (isFocusStart(route)) nb.addAction(0, "Start", startNow(c, id, route))
+            nm.notify(2_000_000_000 - (Math.abs(id.toLong()) % 100_000_000L).toInt(), nb.build())
         }
     }
 
@@ -246,8 +269,9 @@ class AlarmRingService : Service() {
         startVibration()
         handler.removeCallbacksAndMessages(null)
         handler.postDelayed({
-            // Nobody answered: leave a "missed" note instead of vanishing silently.
-            cur?.let { AlarmRingService.postMissed(this, it.id, it.title, it.body, it.route, it.whenMs) }
+            // Nobody answered: a Focus session joins the queue if one is running / frozen, otherwise
+            // (and for every other alarm) leave a "missed" note instead of vanishing silently.
+            cur?.let { AlarmRingService.handleMissed(this, it, it.whenMs) }
             cur = null
             shutdown()
         }, maxSec.coerceIn(10, 3600) * 1000L)

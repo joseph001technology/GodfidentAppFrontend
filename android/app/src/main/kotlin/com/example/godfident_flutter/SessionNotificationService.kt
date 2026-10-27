@@ -74,13 +74,14 @@ object SessionUi {
         )
     }
 
-    /** True while a session is RUNNING (not frozen): any session that comes due now waits in the queue. */
+    /**
+     * True while a session is RUNNING or FROZEN: any Focus session that comes due (or is missed)
+     * now waits in the queue. With nothing running or frozen it is not queued: pressing Start on
+     * its notification starts a normal active session.
+     */
     fun isBusy(c: Context): Boolean {
         val st = state(c)
         if (!st.active) return false
-        // A frozen session is not "in use": a scheduled session that comes due now rings normally
-        // (the person can still choose "Keep in queue").
-        if (st.frozen) return false
         // A running (not frozen) session whose time is long over must not block the queue forever.
         if (!st.frozen && st.endAt != 0L && st.endAt < System.currentTimeMillis() - 120_000L) {
             p(c).edit().putBoolean("active", false).apply()

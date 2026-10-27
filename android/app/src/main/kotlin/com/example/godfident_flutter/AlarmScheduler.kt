@@ -194,7 +194,7 @@ object AlarmScheduler {
             // alarm may start the sound service even straight after boot.
             schedule(c, Alarm(derivedId(a.id), now + 4000L, 0L, a.title, a.body, a.route, a.soundUri, a.maxSeconds, a.startLabel, a.ring, a.skipKey))
         } else {
-            AlarmRingService.postMissed(c, a.id, a.title, a.body, a.route, missedAt)
+            AlarmRingService.handleMissed(c, a, missedAt)
         }
     }
 
