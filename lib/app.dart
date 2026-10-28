@@ -15,6 +15,8 @@ import 'services/native_session.dart';
 import 'services/prayer_notifications.dart';
 import 'services/theme_controller.dart';
 import 'services/focus_session_manager.dart';
+import 'providers/online_video_provider.dart';
+import 'services/online_video/online_share_handler.dart';
 
 /// Opens the page a reminder points to. Routes carrying `focus=1` first start a
 /// quick normal Focus session (reading -> Bible tab, both -> Home).
@@ -148,11 +150,25 @@ class _SessionKeeper extends ConsumerStatefulWidget {
 
 class _SessionKeeperState extends ConsumerState<_SessionKeeper> with WidgetsBindingObserver {
   Timer? _timer;
+  OnlineShareHandler? _share; // links shared to Godfident from Android's share menu
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Online videos: save links shared from Instagram / TikTok / Facebook / YouTube.
+    // Saved locally first; works when Godfident was closed or is already open.
+    _share = OnlineShareHandler(
+      gateway: ref.read(onlineVideoGatewayProvider),
+      store: ref.read(onlineVideoStoreProvider),
+      router: () => ref.read(routerProvider),
+      authStatus: () {
+        final a = ref.read(authStateProvider);
+        return a.isLoading ? null : a.valueOrNull == true;
+      },
+      messenger: () => appScaffoldMessengerKey.currentState,
+    );
+    Future.microtask(() => _share?.start());
     _timer = Timer.periodic(const Duration(minutes: 2), (_) {
       DioClient.ensureSession();
       _guardWebsites();
@@ -196,6 +212,7 @@ class _SessionKeeperState extends ConsumerState<_SessionKeeper> with WidgetsBind
   @override
   void dispose() {
     _timer?.cancel();
+    _share?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -211,6 +228,7 @@ class _SessionKeeperState extends ConsumerState<_SessionKeeper> with WidgetsBind
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _share?.consume(); // a share may have arrived while Godfident was in the background
       SessionManager.instance.reconcile();
       DioClient.ensureSession();
       _guardWebsites();

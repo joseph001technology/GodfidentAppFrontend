@@ -188,6 +188,12 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
         foregroundColor: AppTheme.inkNavy,
         elevation: 0,
         actions: [
+          // Saved links to videos on Instagram / TikTok / Facebook / YouTube: a separate section.
+          IconButton(
+            tooltip: 'Online videos',
+            icon: const Icon(Icons.cloud_outlined),
+            onPressed: () => context.push('/online-videos'),
+          ),
           if (s?.folder.connected == true)
             IconButton(
               tooltip: 'Refresh',

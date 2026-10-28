@@ -222,6 +222,8 @@ class HomeScreen extends ConsumerWidget {
                 Expanded(child: _shortcut(context, Icons.library_music_outlined, 'Music', '/music')),
                 const SizedBox(width: 12),
                 Expanded(child: _shortcut(context, Icons.video_library_outlined, 'Videos', '/videos')),
+                const SizedBox(width: 12),
+                Expanded(child: _shortcut(context, Icons.cloud_outlined, 'Online', '/online-videos')),
               ]),
             ],
           ),

@@ -38,6 +38,7 @@ import '../screens/focus/website_protection_screen.dart';
 import '../screens/focus/permissions_screen.dart';
 import '../screens/music/music_screen.dart';
 import '../screens/video/video_library_screen.dart';
+import '../screens/video/online_video_library_screen.dart';
 import '../screens/video/video_player_screen.dart';
 import '../screens/settings/edit_profile_screen.dart';
 import '../screens/settings/profile_screen.dart';
@@ -84,6 +85,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
           GoRoute(path: '/music', builder: (_, __) => const MusicScreen()),
           GoRoute(path: '/videos', builder: (_, __) => const VideoLibraryScreen()),
+          // Online videos (saved links). Separate from /videos, which holds the clips stored on the phone.
+          GoRoute(
+            path: '/online-videos',
+            builder: (_, state) => OnlineVideoLibraryScreen(
+              // New key per saved link, so opening it from a share always shows the "add to a collection" sheet.
+              key: ValueKey('online-${state.uri.queryParameters['added'] ?? ''}-${state.uri.queryParameters['dup'] ?? ''}'),
+              addedId: state.uri.queryParameters['added'],
+              wasDuplicate: state.uri.queryParameters['dup'] == '1',
+            ),
+          ),
           GoRoute(
             path: '/bible',
             builder: (_, state) => BibleScreen(browse: state.uri.queryParameters['browse'] == '1'),

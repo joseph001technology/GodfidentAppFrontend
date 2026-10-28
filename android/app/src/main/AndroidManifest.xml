@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Online videos: lets the app know whether the phone is online (to explain that playback needs the internet). -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
@@ -81,7 +83,33 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
         </activity>
+
+        <!-- Online videos: "Share > Godfident" from Instagram, TikTok, Facebook, YouTube and other apps that
+             share a link as plain text. This is the ONLY share filter. The screenless activity hands the share to
+             MainActivity (whose own filter and launch mode are unchanged). See ShareReceiverActivity.kt. -->
+        <activity
+            android:name=".ShareReceiverActivity"
+            android:exported="true"
+            android:label="Godfident"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!-- Online videos: calm single-video viewer (official embed page in a WebView, Back + Open original). -->
+        <activity
+            android:name=".OnlineVideoPlayerActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.NoActionBar"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard|uiMode"
+            android:hardwareAccelerated="true" />
 
         <meta-data
             android:name="flutterEmbedding"

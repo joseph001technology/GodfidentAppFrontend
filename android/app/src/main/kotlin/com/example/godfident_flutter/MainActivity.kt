@@ -120,6 +120,9 @@ class MainActivity : AudioServiceActivity() {
         // Permanent Movies/Godfident video folder (own channel; does not touch the blocking code).
         flutterEngine.plugins.add(VideoFolderPlugin())
 
+        // Online videos: saved links (local database), Android share intake, in-app viewer launcher.
+        flutterEngine.plugins.add(OnlineVideoPlugin())
+
         val ch = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         channel = ch
         ch.setMethodCallHandler { call, result ->
